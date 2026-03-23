@@ -40,3 +40,12 @@ The only one compulsary parameter of LoCo is the input file:
   - the input file as a tsv file of features counts with cells in the rows and features in the columns (tab-seperated)
 Nevertheless, it might make sense to set additional parameters like number of neighbourhoods, number of cells within a neighbourhood, etc.
 For some examples you can have a look into the Makefile under 'make test' to see some examples of using loco.
+
+# Output:
+
+LoCo will create several files that can be used to analyze/ plot local correlation patterns in the data. Those files will state neighborhood-ids (aas the id of the anchor cell) and cell-ids for cells in the neighborhoods. All indices start from zero and index the row of the origional input file.
+Among those the most important ones are:
+  - LoCo_correlations.tsv: The first column contains the index for the neighborhood (this is the row index if the anchor cell around which the neighborhood was build) and one column for every found correlation pair.
+  - LoCo_laplacian.tsv: This file contains all the laplacian scores/ p-values for found correlations.
+  - LoCo_coord.tsv: This file contains the coordinates of all the enighborhoods. The coordinates are defined by the used features and are the counts for all the features of the anchor cells that were used to construct those neighborhoods.
+  - LoCo_cells.tsv: The first row contains all neighborhood indices, then all rows below this one contains the cell indices of the cells that are part of this neighborhood (including the anchor cell).
