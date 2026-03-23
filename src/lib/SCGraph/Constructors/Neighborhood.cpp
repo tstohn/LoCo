@@ -9,7 +9,7 @@
 namespace neighborhoodCalculations
 {
 
-    std::vector<int> get_random_elements(int numbers, int maxNum) 
+    std::vector<int> get_random_elements(unsigned int numbers, int maxNum) 
     {
         std::vector<int> uniqueRandomNumbers;
         std::unordered_set<int> uniqueSet;
@@ -1090,8 +1090,8 @@ void Neighborhood::create_neighborhood_graph(int knn)
     neighborhoodGraph->create_graph();
 }
 
-Neighborhood::Neighborhood(const std::shared_ptr<const GraphData> scData, int neighborhoodNumber, 
-                           int neighborhoodSize, int neighborhoodKNN,
+Neighborhood::Neighborhood(const std::shared_ptr<const GraphData> scData, unsigned int neighborhoodNumber, 
+                           unsigned int neighborhoodSize, int neighborhoodKNN,
                            const SingleCellData& inputData,
                            const std::vector<int>& cellStateGenes, const std::vector<int>& corrStateGenes, int permutations,
                            const double& corrSetAbundance, const bool correlatedSetMode) : 

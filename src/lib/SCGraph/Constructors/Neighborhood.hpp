@@ -50,7 +50,7 @@ class Neighborhood
 
     public:
         //
-        Neighborhood(const std::shared_ptr<const GraphData> data, int neighborhoodNumber, int neighborhoodSize, int neighborhoodKNN,
+        Neighborhood(const std::shared_ptr<const GraphData> data, unsigned int neighborhoodNumber, unsigned int neighborhoodSize, int neighborhoodKNN,
                      const SingleCellData& inputData,
                      const std::vector<int>& cellStateGenes, const std::vector<int>& corrStateGenes, int permutations,
                      const double& corrSetAbundance, const bool correlatedSetMode);
@@ -100,7 +100,7 @@ class Neighborhood
         void filter_cliques_present(nodePtr neighborhoodCenter, std::unordered_map<nodePtr, std::vector<std::vector<int>>>& cliquesPerNeighborhood);
         std::vector<std::pair<int, int>> filter_best_pairs(int numberGenes);
 
-        int neighborhoodSize;
+        unsigned int neighborhoodSize;
         /* A NEIGHBORHOOD is essentially a list of NODE IDs, which are the CENTER NODES that define each neighborhood,
         for all those NODE IDS we then aggregate surrounding neighbors to define their neoghborhood (we use GraphData which gets 
         <knn> nodes that r closest to this center point, to get an overlap of those neighborhoods we create another knn graph an get <knn'> surrounding

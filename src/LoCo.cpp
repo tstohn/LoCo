@@ -22,7 +22,7 @@ output: path/file.tsv (program adds content specific string between file and .ts
 */
 bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& outFile, std::string& prefix,
                      int& threats, char& del, bool& trans, bool& col, bool& row,
-                     int & numNeighborhoods, int& neighborhoodSize, int& neighborhoodKNN, double& correlationCutoff,
+                     unsigned int & numNeighborhoods, unsigned int& neighborhoodSize, int& neighborhoodKNN, double& correlationCutoff,
                      int& numberCorrelations,
                      std::string& cellStateGeneFile, std::string& correlationStateGeneFile,
                      bool& zscore, int& permutations, int&minSetSize, double& corrSetAbundance, int& correlatedSetMode)
@@ -45,8 +45,10 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
             Since we write the x lowest values for correlation & for slope the total number can be >x.")
 
             //NEIGHBORHOOD VARIABLES
-            ("numNeighborhoods,n", value<int>(&numNeighborhoods)->default_value(100), "number of neighborhoods")
-            ("neighborhoodSize,s", value<int>(&neighborhoodSize)->default_value(30), "number of cells in every single neighborhood")
+            ("numNeighborhoods,n", value<unsigned int>(&numNeighborhoods)->default_value(0), "number of neighborhoods. By default this is the total number of cells divided by 50 \
+                (the default number of cells per neighborhood). You can easily choose more neighborhoods/ cells per neighborhood but be aware that by doing so \
+                neighborhoods will start to overlap, which artificially smoothes correlations between neighborhoods leading to an overestimation of p-values.")
+            ("neighborhoodSize,s", value<unsigned int>(&neighborhoodSize)->default_value(50), "number of cells in every single neighborhood. 50 by default.")
             ("correlationCutoff,x", value<double>(&correlationCutoff)->default_value(0.7), "threshold for minimum correlation strength between features")
             ("StateSpaceGenes,v", value<std::string>(&cellStateGeneFile)->default_value(""), "File with list of genes for state space (defines neighborhoods)")
             ("CorrSpaceGenes,w", value<std::string>(&correlationStateGeneFile)->default_value(""), "File with list of genes for correlations space (defines correlations that change through state space)")
@@ -103,7 +105,7 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
 }
 
 void run_correlation_propagation_across_graph(const SingleCellData& inFile, const std::string& outFile, std::string& prefix, int thread,
-                                              const int numNeighborhoods, const int neighborhoodSize, 
+                                              const unsigned int numNeighborhoods, const unsigned int neighborhoodSize, 
                                               const int neighborhoodKNN, const double& correlationCutoff,
                                               int& numberCorrelations, const std::vector<std::string>& cellStateGenes,
                                               const std::vector<std::string>& corrStateGenes, 
@@ -171,8 +173,8 @@ int main(int argc, char** argv)
     std::string correlationStateGeneFile = "";
 
     //Neighborhood Variables
-    int numNeighborhoods; //number of neighborhoods
-    int neighborhoodSize; //number of cells in every neighborhood
+    unsigned int numNeighborhoods; //number of neighborhoods
+    unsigned int neighborhoodSize; //number of cells in every neighborhood
     double correlationCutoff;
     int neighborhoodKNN; //number of nodes coonected to every node in the neighborhood graph (default 5)
     int permutations;
@@ -191,6 +193,10 @@ int main(int argc, char** argv)
     //READ IN DATA
     SCParser parser(inFile, del, trans, col, row);
     SingleCellData inputDataRaw = parser.getData();
+
+    numNeighborhoods = inputDataRaw.pointCloud.size() / neighborhoodSize;
+    std::cout << "Creating " << numNeighborhoods << " neighbourhoods with " << neighborhoodSize << " cells\n";
+
     if(zscore)
     {
         std::cout << "z-score normalize data (scale feature counts for each single-cell)\n";
