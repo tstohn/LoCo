@@ -19,6 +19,9 @@ single-cell space and employs a Laplacian-based scoring approach that prioritize
 vary smoothly with respect to the neighborhood graph while exhibiting substantial variation across the
 global single-cell space.
 
+<img src="https://github.com/tstohn/LoCo/raw/master/docs/Overview.png" />
+
+
 # Getting started:
 
 LoCo is a cpp-tool that has to be compiled and can then be run from the command line in a terminal. To compile the tool LoCo requires the c-library of igraph (https://igraph.org/c/) and nanoflann (https://github.com/jlblancoc/nanoflann) to be installed on the system.
