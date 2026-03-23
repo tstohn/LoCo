@@ -1,4 +1,4 @@
-# LoCo - ## Local Correlation Analysis
+# *LoCo* - _Local Correlation Analysis_
 
 <img src="https://github.com/tstohn/LoCo/raw/master/docs/LoCo5.png" width="200" />
 
