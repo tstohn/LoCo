@@ -22,7 +22,7 @@ global single-cell space.
 # Getting started:
 
 LoCo requires the c-library of igraph (https://igraph.org/c/) and nanoflann (https://github.com/jlblancoc/nanoflann) to be installed on the system.
-With admin-rights you can install those dependencies with 'make install'.
+With admin-rights you can install those dependencies with 'make install' (only on Windows you have to install igraph manually).
 To download LoCo, install the dependencies and build the tool run the commands below:
 
 ```bash
