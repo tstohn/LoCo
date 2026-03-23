@@ -19,3 +19,19 @@ Specifically, LoCo create a neighborhood graph by connecting neighborhoods that 
 single-cell space and employs a Laplacian-based scoring approach that prioritizes correlations which
 vary smoothly with respect to the neighborhood graph while exhibiting substantial variation across the
 global single-cell space.
+
+# Getting started:
+
+LoCo requires the c-library of igraph (https://igraph.org/c/) and nanoflann (https://github.com/jlblancoc/nanoflann) to be installed on the system.
+With admin-rights you can install those dependencies with 'make install'.
+To download LoCo, install the dependencies and build the tool run the commands below:
+
+```bash
+  git clone https://github.com/tstohn/LoCo/edit/master/README.md
+  make install
+  make loco
+```
+
+You will then find loco as an executable in the folder bin. 
+To start using LoCo run 'loco --help' from bin to see all the input parameters.
+For some example you can have a look into the makefile under 'make test' to see some examples of using loco.
