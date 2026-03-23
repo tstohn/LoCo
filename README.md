@@ -32,5 +32,8 @@ To download LoCo, install the dependencies and compile the tool run the commands
 ```
 
 You will then find LoCo as an executable in the folder 'bin'. 
-To see a description of the input parameters and how to use LoCo run 'bin/loco --help' from 'bin'.
+To see a description of the input parameters and how to use LoCo run 'bin/loco --help' from 'bin'. 
+The only one compulsary parameter of LoCo is the inoput file:
+  - the input file as a tsv file of features counts with cells in the rows and features in the columns (tab-seperated)
+Nevertheless, it might make sense to set additional parameters like number of neighbourhoods, number of cells within a neighbourhood, etc.
 For some examples you can have a look into the Makefile under 'make test' to see some examples of using loco.
