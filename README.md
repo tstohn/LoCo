@@ -21,9 +21,9 @@ global single-cell space.
 
 # Getting started:
 
-LoCo requires the c-library of igraph (https://igraph.org/c/) and nanoflann (https://github.com/jlblancoc/nanoflann) to be installed on the system.
+LoCo is a cpp-tool that has to be compiled and can then be run from the command line in a terminal. To compile the tool LoCo requires the c-library of igraph (https://igraph.org/c/) and nanoflann (https://github.com/jlblancoc/nanoflann) to be installed on the system.
 With admin-rights you can install those dependencies with 'make install' (only on Windows you have to install igraph manually).
-To download LoCo, install the dependencies and build the tool run the commands below:
+To download LoCo, install the dependencies and compile the tool run the commands below:
 
 ```bash
   git clone https://github.com/tstohn/LoCo
@@ -32,5 +32,5 @@ To download LoCo, install the dependencies and build the tool run the commands b
 ```
 
 You will then find LoCo as an executable in the folder 'bin'. 
-To start using LoCo run 'loco --help' from 'bin' to see all the input parameters.
+To see a description of the input parameters and how to use LoCo run 'bin/loco --help' from 'bin'.
 For some examples you can have a look into the Makefile under 'make test' to see some examples of using loco.
