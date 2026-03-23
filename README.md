@@ -1,7 +1,7 @@
 # LoCo
 # Local Correlation Analysis
 
-<img src=https://github.com/tstohn/LoCo/tree/master/docs/LoCo5.png width="200" />
+<img src=[https://github.com/tstohn/LoCo/tree/master/docs/LoCo5.png](https://github.com/tstohn/LoCo/blob/master/docs/LoCo5.png) width="200" />
 
 LoCo (Local Correlation Analysis) detects locally structured correlation patterns from the continuous single-cell state space.
 Input to LoCo is a single-cell features matrix and output are correlations between feature pairs. The reported correlations
