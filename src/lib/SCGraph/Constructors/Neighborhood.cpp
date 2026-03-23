@@ -228,10 +228,9 @@ void Neighborhood::write_shuffled_laplacians(const std::string& outFile)
     outputFile.close();
 }
 
-void Neighborhood::write_results_to_file(const std::string& outFile, int& numberCorrelations)
+void Neighborhood::write_results_to_file(const std::string& outFile, const std::string& prefix, int& numberCorrelations)
 {
     std::ofstream outputFile;   
-    std::size_t found = outFile.find_last_of(".");
 
     //get all the pairs that we want to write out
     std::vector<std::pair<int, int>> filteredPairs = pairs;
@@ -240,7 +239,7 @@ void Neighborhood::write_results_to_file(const std::string& outFile, int& number
 
     //LAPLCACIAN SCORES FILE
     //1FILE with annotations: corrpair - LaplacianCorrscore - LaplacianSlopeScore - origionalCliqueItIsFrom
-    std::string outputLaplace = outFile.substr(0,found) + "_laplacian." + outFile.substr(found+1);
+    std::string outputLaplace = outFile + "/" + prefix + "_laplacian.tsv";
     std::remove(outputLaplace.c_str());
     outputFile.open (outputLaplace, std::ofstream::app);
     //write HEADER
@@ -288,7 +287,7 @@ void Neighborhood::write_results_to_file(const std::string& outFile, int& number
 
     //2FILES with Matrix:  for NeighborhoodID * CorrpAir: value == corr/ slope
     //CORRELATIONS FILE
-    std::string outputCorr = outFile.substr(0,found) + "_correlations." + outFile.substr(found+1);
+    std::string outputCorr = outFile + "/" + prefix + "_correlations.tsv";
     std::remove(outputCorr.c_str());
     outputFile.open (outputCorr, std::ofstream::app);
     //write HEADER
@@ -320,7 +319,7 @@ void Neighborhood::write_results_to_file(const std::string& outFile, int& number
     outputFile.close();
 
     //SLOPES FILE
-    std::string outputSlope = outFile.substr(0,found) + "_slopes." + outFile.substr(found+1);
+    std::string outputSlope = outFile + "/" + prefix + "_slopes.tsv";
     std::remove(outputSlope.c_str());
     outputFile.open (outputSlope, std::ofstream::app);
     //write HEADER
@@ -351,7 +350,7 @@ void Neighborhood::write_results_to_file(const std::string& outFile, int& number
     outputFile.close();
 
     //1 File with annotations: NeighborhoodID - centralNodeDimensions[start ... end]
-    std::string outputNeighborhoodCoordinates = outFile.substr(0,found) + "_coord." + outFile.substr(found+1);
+    std::string outputNeighborhoodCoordinates = outFile + "/" + prefix + "_coord.tsv";
     std::remove(outputNeighborhoodCoordinates.c_str());
     outputFile.open (outputNeighborhoodCoordinates, std::ofstream::app);
     //write HEADER
@@ -374,7 +373,7 @@ void Neighborhood::write_results_to_file(const std::string& outFile, int& number
     outputFile.close();
 
     //1 File with cellIDs in each neighborhood: NeighborhoodID in header - all cellIDs in rows for each neighborhood columns
-    std::string outputNeighborhoodCells = outFile.substr(0,found) + "_cells." + outFile.substr(found+1);
+    std::string outputNeighborhoodCells = outFile + "/" + prefix + "_cells.tsv";
     std::remove(outputNeighborhoodCells.c_str());
     outputFile.open (outputNeighborhoodCells, std::ofstream::app);
     //write HEADER (all neigborhood names)

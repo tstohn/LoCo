@@ -20,7 +20,7 @@ output: path/file.tsv (program adds content specific string between file and .ts
 - per default MAX top 200 corr and slpe genes (total 400) are written out
 
 */
-bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& outFile, 
+bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& outFile, std::string& prefix,
                      int& threats, char& del, bool& trans, bool& col, bool& row,
                      int & numNeighborhoods, int& neighborhoodSize, int& neighborhoodKNN, double& correlationCutoff,
                      int& numberCorrelations,
@@ -33,7 +33,8 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
         desc.add_options()
             //INPUT/ OUTPUT
             ("input,i", value<std::string>(&inFile)->required(), "Input File in tsv format as a Cell * Gene matrix")
-            ("output,o", value<std::string>(&outFile)->required(), "Output Directory")
+            ("output,o", value<std::string>(&outFile)->default_value("bin"), "Output Directory")
+            ("prefix,p", value<std::string>(&prefix)->default_value("LoCo"), "Prefix for output files, e.g., names of the analysis.")
 
             //INPUT FORMAT
             ("delimiter,d", value<char>(&del)->default_value('\t'), "delimiter of input file")
@@ -50,7 +51,7 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
             ("StateSpaceGenes,v", value<std::string>(&cellStateGeneFile)->default_value(""), "File with list of genes for state space (defines neighborhoods)")
             ("CorrSpaceGenes,w", value<std::string>(&correlationStateGeneFile)->default_value(""), "File with list of genes for correlations space (defines correlations that change through state space)")
             ("NeighborhoodKNN,y", value<int>(&neighborhoodKNN)->default_value(5),"KNN for the neighborhood graph: The number of nearest neighbors that get connected to every neighborhood")
-            ("permutations,p", value<int>(&permutations)->default_value(100),"number of permutations to calcualte p-values for laplacian scores. \
+            ("permutations,u", value<int>(&permutations)->default_value(100),"number of permutations to calcualte p-values for laplacian scores. \
             This is the number of random assignments of correlations/ slopes to other neighborhoods")
             ("minimumCorrelationSetSize,m", value<int>(&minSetSize)->default_value(2), "The minimum size for sets of correlated features.\
             Loco reports the laplacian score for pairs of features. However, those features are first filtered by finding sets of correlated features.\
@@ -101,7 +102,7 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
     return true;
 }
 
-void run_correlation_propagation_across_graph(const SingleCellData& inFile, const std::string& outFile, int thread,
+void run_correlation_propagation_across_graph(const SingleCellData& inFile, const std::string& outFile, std::string& prefix, int thread,
                                               const int numNeighborhoods, const int neighborhoodSize, 
                                               const int neighborhoodKNN, const double& correlationCutoff,
                                               int& numberCorrelations, const std::vector<std::string>& cellStateGenes,
@@ -129,7 +130,7 @@ void run_correlation_propagation_across_graph(const SingleCellData& inFile, cons
      //write results to file:
      //neighborhood, coordinates, correlation, slope for every protein-pair
      //file for protein-pair to origional clique
-     neighborhood.write_results_to_file(outFile, numberCorrelations);
+     neighborhood.write_results_to_file(outFile, prefix, numberCorrelations);
 }
 
 
@@ -155,6 +156,7 @@ int main(int argc, char** argv)
     //PARSE ARGUMENTS
     std::string inFile;
     std::string outFile;
+    std::string prefix;
     char del;
     bool trans = false;
     bool col = false;
@@ -177,7 +179,8 @@ int main(int argc, char** argv)
     int minSetSize;
     double corrSetAbundance;
 
-    if(!parse_arguments(argv, argc, inFile, outFile, thread, del, trans, col, row, 
+    if(!parse_arguments(argv, argc, inFile, outFile, prefix,
+                        thread, del, trans, col, row, 
                         numNeighborhoods, neighborhoodSize, neighborhoodKNN, correlationCutoff,
                         numberCorrelations, cellStateGeneFile, correlationStateGeneFile, 
                         zscore, permutations, minSetSize, corrSetAbundance, correlatedSetMode))
@@ -209,7 +212,7 @@ int main(int argc, char** argv)
 
     //CALL TOOL
     std::cout << "Running Correlation Analysis over single-cell graph\n";
-    run_correlation_propagation_across_graph(inputDataRaw, outFile, thread,
+    run_correlation_propagation_across_graph(inputDataRaw, outFile, prefix, thread,
                                               numNeighborhoods, neighborhoodSize, neighborhoodKNN, correlationCutoff,
                                               numberCorrelations, cellStateGenes, corrStateGenes, 
                                               permutations, minSetSize, corrSetAbundance, correlatedSetMode);

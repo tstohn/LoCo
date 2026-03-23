@@ -104,12 +104,12 @@ clean:
 
 #test dataset has 4 correlated var that range through grpah from low to high corr, 4 medium constant corr and a bunch of non corr
 test_loco_a:
-	./bin/loco -i ./test/simulatedData1.tsv -o bin/test_a.tsv -n 20 -x 0.3 -s 50 -t 1
+	./bin/loco -i ./test/simulatedData1.tsv -o bin -p test_a -n 20 -x 0.3 -s 50 -t 1
 
 #simple test where we have 50 non corr variables of two clsuters, then in each cluster diff 3 var correlated
 #you should run it with printing cliques and find in each neighborhood roughly ONLY 1,2,3 or 4,5,6
 test_loco_b:
-	./bin/loco -i ./test/simulatedData2.tsv -o bin/test_b.tsv -c -v ./test/cellStateGenes.txt -w ./test/cellSignalGenes.txt -t 10
+	./bin/loco -i ./test/simulatedData2.tsv -o bin -p test_b -c -v ./test/cellStateGenes.txt -w ./test/cellSignalGenes.txt -t 10
 
 #tets with 1000 cells and 58 features
 # 20 totally reandom
@@ -119,23 +119,23 @@ test_loco_b:
 #=> idea: const corr of 0.75 gives graph the structure and following this structure the corr of first 4 should increase
 #THIS SHOULD DETECT ONLY THE FIRST 5 ABs, the other 20 have good correlations, but those DO NOT CHANGE along the cell-manifold
 test_loco_c:
-	./bin/loco -i ./test/simulatedData3.tsv -o bin/test_c.tsv -c -n 10 -s 100 -x 0.5 -t 50
+	./bin/loco -i ./test/simulatedData3.tsv -o bin -p test_c -c -n 10 -s 100 -x 0.5 -t 50
 #increasing n to 100 makes everything significant
 
 # simulate the signlaing markers also as markers with a signoidal activation
 test_loco_sigmoidal:
-	/usr/bin/time ./bin/loco -i ./test/data_1.tsv -o bin/data_1.tsv -c -n 100 -s 50 -x 0.4 -z -t 50 -m 2 -q 2 -a 0.01 -p 1000 -f 0
+	/usr/bin/time ./bin/loco -i ./test/data_1.tsv -o bin -p data_1 -c -n 100 -s 50 -x 0.4 -z -t 50 -m 2 -q 2 -a 0.01 -u 1000 -f 0
 
 #-v ./test/paperCellstateMarkers.txt
 #-v ./test/paperCellstateMarkers.txt -w ./test/paperCellsignalMarkers.txt
 
 # simulate the signaling markers as uniformal distributions
 test_loco_uniform:
-	/usr/bin/time ./bin/loco -i ./test/data_2.tsv -o bin/data_2.tsv -c -n 1000 -s 50 -x 0.5 -z -t 10 -f 20 -v test/paperCellstateMarkers.txt -w test/paperCellsignalMarkers.txt
+	/usr/bin/time ./bin/loco -i ./test/data_2.tsv -o bin -p data_2 -c -n 1000 -s 50 -x 0.5 -z -t 10 -f 20 -v test/paperCellstateMarkers.txt -w test/paperCellsignalMarkers.txt
 
 #5K cells,m when having more than 50N p-values seem to not make sense anymore
 test_loco_uniform_noSignalMarkers:
-	/usr/bin/time ./bin/loco -i ./test/data_2.tsv -o bin/data_2_b.tsv -c -n 50 -s 100 -x 0.5 -z -t 10 -f 20 -v test/paperCellstateMarkers.txt
+	/usr/bin/time ./bin/loco -i ./test/data_2.tsv -o bin -p data_2_b -c -n 50 -s 100 -x 0.5 -z -t 10 -f 20 -v test/paperCellstateMarkers.txt
 
 test_loco:
 	make test_loco_a

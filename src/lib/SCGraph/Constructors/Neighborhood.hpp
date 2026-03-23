@@ -59,7 +59,7 @@ class Neighborhood
         //cell-cell neighborhood graph (from neighborhood to neighborhood)
         //fills the corrResult
         void calculate_correlation_propagation(double correlationStrengthCutoff, const bool printFoundCliquesPerNeighborhood, int minCliqueSize=2, int thread=5);
-        void write_results_to_file(const std::string& output, int& numberCorrelations);
+        void write_results_to_file(const std::string& output, const std::string& prefix, int& numberCorrelations);
         void write_shuffled_laplacians(const std::string& outFile);
 
     private:
