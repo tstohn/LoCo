@@ -26,11 +26,11 @@ With admin-rights you can install those dependencies with 'make install'.
 To download LoCo, install the dependencies and build the tool run the commands below:
 
 ```bash
-  git clone https://github.com/tstohn/LoCo/edit/master/README.md
+  git clone https://github.com/tstohn/LoCo
   make install
   make loco
 ```
 
-You will then find loco as an executable in the folder bin. 
-To start using LoCo run 'loco --help' from bin to see all the input parameters.
-For some example you can have a look into the makefile under 'make test' to see some examples of using loco.
+You will then find LoCo as an executable in the folder 'bin'. 
+To start using LoCo run 'loco --help' from 'bin' to see all the input parameters.
+For some examples you can have a look into the Makefile under 'make test' to see some examples of using loco.
