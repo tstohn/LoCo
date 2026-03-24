@@ -1,0 +1,49 @@
+name: Build LoCo Release
+
+on:
+  push:
+    tags:
+      - 'v*'  # Trigger on version tags like v1.0.0
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: |
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            sudo apt update
+            sudo apt install -y build-essential libigraph-dev libboost-iostreams-dev libboost-program-options-dev gfortran libarpack2-dev
+          elif [[ "$RUNNER_OS" == "macOS" ]]; then
+            brew update
+            brew install igraph boost gfortran arpack
+          elif [[ "$RUNNER_OS" == "Windows" ]]; then
+            choco install -y igraph boost arpack mingw
+          fi
+
+      - name: Build LoCo
+        run: |
+          make install
+          make loco
+          mkdir -p release
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            cp bin/loco.exe release/loco-windows.exe
+          elif [[ "$RUNNER_OS" == "Linux" ]]; then
+            cp bin/loco release/loco-linux
+          else
+            cp bin/loco release/loco-macos
+          fi
+
+      - name: Create release
+        run: |
+          gh release create $GITHUB_REF_NAME release/* \
+            --title "LoCo $GITHUB_REF_NAME" \
+            --notes "Precompiled binaries for Linux, macOS, and Windows."
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
