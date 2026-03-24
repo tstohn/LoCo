@@ -126,6 +126,9 @@ test_loco_c:
 test_loco_sigmoidal:
 	/usr/bin/time ./bin/loco -i ./test/data_1.tsv -o bin -p data_1 -c -n 100 -s 50 -x 0.4 -z -t 50 -m 2 -q 2 -a 0.01 -u 1000 -f 0
 
+test_loco_sigmoidal_granularities:
+	/usr/bin/time ./bin/loco -i ./test/data_1.tsv -o bin -p data_1 -c -n 100 -s [10,50,100,200] -x 0.4 -z -t 50 -m 2 -q 2 -a 0.01 -u 1000 -f 0
+
 #-v ./test/paperCellstateMarkers.txt
 #-v ./test/paperCellstateMarkers.txt -w ./test/paperCellsignalMarkers.txt
 

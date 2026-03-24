@@ -11,23 +11,18 @@ namespace neighborhoodCalculations
 
     std::vector<int> get_random_elements(unsigned int numbers, int maxNum) 
     {
-        std::vector<int> uniqueRandomNumbers;
-        std::unordered_set<int> uniqueSet;
-        srand(0);
+        if (numbers > maxNum)
+            throw std::invalid_argument("numbers > maxNum");
 
-        // Generate x unique random numbers
-        while (uniqueSet.size() < numbers) 
-        {
-            int randomNumber = rand() % maxNum;
+        std::vector<int> pool(maxNum);
+        std::iota(pool.begin(), pool.end(), 0);
 
-            // Insert the number into the set if it's unique
-            if (uniqueSet.insert(randomNumber).second) 
-            {
-                uniqueRandomNumbers.push_back(randomNumber);
-            }
+        std::random_device rd;
+        std::mt19937 gen(rd());
 
-        }
-        return uniqueRandomNumbers;
+        std::shuffle(pool.begin(), pool.end(), gen);
+
+        return std::vector<int>(pool.begin(), pool.begin() + numbers);
     }
 
     //return LOWEST values first: we want the values with LWOEST laplacian first
@@ -932,7 +927,7 @@ void Neighborhood::filter_cliques_present(nodePtr neighborhoodCenter, std::unord
             }
 
             //if clique is not existing in neighbors reject it (filtering of cliques that are only in ONE neighborhood and probably outliers)
-            if(!cliqueInNeighbors){break;}
+            if(!cliqueInNeighbors){continue;}
 
             threadLock.lock();
             //if we managed to run through for loop, this clique is in all neighboring-neighborHoods
