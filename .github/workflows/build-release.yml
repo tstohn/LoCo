@@ -40,10 +40,19 @@ jobs:
             cp bin/loco release/loco-macos
           fi
 
-      - name: Create release
-        run: |
-          gh release create $GITHUB_REF_NAME release/* \
-            --title "LoCo $GITHUB_REF_NAME" \
-            --notes "Precompiled binaries for Linux, macOS, and Windows."
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: LoCo ${{ github.ref_name }}
+          body: Precompiled binaries for Linux, macOS, and Windows.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload binaries
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: release/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
