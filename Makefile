@@ -1,44 +1,58 @@
-
 # ===============================
 # LoCo C++ Project Makefile
-# dependencies: nanoflann & igraph
+# Dependencies: nanoflann & igraph
 # ===============================
 
-
-INC_DIR = src
+# Directories
+SRC_DIR = src
+BUILD_DIR = build
+BIN_DIR = bin
+INC_DIR = $(SRC_DIR)
 LIB = src/lib
 SUBDIRS := $(shell find $(INC_DIR) -type d)
 INCLUDE_DIRS := $(addprefix -I,$(SUBDIRS))
 
-CXXFLAGS = --std=c++17 -c -O3 -Wall -Wextra $(INCLUDE_DIRS) \
-	-I $(HOME)/libraries/igraph_libs/include \
-	-I dependencies
-#possibly add -Wl, rl flags to find lib also during compile time (look at harris)
-#TODO: at the moment hard coded paths for libraries needed (as on harris): we need to active scorr_env
-LDFLAGS = -L$(HOME)/libraries/igraph_libs/lib \
-	-I dependencies \
-	-ligraph -larpack -lblas -lgfortran  \
-	-lpthread -lz -lboost_program_options -lboost_iostreams
+# -------------------------------
+# Platform detection
+# -------------------------------
+ifeq ($(OS),Windows_NT)
+    PLATFORM = Windows
+    IG_INCLUDE =
+    IG_LIB =
+    CXXFLAGS_EXTRA =
+    LDFLAGS_EXTRA =
+else
+    UNAME_S := $(shell uname -s)
+    ifeq ($(UNAME_S),Darwin)
+        PLATFORM = macOS
+        IG_INCLUDE = -I$(HOME)/libraries/igraph_libs/include -Idependencies/igraph/include
+        IG_LIB     = -L$(HOME)/libraries/igraph_libs/lib -ligraph -larpack -lblas -lgfortran
+    else
+        PLATFORM = Linux
+        IG_INCLUDE = -I$(HOME)/libraries/igraph_libs/include -Idependencies/igraph/include
+        IG_LIB     = -L$(HOME)/libraries/igraph_libs/lib -ligraph -larpack -lblas -lgfortran
+    endif
+endif
+
+# Compiler flags
+CXXFLAGS = --std=c++17 -c -O3 -Wall -Wextra $(INCLUDE_DIRS) -Idependencies $(IG_INCLUDE) $(CXXFLAGS_EXTRA)
+LDFLAGS  = $(IG_LIB) -lpthread -lz -lboost_program_options -lboost_iostreams $(LDFLAGS_EXTRA)
 
 # Source files
-SRC_DIR = src
-BUILD_DIR = build
-BIN_DIR = bin
 SRC_FILES := $(SRC_DIR)/LoCo.cpp \
              $(SRC_DIR)/lib/Parser/SCParser.cpp \
              $(SRC_DIR)/lib/SCGraph/Constructors/GraphData.cpp \
              $(SRC_DIR)/lib/SCGraph/Constructors/GraphHandler.cpp \
              $(SRC_DIR)/lib/SCGraph/Constructors/Neighborhood.cpp
 
-# Object files in build/
 OBJ_FILES := $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(SRC_FILES))
-
 
 # ===============================
 # Install dependencies
 # ===============================
 install:
-#get nanoflann
+	@echo "Installing dependencies for $(PLATFORM)..."
+	# nanoflann
 	mkdir -p dependencies
 	cd dependencies && \
 	if [ ! -d nanoflann ]; then \
@@ -46,48 +60,46 @@ install:
 	else \
 		echo "nanoflann already exists, skipping clone"; \
 	fi
-#create bin
-	mkdir -p build;
-	mkdir -p bin;
-#install igraph
-	@OS=$(OS); \
-	if [ "$$OS" = "Windows_NT" ]; then \
-		echo "Windows detected"; \
-		echo "Please install igraph manually (e.g. via vcpkg or conda)"; \
-	elif [ "$$(uname -s)" = "Darwin" ]; then \
-		echo "macOS detected"; \
-		brew install igraph; \
-	elif [ "$$(uname -s)" = "Linux" ]; then \
-		echo "Linux detected"; \
-		if command -v apt >/dev/null; then \
-			apt install -y libigraph-dev; \
-		elif command -v dnf >/dev/null; then \
-			dnf install -y igraph-devel; \
-		elif command -v pacman >/dev/null; then \
-			pacman -S --noconfirm igraph; \
-		else \
-			echo "Unknown package manager. Install igraph manually."; \
-		fi; \
+	# igraph for local builds
+ifeq ($(PLATFORM),Windows)
+	@echo "Windows detected: igraph must be installed via vcpkg/conda."
+elif [ "$$(uname -s)" = "Darwin" ]; then \
+	echo "macOS detected"; \
+	brew install igraph; \
+elif [ "$$(uname -s)" = "Linux" ]; then \
+	echo "Linux detected"; \
+	if command -v apt >/dev/null; then \
+		apt install -y libigraph-dev; \
+	elif command -v dnf >/dev/null; then \
+		dnf install -y igraph-devel; \
+	elif command -v pacman >/dev/null; then \
+		pacman -S --noconfirm igraph; \
 	else \
-		echo "Unknown OS. Install igraph manually."; \
-	fi
-
+		echo "Unknown package manager. Install igraph manually."; \
+	fi; \
+else \
+	echo "Unknown OS. Install igraph manually."; \
+fi
+endif
+	mkdir -p $(BUILD_DIR)
+	mkdir -p $(BIN_DIR)
+	@echo "Dependencies installed."
 
 # ===============================
-# Build LoCo executable
+# Build LoCo
 # ===============================
 loco: $(OBJ_FILES) | $(BIN_DIR)
 	$(CXX) $(OBJ_FILES) -o $(BIN_DIR)/loco $(LDFLAGS)
 
 # ===============================
-# Compile source files to object files
+# Compile sources to object files
 # ===============================
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp | $(BUILD_DIR)
 	@mkdir -p $(dir $@)
 	$(CXX) -c $< -o $@ $(CXXFLAGS)
 
 # ===============================
-# Ensure build and bin directories exist
+# Directories
 # ===============================
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
@@ -96,9 +108,9 @@ $(BIN_DIR):
 	mkdir -p $(BIN_DIR)
 
 # ===============================
-# Clean build artifacts
+# Clean
 # ===============================
-.PHONY: clean install loco all
+.PHONY: clean install loco
 clean:
 	rm -rf $(BUILD_DIR) $(BIN_DIR)
 
