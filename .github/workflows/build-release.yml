@@ -32,8 +32,11 @@ jobs:
       # -------------------------------
       # Build via bootstrap
       # -------------------------------
+
       - name: Run bootstrap
         if: runner.os != 'Windows'
+        # We use 'bash' to ensure the PATH export works
+        shell: bash
         run: ./bootstrap.sh
 
       - name: Run bootstrap (Windows)
