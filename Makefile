@@ -63,9 +63,6 @@ else ifneq ($(IS_LINUX),)
     BOOST_FLAGS := -lboost_iostreams -lboost_program_options -lpthread
 	BOOST_INCLUDE :=
 	BOOST_LIB :=
-
-	IG_INCLUDE = -I$(HOME)/libraries/igraph_libs/include
-	IG_LIB     = -L$(HOME)/libraries/igraph_libs/lib -ligraph -larpack -lblas -llapack -lgfortran
 else ifneq ($(IS_DARWIN),)
     PLATFORM = macOS
 	#make install installs boost with brew, we need to get the actual path to include boost correctly
@@ -73,9 +70,6 @@ else ifneq ($(IS_DARWIN),)
   	BOOST_PREFIX := $(shell brew --prefix boost 2>/dev/null || echo /opt/homebrew)
   	BOOST_INCLUDE := $(BOOST_PREFIX)/include
   	BOOST_LIB := $(BOOST_PREFIX)/lib
-
-	IG_INCLUDE = -I$(HOME)/libraries/igraph_libs/include
-	IG_LIB     = -L$(HOME)/libraries/igraph_libs/lib -ligraph -larpack -lblas -llapack -lgfortran
 endif
 
 #add boost disr to include flags - important for windows and macOS
