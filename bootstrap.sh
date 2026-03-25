@@ -12,12 +12,12 @@ echo "Detected OS: $OS"
 if [[ "$OS" == "Linux" ]]; then
     if command -v sudo >/dev/null; then
         sudo apt-get update
-        sudo apt-get install -y build-essential cmake ninja-build git curl unzip zip pkg-config
+        sudo apt-get install -y build-essential cmake ninja-build gcc git curl unzip zip pkg-config
     else
         echo "Skipping system install; ensure git, cmake, ninja, compiler exist"
     fi
 elif [[ "$OS" == "Darwin" ]]; then
-    brew install git cmake ninja || echo "Tools may already exist"
+    brew install gcc git cmake ninja || echo "Tools may already exist"
 fi
 
 # -----------------------

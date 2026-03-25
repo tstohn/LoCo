@@ -13,6 +13,9 @@ git fetch --all
 
 # Bootstrap vcpkg (disable telemetry)
 .\bootstrap-vcpkg.bat --disableMetrics
+
+#install dependencies from manifest
+.\vcpkg.exe install
 cd ..
 
 # Configure & build with Visual Studio generator
