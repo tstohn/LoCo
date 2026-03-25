@@ -63,10 +63,12 @@ SRC_FILES := $(SRC_DIR)/LoCo.cpp \
 
 OBJ_FILES := $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(SRC_FILES))
 
+
 # ===============================
 # Install dependencies
 # ===============================
 install:
+# INSTALL NANOFLANN
 	@echo "Installing dependencies for $(PLATFORM)..."
 	# nanoflann
 	mkdir -p dependencies
@@ -77,25 +79,49 @@ install:
 		echo "nanoflann already exists, skipping clone"; \
 	fi
 	# igraph for local builds
+# INSTALL DEPENDENCIES: boost fortran arpack igraph
 ifeq ($(PLATFORM),Windows)
-	@echo "Windows detected: igraph must be installed via vcpkg/conda."
+	@echo "Windows detected: install dependencies manually (vcpkg/conda recommended)."
 elif [ "$$(uname -s)" = "Darwin" ]; then \
 	echo "macOS detected"; \
-	brew install igraph; \
-elif [ "$$(uname -s)" = "Linux" ]; then \
+	brew update; \
+	brew install igraph boost gfortran lapack arpack; \
+else \
 	echo "Linux detected"; \
 	if command -v apt >/dev/null; then \
-		apt install -y libigraph-dev; \
+		sudo apt update; \
+		sudo apt install -y \
+			libigraph-dev \
+			libboost-all-dev \
+			gfortran \
+			libblas-dev \
+			liblapack-dev \
+			libarpack2-dev \
+			build-essential \
+			pkg-config; \
 	elif command -v dnf >/dev/null; then \
-		dnf install -y igraph-devel; \
+		sudo dnf install -y \
+			igraph-devel \
+			boost-devel \
+			gfortran \
+			blas-devel \
+			lapack-devel \
+			arpack-devel \
+			pkgconf-pkg-config \
+			gcc-c++; \
 	elif command -v pacman >/dev/null; then \
-		pacman -S --noconfirm igraph; \
+		sudo pacman -S --noconfirm \
+			igraph \
+			boost \
+			gcc-fortran \
+			blas \
+			lapack \
+			arpack \
+			base-devel \
+			pkgconf; \
 	else \
-		echo "Unknown package manager. Install igraph manually."; \
+		echo "Unknown Linux package manager. Install igraph, boost, Fortran, BLAS/LAPACK, ARPACK manually."; \
 	fi; \
-else \
-	echo "Unknown OS. Install igraph manually."; \
-fi
 endif
 	mkdir -p $(BUILD_DIR)
 	mkdir -p $(BIN_DIR)
