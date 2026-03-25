@@ -86,13 +86,13 @@ install:
 ifeq ($(PLATFORM),Windows)
 	@echo "Windows detected: install dependencies manually (vcpkg/conda recommended)."
 else
-	UNAME_S := $(shell uname -s)
-	ifeq ($(UNAME_S),Darwin)
-		@echo "macOS detected"
-		brew update
-		brew install igraph boost gfortran lapack arpack
-	else
-		@echo "Linux detected"
+	# Use shell uname inside shell commands
+	@if [ "$$(uname -s)" = "Darwin" ]; then \
+		echo "macOS detected"; \
+		brew update; \
+		brew install igraph boost gfortran lapack arpack; \
+	elif [ "$$(uname -s)" = "Linux" ]; then \
+		echo "Linux detected"; \
 		if command -v apt >/dev/null; then \
 			sudo apt update; \
 			sudo apt install -y \
@@ -126,7 +126,10 @@ else
 				pkgconf; \
 		else \
 			echo "Unknown Linux package manager. Install igraph, boost, Fortran, BLAS/LAPACK, ARPACK manually."; \
-		fi
+		fi; \
+	else \
+		echo "Unknown OS. Install dependencies manually."; \
+	fi
 	endif
 endif
 
