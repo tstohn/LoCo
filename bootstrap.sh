@@ -3,29 +3,26 @@ set -e
 
 echo "=== LoCo Bootstrap ==="
 
-# 1. Fix PATH so tools are found (Homebrew / Linux)
-export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
-
 OS="$(uname -s)"
-echo "Detected: $OS"
+echo "Detected OS: $OS"
 
-# -------------------------------
-# 2. Install base tools
-# -------------------------------
+# -----------------------
+# 1. Install base tools
+# -----------------------
 if [[ "$OS" == "Linux" ]]; then
     if command -v sudo >/dev/null; then
         sudo apt-get update
-        sudo apt-get install -y git cmake ninja-build build-essential curl zip unzip tar pkg-config
+        sudo apt-get install -y build-essential cmake ninja-build git curl unzip zip pkg-config
     else
-        echo "Skipping system install; assuming git, cmake, ninja exist"
+        echo "Skipping system install; ensure git, cmake, ninja, compiler exist"
     fi
 elif [[ "$OS" == "Darwin" ]]; then
-    brew install git cmake ninja || echo "Skipping install; tools may already exist"
+    brew install git cmake ninja || echo "Tools may already exist"
 fi
 
-# -------------------------------
-# 3. vcpkg
-# -------------------------------
+# -----------------------
+# 2. vcpkg clone / bootstrap
+# -----------------------
 if [ ! -d "vcpkg" ]; then
     git clone https://github.com/microsoft/vcpkg.git
 else
@@ -38,13 +35,14 @@ cd vcpkg
 ./bootstrap-vcpkg.sh
 cd ..
 
-# -------------------------------
-# 4. CMake build
-# -------------------------------
-cmake --preset release -G Ninja \
-      -DCMAKE_TOOLCHAIN_FILE=$(pwd)/vcpkg/scripts/buildsystems/vcpkg.cmake
+# -----------------------
+# 3. Build project
+# -----------------------
+cmake -S . -B build \
+      -DCMAKE_TOOLCHAIN_FILE=$(pwd)/vcpkg/scripts/buildsystems/vcpkg.cmake \
+      -G Ninja \
+      -DCMAKE_BUILD_TYPE=Release
 
-cmake --build --preset release --parallel
+cmake --build build --parallel
 
-echo "=== DONE ==="
-echo "Binary: ./bin/loco"
+echo "=== Build Complete ==="
