@@ -1,0 +1,21 @@
+{
+  "name": "loco",
+  "version": "0.1.0",
+  "dependencies": [
+    "igraph",
+    "boost-program-options",
+    "boost-iostreams",
+    "zlib",
+    "blas",
+    "lapack",
+    "arpack-ng",
+    "nanoflann"
+  ],
+  "builtin-baseline": "3047f63126f5471d80362241d06373e35414d485",
+  "overrides": [
+    {
+      "name": "igraph",
+      "version": "0.10.10"
+    }
+  ]
+}
