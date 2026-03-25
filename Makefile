@@ -12,27 +12,74 @@ LIB = src/lib
 SUBDIRS := $(shell find $(INC_DIR) -type d)
 INCLUDE_DIRS := $(addprefix -I,$(SUBDIRS))
 
-# -------------------------------
-# Platform detection
-# -------------------------------
-ifeq ($(OS),Windows_NT)
-    PLATFORM = Windows
-    IG_INCLUDE =
-    IG_LIB =
-    CXXFLAGS_EXTRA =
-    LDFLAGS_EXTRA =
-else
-    UNAME_S := $(shell uname -s)
-    ifeq ($(UNAME_S),Darwin)
-        PLATFORM = macOS
-		IG_INCLUDE = -I$(HOME)/libraries/igraph_libs/include
-        IG_LIB     = -L$(HOME)/libraries/igraph_libs/lib -ligraph -larpack -lblas -llapack -lgfortran
-    else
-        PLATFORM = Linux
-		IG_INCLUDE = -I$(HOME)/libraries/igraph_libs/include
-        IG_LIB     = -L$(HOME)/libraries/igraph_libs/lib -ligraph -larpack -lblas -llapack -lgfortran
+#######################################
+# PLATFORM DETECTION
+#######################################
+
+UNAME_S := $(shell uname -s)
+VCPKG_ROOT ?= C:/vcpkg
+
+#definitions for systems
+IS_WIN    := $(or $(findstring Windows_NT,$(OS)), \
+                $(findstring MINGW,$(UNAME_S)),$(findstring MSYS,$(UNAME_S)),$(findstring CYGWIN,$(UNAME_S)))
+IS_LINUX  := $(filter Linux%,$(UNAME_S))
+IS_DARWIN := $(filter Darwin%,$(UNAME_S))
+
+#system dependent boost flags
+ifneq ($(IS_WIN),)
+	PLATFORM = Windows
+
+	VCPKG_ROOT ?= C:/vcpkg
+    BOOST_TRIPLET := x64-mingw-static
+    BOOST_INCLUDE := $(VCPKG_ROOT)/installed/$(BOOST_TRIPLET)/include
+    BOOST_LIB     := $(VCPKG_ROOT)/installed/$(BOOST_TRIPLET)/lib
+
+    # Resolve filenames lazily (evaluated at recipe time)
+    boost_file = $(notdir $(firstword $(wildcard $(BOOST_LIB)/libboost_$(1)*.a)))
+
+    BOOST_SYS_FILE       = $(call boost_file,system)
+    BOOST_THREAD_FILE    = $(call boost_file,thread)
+    BOOST_PO_FILE        = $(call boost_file,program_options)
+    BOOST_IOSTREAMS_FILE = $(call boost_file,iostreams)
+
+    # If Boost.System archive is absent (header-only), don't link it and define the macro
+    ifeq ($(BOOST_SYS_FILE),)
+      $(info [boost] libboost_system*.a not found; using header-only Boost.System)
+      CXXFLAGS += -DBOOST_ERROR_CODE_HEADER_ONLY
     endif
+
+    # Build the library list, skipping any empty entries
+    BOOST_LIBS := \
+      $(if $(BOOST_SYS_FILE),-l:$(BOOST_SYS_FILE)) \
+      $(if $(BOOST_THREAD_FILE),-l:$(BOOST_THREAD_FILE)) \
+      $(if $(BOOST_PO_FILE),-l:$(BOOST_PO_FILE)) \
+      $(if $(BOOST_IOSTREAMS_FILE),-l:$(BOOST_IOSTREAMS_FILE))
+
+    # Final flags (keep recursive expansion!)
+    BOOST_FLAGS = -I"$(BOOST_INCLUDE)" -L"$(BOOST_LIB)" -Wl,-Bstatic \
+                  $(BOOST_LIBS) -lz -lwinpthread -lws2_32
+else ifneq ($(IS_LINUX),)
+    PLATFORM = Linux
+    BOOST_FLAGS := -lboost_iostreams -lboost_program_options -lpthread
+	BOOST_INCLUDE :=
+	BOOST_LIB :=
+
+	IG_INCLUDE = -I$(HOME)/libraries/igraph_libs/include
+	IG_LIB     = -L$(HOME)/libraries/igraph_libs/lib -ligraph -larpack -lblas -llapack -lgfortran
+else ifneq ($(IS_DARWIN),)
+    PLATFORM = macOS
+	#make install installs boost with brew, we need to get the actual path to include boost correctly
+    BOOST_FLAGS := -lboost_iostreams -lboost_program_options -lpthread
+  	BOOST_PREFIX := $(shell brew --prefix boost 2>/dev/null || echo /opt/homebrew)
+  	BOOST_INCLUDE := $(BOOST_PREFIX)/include
+  	BOOST_LIB := $(BOOST_PREFIX)/lib
+
+	IG_INCLUDE = -I$(HOME)/libraries/igraph_libs/include
+	IG_LIB     = -L$(HOME)/libraries/igraph_libs/lib -ligraph -larpack -lblas -llapack -lgfortran
 endif
+
+#add boost disr to include flags - important for windows and macOS
+INCLUDE_DIRS += $(if $(BOOST_INCLUDE),-I$(BOOST_INCLUDE),)
 
 # -------------------------------
 # IGRAPH detection in case its installed locally (as we did for non-admin environments)
@@ -51,8 +98,14 @@ else
     EXTRA_LIBS = # pkg-config already includes dependencies
 endif
 
-CXXFLAGS = -std=c++17 -O3 -Wall -Wextra $(INCLUDE_DIRS) -Idependencies $(IG_INCLUDE)
+CXXFLAGS = -std=c++17 -O3 -Wall -Wextra $(INCLUDE_DIRS) -Idependencies $(IG_INCLUDE) $(INCLUDE_DIRS)
 LDFLAGS  = $(IG_LIB) -larpack -lblas -llapack -lgfortran -lboost_program_options -lboost_iostreams -lpthread -lz
+# add LTO only for Linux/Mac
+ifneq ($(IS_LINUX),)
+	CXXFLAGS += -flto=5
+else ifneq ($(IS_DARWIN),)
+	CXXFLAGS += -flto
+endif
 
 # Source files
 SRC_FILES := $(SRC_DIR)/LoCo.cpp \
@@ -135,7 +188,7 @@ endif
 	mkdir -p $(BUILD_DIR)
 	mkdir -p $(BIN_DIR)
 	@echo "Dependencies installed."
-	
+
 # ===============================
 # Build LoCo
 # ===============================
