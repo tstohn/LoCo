@@ -28,7 +28,6 @@ jobs:
 
       - name: Build LoCo
         run: |
-          make install
           make loco
           mkdir -p release
 
