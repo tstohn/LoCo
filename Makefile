@@ -1,6 +1,6 @@
 # ===============================
 # LoCo C++ Project Makefile
-# Dependencies: nanoflann & igraph
+# Dependencies: nanoflann & igraph, boost, gfortran, arpack
 # ===============================
 
 # Directories
@@ -25,18 +25,34 @@ else
     UNAME_S := $(shell uname -s)
     ifeq ($(UNAME_S),Darwin)
         PLATFORM = macOS
-        IG_INCLUDE = -I$(HOME)/libraries/igraph_libs/include -Idependencies/igraph/include
-        IG_LIB     = -L$(HOME)/libraries/igraph_libs/lib -ligraph -larpack -lblas -lgfortran
+		IG_INCLUDE = -I$(HOME)/libraries/igraph_libs/include
+        IG_LIB     = -L$(HOME)/libraries/igraph_libs/lib -ligraph -larpack -lblas -llapack -lgfortran
     else
         PLATFORM = Linux
-        IG_INCLUDE = -I$(HOME)/libraries/igraph_libs/include -Idependencies/igraph/include
-        IG_LIB     = -L$(HOME)/libraries/igraph_libs/lib -ligraph -larpack -lblas -lgfortran
+		IG_INCLUDE = -I$(HOME)/libraries/igraph_libs/include
+        IG_LIB     = -L$(HOME)/libraries/igraph_libs/lib -ligraph -larpack -lblas -llapack -lgfortran
     endif
 endif
 
-# Compiler flags
-CXXFLAGS = --std=c++17 -c -O3 -Wall -Wextra $(INCLUDE_DIRS) -Idependencies $(IG_INCLUDE) $(CXXFLAGS_EXTRA)
-LDFLAGS  = $(IG_LIB) -lpthread -lz -lboost_program_options -lboost_iostreams $(LDFLAGS_EXTRA)
+# -------------------------------
+# IGRAPH detection in case its installed locally (as we did for non-admin environments)
+# -------------------------------
+# Try pkg-config first
+# Detect igraph via pkg-config or fallback
+PKG_CFLAGS := $(shell pkg-config --cflags igraph 2>/dev/null)
+PKG_LIBS   := $(shell pkg-config --libs igraph 2>/dev/null)
+
+ifeq ($(PKG_CFLAGS),)
+    IG_INCLUDE = -I$(HOME)/libraries/igraph_libs/include
+    IG_LIB     = -L$(HOME)/libraries/igraph_libs/lib -ligraph
+else
+    IG_INCLUDE = $(PKG_CFLAGS)
+    IG_LIB     = $(PKG_LIBS)
+    EXTRA_LIBS = # pkg-config already includes dependencies
+endif
+
+CXXFLAGS = -std=c++17 -O3 -Wall -Wextra $(INCLUDE_DIRS) -Idependencies $(IG_INCLUDE)
+LDFLAGS  = $(IG_LIB) -larpack -lblas -llapack -lgfortran -lboost_program_options -lboost_iostreams -lpthread -lz
 
 # Source files
 SRC_FILES := $(SRC_DIR)/LoCo.cpp \
@@ -89,7 +105,7 @@ endif
 # Build LoCo
 # ===============================
 loco: $(OBJ_FILES) | $(BIN_DIR)
-	$(CXX) $(OBJ_FILES) -o $(BIN_DIR)/loco $(LDFLAGS)
+	$(CXX) $(OBJ_FILES) $(LDFLAGS) -o $(BIN_DIR)/loco
 
 # ===============================
 # Compile sources to object files

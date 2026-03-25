@@ -9,7 +9,7 @@
 #include <unordered_map>
 #include <exception>
 #include <numeric>
-#include <igraph/igraph.h>
+#include <igraph.h>
 
 #include "GraphData.hpp"
 
