@@ -68,9 +68,10 @@ OBJ_FILES := $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(SRC_FILES))
 # Install dependencies
 # ===============================
 install:
-# INSTALL NANOFLANN
 	@echo "Installing dependencies for $(PLATFORM)..."
-	# nanoflann
+# -------------------------------
+# INSTALL NANOFLANN (header-only)
+# -------------------------------	
 	mkdir -p dependencies
 	cd dependencies && \
 	if [ ! -d nanoflann ]; then \
@@ -78,51 +79,57 @@ install:
 	else \
 		echo "nanoflann already exists, skipping clone"; \
 	fi
-	# igraph for local builds
-# INSTALL DEPENDENCIES: boost fortran arpack igraph
+
+# -------------------------------
+# INSTALL SYSTEM DEPENDENCIES: igraph, boost, fortran, BLAS/LAPACK, ARPACK
+# -------------------------------
 ifeq ($(PLATFORM),Windows)
 	@echo "Windows detected: install dependencies manually (vcpkg/conda recommended)."
-elif [ "$$(uname -s)" = "Darwin" ]; then \
-	echo "macOS detected"; \
-	brew update; \
-	brew install igraph boost gfortran lapack arpack; \
-else \
-	echo "Linux detected"; \
-	if command -v apt >/dev/null; then \
-		sudo apt update; \
-		sudo apt install -y \
-			libigraph-dev \
-			libboost-all-dev \
-			gfortran \
-			libblas-dev \
-			liblapack-dev \
-			libarpack2-dev \
-			build-essential \
-			pkg-config; \
-	elif command -v dnf >/dev/null; then \
-		sudo dnf install -y \
-			igraph-devel \
-			boost-devel \
-			gfortran \
-			blas-devel \
-			lapack-devel \
-			arpack-devel \
-			pkgconf-pkg-config \
-			gcc-c++; \
-	elif command -v pacman >/dev/null; then \
-		sudo pacman -S --noconfirm \
-			igraph \
-			boost \
-			gcc-fortran \
-			blas \
-			lapack \
-			arpack \
-			base-devel \
-			pkgconf; \
-	else \
-		echo "Unknown Linux package manager. Install igraph, boost, Fortran, BLAS/LAPACK, ARPACK manually."; \
-	fi; \
+else
+	UNAME_S := $(shell uname -s)
+	ifeq ($(UNAME_S),Darwin)
+		@echo "macOS detected"
+		brew update
+		brew install igraph boost gfortran lapack arpack
+	else
+		@echo "Linux detected"
+		if command -v apt >/dev/null; then \
+			sudo apt update; \
+			sudo apt install -y \
+				libigraph-dev \
+				libboost-all-dev \
+				gfortran \
+				libblas-dev \
+				liblapack-dev \
+				libarpack2-dev \
+				build-essential \
+				pkg-config; \
+		elif command -v dnf >/dev/null; then \
+			sudo dnf install -y \
+				igraph-devel \
+				boost-devel \
+				gfortran \
+				blas-devel \
+				lapack-devel \
+				arpack-devel \
+				pkgconf-pkg-config \
+				gcc-c++; \
+		elif command -v pacman >/dev/null; then \
+			sudo pacman -S --noconfirm \
+				igraph \
+				boost \
+				gcc-fortran \
+				blas \
+				lapack \
+				arpack \
+				base-devel \
+				pkgconf; \
+		else \
+			echo "Unknown Linux package manager. Install igraph, boost, Fortran, BLAS/LAPACK, ARPACK manually."; \
+		fi
+	endif
 endif
+
 	mkdir -p $(BUILD_DIR)
 	mkdir -p $(BIN_DIR)
 	@echo "Dependencies installed."
