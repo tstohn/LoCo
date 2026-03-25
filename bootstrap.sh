@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -e
+export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 
 echo "=== LoCo Bootstrap ==="
 
@@ -30,9 +31,16 @@ fi
 # vcpkg
 # -------------------------------
 if [ ! -d "vcpkg" ]; then
+    echo "Cloning vcpkg..."
+    # We clone the full history so baselines can be checked out
     git clone https://github.com/microsoft/vcpkg.git
     cd vcpkg
     ./bootstrap-vcpkg.sh
+    cd ..
+else
+    echo "vcpkg already exists, updating..."
+    cd vcpkg
+    git fetch --all
     cd ..
 fi
 
