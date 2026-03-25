@@ -86,7 +86,7 @@ install:
 ifeq ($(PLATFORM),Windows)
 	@echo "Windows detected: install dependencies manually (vcpkg/conda recommended)."
 else
-	# Use shell uname inside shell commands
+	# shell uname inside shell commands
 	@if [ "$$(uname -s)" = "Darwin" ]; then \
 		echo "macOS detected"; \
 		brew update; \
@@ -130,13 +130,12 @@ else
 	else \
 		echo "Unknown OS. Install dependencies manually."; \
 	fi
-	endif
 endif
 
 	mkdir -p $(BUILD_DIR)
 	mkdir -p $(BIN_DIR)
 	@echo "Dependencies installed."
-
+	
 # ===============================
 # Build LoCo
 # ===============================
