@@ -32,6 +32,9 @@ else
 fi
 
 cd vcpkg
+git fetch --unshallow || true
+git fetch --all
+git checkout master
 ./bootstrap-vcpkg.sh
 cd ..
 
