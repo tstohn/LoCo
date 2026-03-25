@@ -1,7 +1,7 @@
 {
   "name": "loco",
   "version": "0.11.0",
-  "builtin-baseline": "3047f63126f5471d80362241d06373e35414d485",
+  "builtin-baseline": "dddca6fa87f177e0678e2545c4b4636a44aa05bd",
   "dependencies": [
     "boost-program-options",
     "boost-iostreams",
