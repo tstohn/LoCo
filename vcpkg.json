@@ -11,7 +11,6 @@
     "arpack-ng",
     "nanoflann"
   ],
-  "builtin-baseline": "HEAD",
   "overrides": [
     {
       "name": "igraph",
