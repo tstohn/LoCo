@@ -42,7 +42,8 @@ cd ..
 
 #gety nanoflann branch for development
 mkdir dependencies
-git clone https://github.com/jlblancoc/nanoflann --branch v1.3.2; \
+cd dependencies
+git clone https://github.com/jlblancoc/nanoflann --branch v1.3.2;
 cd ..
 
 # -----------------------
