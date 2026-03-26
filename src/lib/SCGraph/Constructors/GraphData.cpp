@@ -73,10 +73,10 @@ namespace InitializationHelper
 
 //NEW
     void initialize_adjacency_list_knn(GraphData* graphData,
-                               const std::vector<int>& cellStateGenes,
-                               const std::string& distance,
-                               int threads,
-                               bool statusUpdate)
+                                        const std::vector<int>& cellStateGenes,
+                                        const std::string& distance,
+                                        int threads,
+                                        bool statusUpdate)
     {
 
         //precalcualte all distances between cells and sort them
@@ -135,9 +135,9 @@ namespace InitializationHelper
         //create AdjacencyMatrix
         std::vector<std::pair<int, int>> nodeIdxPairs; //current list of node-pair that we schedule to calcualte their distances
         int numberPairs = 0;
-        for(int i=0; i < (graphData->number_of_nodes()-1); ++i)
+        for(size_t i=0; i < (graphData->number_of_nodes()-1); ++i)
         {
-            for(int j=i+1; j < graphData->number_of_nodes(); ++j)
+            for(size_t j=i+1; j < graphData->number_of_nodes(); ++j)
             {
                 //make buckets of 10K pairs
                 ++numberPairs;
@@ -185,7 +185,7 @@ namespace InitializationHelper
                                 int threads, bool statusUpdate)
     {
         //initialize nodes
-        for(int i = 0; i < inputData.cellIDs.size(); ++i)
+        for(size_t i = 0; i < inputData.cellIDs.size(); ++i)
         {
             std::string nodeName = inputData.cellIDs.at(i);
 
@@ -275,9 +275,9 @@ void GraphIni::protein_correlation_graph(GraphData* graphData, const SingleCellD
 
     //TRANSPOSE single-cell feature counts into protein single-cell counts
     std::vector<std::vector<double>> cellVector = inputData.pointCloud;
-    int pointNumber = cellVector.size();
+    size_t pointNumber = cellVector.size();
 
-    int geneSize = inputData.geneNames.size();
+    size_t geneSize = inputData.geneNames.size();
 
     //was before: now we selesct the features in setNode
 if(!corrStateGenes.empty()){geneSize = corrStateGenes.size();}
@@ -286,9 +286,9 @@ if(!corrStateGenes.empty()){geneSize = corrStateGenes.size();}
     //without subsetting we just keep all proteins and simply transpose the matrix
     if(corrStateGenes.empty())
     {
-        for(int cellID=0; cellID < pointNumber; ++cellID)
+        for(size_t cellID=0; cellID < pointNumber; ++cellID)
         {
-            for(int protID=0; protID < cellVector.at(cellID).size(); ++protID)
+            for(size_t protID=0; protID < cellVector.at(cellID).size(); ++protID)
             {
                 proteinVector.at(protID).at(cellID) = cellVector.at(cellID).at(protID);
             }
@@ -297,10 +297,10 @@ if(!corrStateGenes.empty()){geneSize = corrStateGenes.size();}
     else //otherwise we only keep certain genes
     {
         //the old protein ID and the ID in the new vector are no longer same, since we do not keep all proteins
-        for(int cellID=0; cellID < pointNumber; ++cellID)
+        for(size_t cellID=0; cellID < pointNumber; ++cellID)
         {
             int newProteinId = 0;
-            for(int protID=0; protID < cellVector.at(cellID).size(); ++protID)
+            for(size_t protID=0; protID < cellVector.at(cellID).size(); ++protID)
             {
                 if(std::find(corrStateGenes.begin(), corrStateGenes.end(), protID) == corrStateGenes.end() )
                 {
@@ -338,9 +338,9 @@ if(!corrStateGenes.empty()){geneSize = corrStateGenes.size();}
 
     //calculate correlations between all features (across cells): adjacencyList
     //BE CAREFUL: proteinVector MUST STILL BE IN THE SAME ORDER AS NODES IN GRAPHDATA
-    for(int i=0; i < (graphData->number_of_nodes()-1); ++i)
+    for(size_t i=0; i < (graphData->number_of_nodes()-1); ++i)
     {
-        for(int j=i+1; j < graphData->number_of_nodes(); ++j)
+        for(size_t j=i+1; j < graphData->number_of_nodes(); ++j)
         {
             std::vector<double> proteinA = proteinVector.at(i);
             std::vector<double> proteinB = proteinVector.at(j);
@@ -461,7 +461,7 @@ void GraphData::search_kd_tree()
     const int dim = get_node_at(0)->dimensions();
 
     // do a knn search for every node
-    for(int i = 0; i < nodes.size(); ++i)
+    for(size_t i = 0; i < nodes.size(); ++i)
     {
         std::vector<double> query_pt(dim);
         int dimNum = get_node_at(0)->dimensions();
@@ -510,7 +510,7 @@ void GraphData::brute_force_get_points_within_radius(node node, double radius)
     for(nodePtr nodeB : nodes)
     {
         float manhattanDist = 0;
-        for(int i = 0; i < nodeB->dimensions(); ++i)
+        for(size_t i = 0; i < nodeB->dimensions(); ++i)
         {
             manhattanDist += std::abs(nodeB->value_at(i) - node.value_at(i));
         }

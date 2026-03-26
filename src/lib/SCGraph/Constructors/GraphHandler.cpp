@@ -14,8 +14,8 @@ double GraphHandler::get_edge_weight_between_nodes(const nodePtr& nodeA, const n
 
 double GraphHandler::clique_similarity(const std::vector<int>& cliqueA, const std::vector<int>& cliqueB)
 {
-    int cliqueAIdx = 0;
-    int cliqueBIdx = 0;
+    size_t cliqueAIdx = 0;
+    size_t cliqueBIdx = 0;
     double score = 0;
 
     //count number of same elements
@@ -130,7 +130,7 @@ void GraphHandler::fill_distance_matrix(double** weightMatrix)
     //calculate weight for every edge and insert it into new weighted adjacency matricx
     //we need to keep the initial order of nodes as in nodePtrVector...
     nodePtrVector nodes = data->get_all_nodes();
-    for(int i = 0; i < nodes.size(); ++i)
+    for(size_t i = 0; i < nodes.size(); ++i)
     {
         //iterate through neighbors in ascending distance order (as soon as a distance exceeds threshood we can stop...)
         const OrderedNeighborDistanceHash neighbors = data->get_adjacent_nodes(nodes.at(i));
@@ -194,7 +194,7 @@ void GraphHandler::fill_knn_matrix(double** weightMatrix)
 
     //go through closest neighbors, add them to adjacency matrix (be careful to set right index for nodePtrs)
     nodePtrVector nodes = data->get_all_nodes();
-    for(int i = 0; i < nodes.size(); ++i)
+    for(size_t i = 0; i < nodes.size(); ++i)
     {
         const OrderedNeighborDistanceHash neighbors = data->get_adjacent_nodes(nodes.at(i));
 
@@ -243,7 +243,7 @@ double GraphHandler::calc_bandwidth()
         //calculate average distance of ten perc. closest neighbors
         OrderedNeighborDistanceHash::ConstIterator it = neighbor.second.begin();
         double topTenDist = 0;
-        for(int i =0; i < closeNeighborSize; ++i)
+        for(size_t i =0; i < closeNeighborSize; ++i)
         {
             topTenDist += it.distance();
             ++it;
@@ -288,7 +288,6 @@ GraphHandler::GraphHandler(std::shared_ptr<const GraphData> data, int knn, doubl
         fill_distance_matrix(weightedAdjacencyMatrix);
     }
 
-    int nn = data->number_of_nodes();
 }
 
 void GraphHandler::print_adj_list()
@@ -433,7 +432,7 @@ void GraphHandler::create_modularity_clustering()
 
 //find all sets of correlated features
 // this is a subgraph of connected nodes (features) in the graph
-void GraphHandler::find_correlation_sets(std::vector<std::vector<int>>& correlationSet, const int minSetSize)
+void GraphHandler::find_correlation_sets(std::vector<std::vector<int>>& correlationSet, const size_t minSetSize)
 {
     igraph_vector_int_t corrSet;
     igraph_vector_int_init(&corrSet, 0);
@@ -521,7 +520,7 @@ void GraphHandler::calc_all_max_clique(std::vector<std::vector<int>>& cliqueVect
 
 
 void GraphHandler::calc_dense_groups_kcore(std::vector<std::vector<int>>& cliqueVector,
-                                           const int minCliqueSize,
+                                           const size_t minCliqueSize,
                                            int kcoreThreshold,
                                            bool mergeSimilarCliques,
                                            bool print)
@@ -610,17 +609,4 @@ void GraphHandler::calc_dense_groups_kcore(std::vector<std::vector<int>>& clique
     igraph_vector_int_destroy(&membership);
     igraph_vector_int_destroy(&csize);
     igraph_destroy(&subgraph);
-}
-
-
-//search for supspaces that contains indepedant information
-//e.g. a subspace for cell cycle, and another one for a linear trajectory that does not depend
-//onm cell cycle state
-void GraphHandler::define_subspaces(int maxSubSpaceDim)
-{
-    //reducing is more difficult than increasing
-    //for increasing we need to increase dimensionality until we have a synergistic effect, and then reduce again
-    //to identify the dim that do not contribute
-
-    
 }

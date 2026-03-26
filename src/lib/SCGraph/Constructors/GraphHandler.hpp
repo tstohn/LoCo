@@ -78,9 +78,9 @@ class GraphHandler
         void create_graph();
 
         void calc_all_max_clique(std::vector<std::vector<int>>& cliqueVector, const int minCliqueSize, bool mergeSimilarCliques = false, bool print = false);
-        void find_correlation_sets(std::vector<std::vector<int>>& correlationSet, const int minSetSize);
+        void find_correlation_sets(std::vector<std::vector<int>>& correlationSet, const size_t minSetSize);
         void calc_dense_groups_kcore(std::vector<std::vector<int>>& cliqueVector,
-                                           const int minCliqueSize,
+                                           const size_t minCliqueSize,
                                            int kcoreThreshold,
                                            bool mergeSimilarCliques,
                                            bool print);
@@ -88,12 +88,6 @@ class GraphHandler
         void create_clustering(double resolution = 0);
         void create_modularity_clustering();
         void create_edge_betweenness_clustering(std::vector<std::pair<int, int>>& mergesVector);
-
-        //define indepedant processes for the single cell data
-        //ind.processes are supposed to be a sub-space of the origional full dimensional space
-        //which contains and reflects a certain biological process with less noise (as whole data adds many dimensions
-        //that do not contribute to this program and only add noise). E.g. like cell cycle, certain trajectories...
-        void define_subspaces(int maxSubSpaceDim=10);
 
         void fill_distance_matrix(double** weightMatrix);
         void fill_knn_matrix(double** weightMatrix);

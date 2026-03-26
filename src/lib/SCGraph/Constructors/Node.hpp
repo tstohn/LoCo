@@ -19,7 +19,7 @@ class node
         node(std::vector<double> values, std::string name = "") : values(values), name(name){};
 
         //dimensions of node
-        int dimensions()
+        size_t dimensions()
         {
             return(values.size());
         }
