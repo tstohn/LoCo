@@ -91,6 +91,8 @@ else
     IG_LIB     = $(PKG_LIBS)
     EXTRA_LIBS = # pkg-config already includes dependencies
 endif
+#add path to nanoflann
+IG_INCLUDE += -I dependencies/nanoflann/include
 
 CXXFLAGS = -std=c++17 -O3 -Wall -Wextra $(INCLUDE_DIRS) -Idependencies $(IG_INCLUDE) $(INCLUDE_DIRS)
 LDFLAGS  = $(IG_LIB) -larpack -lblas -llapack -lgfortran -lboost_program_options -lboost_iostreams -lpthread -lz

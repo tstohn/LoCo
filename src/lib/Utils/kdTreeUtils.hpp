@@ -1,6 +1,6 @@
 #pragma once
 
-#include "nanoflann/include/nanoflann.hpp"
+#include "nanoflann.hpp"
 #include "Node.hpp"
 #include <vector>
 #include <assert.h>
