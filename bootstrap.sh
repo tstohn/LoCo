@@ -41,13 +41,15 @@ git checkout master
 cd ..
 
 #gety nanoflann branch for development
+mkdir dependencies
 git clone https://github.com/jlblancoc/nanoflann --branch v1.3.2; \
+cd ..
 
 # -----------------------
 # 3. Build project
 # -----------------------
 cmake -S . -B build \
-      -DNANOFLANN_INCLUDE_DIR=/path/to/nanoflann/include \
+      -DNANOFLANN_INCLUDE_DIR=dependencies/nanoflann/include \
       -DCMAKE_TOOLCHAIN_FILE=$(pwd)/vcpkg/scripts/buildsystems/vcpkg.cmake \
       -G Ninja \
       -DCMAKE_BUILD_TYPE=Release
