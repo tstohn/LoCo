@@ -13,7 +13,7 @@
     "zlib",
     "blas",
     "lapack",
-    "arpack-ng",
+    "arpack-ng"
   ],
   "overrides": [
     {
