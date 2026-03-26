@@ -9,7 +9,7 @@
 namespace neighborhoodCalculations
 {
 
-    std::vector<int> get_random_elements(unsigned int numbers, int maxNum) 
+    std::vector<int> get_random_elements(unsigned int numbers, unsigned int maxNum) 
     {
         if (numbers > maxNum)
             throw std::invalid_argument("numbers > maxNum");
@@ -73,7 +73,7 @@ namespace neighborhoodCalculations
 }
 
 //it filters the x top pairs for CORRELATIONS and SLOPES
-std::vector<std::pair<int, int>> Neighborhood::filter_best_pairs(int numberGenes)
+std::vector<std::pair<int, int>> Neighborhood::filter_best_pairs(size_t numberGenes)
 {
 
     std::vector<std::pair<int, int>> correlations;
@@ -257,10 +257,10 @@ void Neighborhood::write_results_to_file(const std::string& outFile, const std::
         correlationLaplacian.at(pair) << "\t" << p_corr.at(pair) << "\t" <<
         slopeLaplacian.at(pair) << "\t" << p_slope.at(pair) << "\t";
 
-        int count = 0;
+        size_t count = 0;
         for(const auto& clique : pairToClique.at(pair))
         {
-            for(int i = 0; i < clique.size(); ++i)
+            for(size_t i = 0; i < clique.size(); ++i)
             {
                 outputFile << clique.at(i);
                 if(i != (clique.size()-1) )
@@ -373,7 +373,7 @@ void Neighborhood::write_results_to_file(const std::string& outFile, const std::
     outputFile.open (outputNeighborhoodCells, std::ofstream::app);
     //write HEADER (all neigborhood names)
     const std::vector<nodePtr> neighborHoods = neighborhoodGraph->get_all_nodes();
-    for(int neiborhoodID = 0; neiborhoodID < neighborHoods.size(); ++neiborhoodID)
+    for(size_t neiborhoodID = 0; neiborhoodID < neighborHoods.size(); ++neiborhoodID)
     {
         outputFile << neighborHoods.at(neiborhoodID)->get_name();
         if(neiborhoodID < (neighborHoods.size()-1)){outputFile << "\t";}
@@ -382,10 +382,10 @@ void Neighborhood::write_results_to_file(const std::string& outFile, const std::
     outputFile << "\n";
     //write lines
     //iterate over cellIDs (0 - <number cells in neighborhood>), for every id write out the cell with this id for every neighborhood
-    for(int cellID = 0; cellID < neighborhoodSize; ++cellID)
+    for(size_t cellID = 0; cellID < neighborhoodSize; ++cellID)
     {
         //for every neighborhood (in columns)
-        for(int neiborhoodID = 0; neiborhoodID < neighborHoods.size(); ++neiborhoodID)
+        for(size_t neiborhoodID = 0; neiborhoodID < neighborHoods.size(); ++neiborhoodID)
         {
             outputFile << neighborhoods.at(neighborHoods.at(neiborhoodID)).at(cellID);
             if(neiborhoodID < (neighborHoods.size()-1)){outputFile << "\t";}
@@ -399,17 +399,12 @@ void Neighborhood::write_results_to_file(const std::string& outFile, const std::
 
 }
 
-void Neighborhood::bfs_enumerate_x_closest_neighborhoods(int x, int nodeID, std::vector<int> neighbors)
-{
-
-}
-
 void Neighborhood::calculate_correlations(unsigned int numberNodes, bool print, 
                                           const std::pair<int, int>& correlationpair,
                                           std::unordered_map<const std::pair<int, int>, double, pair_hash>& corrVariance,
                                           int totalCount, double& currentCount)
 {
-    int nonNanNodes = 0;
+    unsigned int nonNanNodes = 0;
     //calcualte mean first
     double mean = 0;
     for(const nodePtr& node: neighborhoodGraph->get_all_nodes())
@@ -465,7 +460,7 @@ void Neighborhood::calculate_slopes(unsigned int numberNodes,
 {
         //calcualte mean first
     double mean = 0;
-    int nonNanNodes = 0;
+    uint nonNanNodes = 0;
     for(const nodePtr& node: neighborhoodGraph->get_all_nodes())
     {
         double slopeTmp = corrResult.at(node).slopeResult.at(correlationpair);
@@ -774,9 +769,9 @@ void Neighborhood::extract_pairs_from_correlation_sets(std::unordered_map<nodePt
     for(const std::vector<int>& cliques : cliquesVector)
     {
         //for all pairs of nodes from the clique
-        for(int i = 0; i < (cliques.size()-1); ++i)
+        for(size_t i = 0; i < (cliques.size()-1); ++i)
         {
-            for(int j = (i+1); j < cliques.size(); ++j)
+            for(size_t j = (i+1); j < cliques.size(); ++j)
             {
                 std::pair<int, int> tmpPair(cliques.at(i), cliques.at(j));
                 //if the pair has a reported clique but needs to be updated
@@ -1089,7 +1084,7 @@ Neighborhood::Neighborhood(const std::shared_ptr<const GraphData> scData, unsign
                            unsigned int neighborhoodSize, int neighborhoodKNN,
                            const SingleCellData& inputData,
                            const std::vector<int>& cellStateGenes, const std::vector<int>& corrStateGenes, int permutations,
-                           const double& corrSetAbundance, const bool correlatedSetMode) : 
+                           const double& corrSetAbundance, const uint correlatedSetMode) : 
                            neighborhoodSize(neighborhoodSize), inputDataOrigional(inputData),
                            cellStateGenes(cellStateGenes), corrStateGenes(corrStateGenes), permutations(permutations),
                            minimumCorrSetAbundance(corrSetAbundance), correlatedSetMode(correlatedSetMode)
@@ -1102,7 +1097,7 @@ Neighborhood::Neighborhood(const std::shared_ptr<const GraphData> scData, unsign
         const nodePtr centerNode = scData->get_node_at(centerNodeID);
         centralNeighborhoodPtrs.push_back(centerNode);
         //std::vector<int> value = scData->get_adjacent_node_ids_knn(centerNode, neighborhoodSize);
-        std::vector<int> value = scData->get_adjacent_node_ids_knn_kdsearch(centerNode, neighborhoodSize);
+        std::vector<int> value = scData->get_adjacent_node_ids_knn_kdsearch(centerNode);
 
         neighborhoods.insert(std::make_pair(centerNode, value));
     }

@@ -123,7 +123,7 @@ class OrderedHash {
             return ConstIterator(order.cend(), this);
         }
 
-        const std::size_t size() const
+        std::size_t size() const
         {
             return(order.size());
         }
@@ -218,7 +218,7 @@ class GraphData
         }
         void sort_adjacencyList(bool descending = false)
         {
-            for(int i=0; i < nodes.size(); ++i)
+            for(size_t i=0; i < nodes.size(); ++i)
             {
                 adjacencyList.at(nodes.at(i)).sort_values(descending);    
             }
@@ -252,7 +252,7 @@ class GraphData
         {
             return (featureNames);
         }
-        const unsigned long get_nodeIdx(const nodePtr n) const
+        unsigned long get_nodeIdx(const nodePtr n) const
         {
             return(nodePtrToIdx.at(n));
         }
@@ -261,11 +261,11 @@ class GraphData
         {
             return(adjacencyList.at(node));
         }
-        const double get_distance_between_nodes(nodePtr nodeA, nodePtr nodeB) const
+        double get_distance_between_nodes(nodePtr nodeA, nodePtr nodeB) const
         {
             return(adjacencyList.at(nodeA).at(nodeB));
         }
-        std::vector<int> get_adjacent_node_ids_knn(nodePtr node, int knn) const
+        std::vector<int> get_adjacent_node_ids_knn(nodePtr node, size_t knn) const
         {
             if(!distancesPrecalculated)
             {
@@ -280,7 +280,7 @@ class GraphData
                 std::cerr << "Requesting more neighbors from node than it has!!!\n";
                 std::cerr << knn << " requested, but only" << neighbors.size() << " neighbors exist\n";
             }
-            int count = 0;
+            size_t count = 0;
             for(const std::pair<nodePtr, const double> neighbor : neighbors)
             {
                 if(count == knn) {break;}
@@ -290,7 +290,7 @@ class GraphData
 
             return(adjNodes);
         }
-        std::vector<nodePtr> get_adjacent_nodes_knn(nodePtr node, int knn) const
+        std::vector<nodePtr> get_adjacent_nodes_knn(nodePtr node, size_t knn) const
         {
             if(!distancesPrecalculated)
             {
@@ -304,7 +304,7 @@ class GraphData
             {
                 std::cerr << "Requesting more neighbors from node than it has!!!\n";
             }
-            int count = 0;
+            size_t count = 0;
             for(const std::pair<const nodePtr, const double> neighbor : neighbors)
             {
                 if(count == knn) {break;}
@@ -317,7 +317,7 @@ class GraphData
 
 
 
-        std::vector<int> get_adjacent_node_ids_knn_kdsearch(nodePtr node, int knn) const
+        std::vector<int> get_adjacent_node_ids_knn_kdsearch(nodePtr node) const
         {
             if(distancesPrecalculated)
             {
@@ -345,19 +345,17 @@ class GraphData
                 nanoflann::SearchParams(10)
             );
 
-            for (int r = 0; r < graphKnn; ++r)
+            for (size_t r = 0; r < graphKnn; ++r)
             {
                 size_t j = ret_indexes[r];
 
                 nodePtr node_j = get_node_at(static_cast<int>(j));
-                double dist = std::sqrt(out_dists_sqr[r]);
-
                 adjNodes.push_back(get_nodeIdx(node_j));
             }
 
             return(adjNodes);
         }
-        std::vector<nodePtr> get_adjacent_nodes_knn_kdsearch(nodePtr node, int knn) const
+        std::vector<nodePtr> get_adjacent_nodes_knn_kdsearch(nodePtr node) const
         {
             if(distancesPrecalculated)
             {
@@ -384,13 +382,11 @@ class GraphData
                 nanoflann::SearchParams(10)
             );
 
-            for (int r = 0; r < graphKnn; ++r)
+            for (size_t r = 0; r < graphKnn; ++r)
             {
                 size_t j = ret_indexes[r];
 
                 nodePtr node_j = get_node_at(static_cast<int>(j));
-                double dist = std::sqrt(out_dists_sqr[r]);
-
                 adjNodes.push_back(node_j);
             }
 
@@ -401,15 +397,15 @@ class GraphData
         {
             return adjacencyList;
         }
-        const size_t number_of_nodes() const
+        size_t number_of_nodes() const
         {
             return(nodes.size());
         }
-        const unsigned int get_knn() const
+        unsigned int get_knn() const
         {
             return graphKnn;
         }
-        const bool distances_precalcualted() const
+        bool distances_precalcualted() const
         {
             return distancesPrecalculated;
         }
@@ -430,10 +426,10 @@ class GraphData
         }
         void print_adjacency_by_order() const 
         {
-            for(int i = 0; i < nodes.size(); ++i)
+            for(size_t i = 0; i < nodes.size(); ++i)
             {
                 const OrderedNeighborDistanceHash nodeNeighborList = adjacencyList.at(nodes.at(i));
-                for(int j = 0; j < nodes.size(); ++j)
+                for(size_t j = 0; j < nodes.size(); ++j)
                 {
                     double dist = nodeNeighborList.at(nodes.at(j));
                     std::cout << std::to_string(i) << " " << std::to_string(j) << " " << std::to_string(dist) << "\n"; 
@@ -458,10 +454,10 @@ class GraphData
         double get_average_radius()
         {
             double avgRad = 0;
-            for(int i = 0; i < nodes.size(); ++i)
+            for(size_t i = 0; i < nodes.size(); ++i)
             {
                 const OrderedNeighborDistanceHash nodeNeighborList = adjacencyList.at(nodes.at(i));
-                for(int j = 0; j < nodes.size(); ++j)
+                for(size_t j = 0; j < nodes.size(); ++j)
                 {
                     double dist = nodeNeighborList.at(nodes.at(j));
                     avgRad += dist;

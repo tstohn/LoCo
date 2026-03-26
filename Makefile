@@ -84,7 +84,7 @@ PKG_CFLAGS := $(shell pkg-config --cflags igraph 2>/dev/null)
 PKG_LIBS   := $(shell pkg-config --libs igraph 2>/dev/null)
 
 ifeq ($(PKG_CFLAGS),)
-    IG_INCLUDE = -I$(HOME)/libraries/igraph_libs/include
+    IG_INCLUDE = -I$(HOME)/libraries/igraph_libs/include/igraph
     IG_LIB     = -L$(HOME)/libraries/igraph_libs/lib -ligraph
 else
     IG_INCLUDE = $(PKG_CFLAGS)

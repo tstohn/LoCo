@@ -21,11 +21,11 @@ output: path/file.tsv (program adds content specific string between file and .ts
 
 */
 bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& outFile, std::string& prefix,
-                     int& threats, char& del, bool& trans, bool& col, bool& row,
+                     int& threats, char& del, bool& col, bool& row,
                      unsigned int & numNeighborhoods, std::string& neighborhoodSizeStr, int& neighborhoodKNN, double& correlationCutoff,
                      int& numberCorrelations,
                      std::string& cellStateGeneFile, std::string& correlationStateGeneFile,
-                     bool& zscore, int& permutations, int&minSetSize, double& corrSetAbundance, int& correlatedSetMode)
+                     bool& zscore, int& permutations, int&minSetSize, double& corrSetAbundance, uint& correlatedSetMode)
 {
     try
     {
@@ -40,7 +40,6 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
             ("delimiter,d", value<char>(&del)->default_value('\t'), "delimiter of input file")
             ("column,c", "explicitely parse column names (otherwise parsed only if string)")
             ("row,r", "explicitely parse column names (otherwise parsed only if string)")
-            ("transpose,trans", "matrix is transpose (default false)")
             ("filterCorrelations,f", value<int>(&numberCorrelations)->default_value(0), "filter the number of correlations to retain. Only write the gene-pairs of lowest laplacian for correlation/ slope. \
             Since we write the x lowest values for correlation & for slope the total number can be >x.")
 
@@ -67,7 +66,7 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
             Loco then does a BFS from every node and tests which pairs of this set span a region in the Neighborhoodgraph that covers at least 5% of neighborhoods. \
             Imagine correlations between A,B,C are present in 10% but any correlation with D only in a single neighborhood: Lco will use only the set A,B,C.")
 
-            ("correlatedSetMode,q", value<int>(&correlatedSetMode)->default_value(2), "mode to detect correlated set: 0=connected components\
+            ("correlatedSetMode,q", value<uint>(&correlatedSetMode)->default_value(2), "mode to detect correlated set: 0=connected components\
             1=fully connected components, 2=components with>=2edges per node")
 
 
@@ -88,8 +87,6 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
 
         notify(vm);
 
-        //transpose matrix
-        if (vm.count("transpose")){trans = true;}
         //parse col names
         if (vm.count("column")){col = true;}
         //parse row names
@@ -151,7 +148,7 @@ void run_correlation_propagation_across_graph(const SingleCellData& inFile, cons
                                               int& numberCorrelations, const std::vector<std::string>& cellStateGenes,
                                               const std::vector<std::string>& corrStateGenes, 
                                               const int permutations, const int minSetSize, const double corrSetAbundance, 
-                                              const bool correlatedSetMode)
+                                              const uint correlatedSetMode)
 {
     //generate cell-cell neighborhood graph
     std::vector<int> cellStateIdxs = get_indexlist_from_genenames(inFile, cellStateGenes);
@@ -211,12 +208,11 @@ int main(int argc, char** argv)
     std::string outFile;
     std::string prefix;
     char del;
-    bool trans = false;
     bool col = false;
     bool row = false;
     bool zscore = false;
     int thread;
-    int correlatedSetMode;
+    uint correlatedSetMode;
 
     //gene lists for states/ correlations
     int numberCorrelations;
@@ -234,7 +230,7 @@ int main(int argc, char** argv)
     double corrSetAbundance;
 
     if(!parse_arguments(argv, argc, inFile, outFile, prefix,
-                        thread, del, trans, col, row, 
+                        thread, del, col, row, 
                         numNeighborhoods, neighborhoodSizeString, neighborhoodKNN, correlationCutoff,
                         numberCorrelations, cellStateGeneFile, correlationStateGeneFile, 
                         zscore, permutations, minSetSize, corrSetAbundance, correlatedSetMode))
@@ -245,7 +241,7 @@ int main(int argc, char** argv)
     neighborhoodSizes = parseNeighborhoodSizes(neighborhoodSizeString);
 
     //READ IN DATA
-    SCParser parser(inFile, del, trans, col, row);
+    SCParser parser(inFile, del, col, row);
     SingleCellData inputDataRaw = parser.getData();
 
     if(zscore)

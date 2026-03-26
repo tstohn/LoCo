@@ -43,7 +43,7 @@ class GraphHandler
             //free the weightmatrix that we used to initialize graph
             if(weightedAdjacencyMatrix == nullptr) return;
             // Cleanup the iGraph Constructor mess
-            for (int i = 0; i < data->number_of_nodes(); i++) 
+            for (size_t i = 0; i < data->number_of_nodes(); i++) 
             {
                 free((weightedAdjacencyMatrix)[i]);
             }

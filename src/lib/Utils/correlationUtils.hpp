@@ -12,11 +12,11 @@ bool is_subset(const std::vector<int>& a, const std::vector<int>& b)
     return std::includes(b.begin(), b.end(), a.begin(), a.end());
 }
 
-std::vector<std::vector<double>> filterVector(const std::vector<std::vector<double>>& original, const std::vector<int>& indices) 
+inline std::vector<std::vector<double>> filterVector(const std::vector<std::vector<double>>& original, const std::vector<int>& indices) 
 {
     std::vector<std::vector<double>> result;
 
-    for (int index : indices) 
+    for (size_t index : indices) 
     {
         // Check if the index is within bounds
         if (index < original.size()) 
@@ -102,7 +102,7 @@ inline void remove_subsets(std::vector<std::vector<int>>& vectors)
 
 // function that returns Pearson correlation coefficient.
 // for ranked correlations se raking to TRUE
-static double calcualte_correlation_coefficient(const std::vector<double>& A, const std::vector<double>& B, bool ranking = false)
+inline double calcualte_correlation_coefficient(const std::vector<double>& A, const std::vector<double>& B, bool ranking = false)
 {
     std::vector<double> X = A;
     std::vector<double> Y = B;
@@ -137,7 +137,7 @@ static double calcualte_correlation_coefficient(const std::vector<double>& A, co
 }
 
 //fit a linear function through points and return slope
-static double calculate_slope(const std::vector<double>& pointsA, const std::vector<double>& pointsB)
+inline double calculate_slope(const std::vector<double>& pointsA, const std::vector<double>& pointsB)
 {
     if(pointsA.size() != pointsB.size())
     {
@@ -151,7 +151,7 @@ static double calculate_slope(const std::vector<double>& pointsA, const std::vec
     double sum_x_square = 0;
     double sum_y_square = 0;
 
-    for(int i =0; i < pointsA.size(); ++i)
+    for(size_t i =0; i < pointsA.size(); ++i)
     {
         sum_xy += (pointsA.at(i) * pointsB.at(i));
         sum_x += pointsA.at(i);

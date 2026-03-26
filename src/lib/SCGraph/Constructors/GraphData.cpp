@@ -470,7 +470,7 @@ void GraphData::search_kd_tree()
             query_pt[d] = get_node_at(i)->value_at(d);
         }
         const int num_results = 10;
-        std::vector<unsigned long> ret_indexes(num_results);
+        std::vector<nanoflann::KNNResultSet<double>::IndexType> ret_indexes(num_results);
         std::vector<double> out_dists_sqr(num_results);
 
         nanoflann::KNNResultSet<double> resultSet(num_results);

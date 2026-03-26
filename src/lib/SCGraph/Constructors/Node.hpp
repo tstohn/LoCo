@@ -41,7 +41,7 @@ class node
             double dist = 0;
             if(method == "euclidean")
             {
-                for(int i = 0; i < n->values.size(); ++i)
+                for(size_t i = 0; i < n->values.size(); ++i)
                 {
                     dist += std::pow((values.at(i) - n->values.at(i)),2);
                 }
@@ -49,7 +49,7 @@ class node
             }
             else if(method == "manhattan")
             {
-                for(int i = 0; i < n->values.size(); ++i)
+                for(size_t i = 0; i < n->values.size(); ++i)
                 {
                     dist += std::abs(values.at(i) - n->values.at(i));
                 }
@@ -61,7 +61,7 @@ class node
             double dist = 0;
             if(method == "euclidean")
             {
-                for(int gene_idx = 0; gene_idx < genes.size(); ++gene_idx)
+                for(size_t gene_idx = 0; gene_idx < genes.size(); ++gene_idx)
                 {
                     dist += std::pow((values.at(genes.at(gene_idx)) - n->values.at(genes.at(gene_idx))),2);
                 }
@@ -69,7 +69,7 @@ class node
             }
             else if(method == "manhattan")
             {
-                for(int gene_idx = 0; gene_idx < genes.size(); ++gene_idx)
+                for(size_t gene_idx = 0; gene_idx < genes.size(); ++gene_idx)
                 {
                     dist += std::abs(values.at(genes.at(gene_idx)) - n->values.at(genes.at(gene_idx)));
                 }

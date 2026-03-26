@@ -53,7 +53,7 @@ class Neighborhood
         Neighborhood(const std::shared_ptr<const GraphData> data, unsigned int neighborhoodNumber, unsigned int neighborhoodSize, int neighborhoodKNN,
                      const SingleCellData& inputData,
                      const std::vector<int>& cellStateGenes, const std::vector<int>& corrStateGenes, int permutations,
-                     const double& corrSetAbundance, const bool correlatedSetMode);
+                     const double& corrSetAbundance, const uint correlatedSetMode);
 
         //calculate how correlation cliques of proteins change smoothly along the
         //cell-cell neighborhood graph (from neighborhood to neighborhood)
@@ -98,7 +98,7 @@ class Neighborhood
                                             std::unordered_map<nodePtr, std::shared_ptr<GraphData>>& neighborhoodCorrelations,
                                             int totalCount, double& currentCount);
         void filter_cliques_present(nodePtr neighborhoodCenter, std::unordered_map<nodePtr, std::vector<std::vector<int>>>& cliquesPerNeighborhood);
-        std::vector<std::pair<int, int>> filter_best_pairs(int numberGenes);
+        std::vector<std::pair<int, int>> filter_best_pairs(size_t numberGenes);
 
         unsigned int neighborhoodSize;
         /* A NEIGHBORHOOD is essentially a list of NODE IDs, which are the CENTER NODES that define each neighborhood,
@@ -148,7 +148,7 @@ class Neighborhood
         //replace this maybe later, for now store in which cliues we observe correlations
         std::unordered_map<const std::pair<int, int>, std::vector<std::vector<std::string>>, pair_hash> pairToClique;
         double minimumCorrSetAbundance;
-        bool correlatedSetMode; //0 for finding a connected component (any path - even sparsly connected)
+        uint correlatedSetMode; //0 for finding a connected component (any path - even sparsly connected)
         //  / 1 for a whole clique (all connected)
         // 2 for a conected compoennt with min edges (threshold set to 2 at the moment)
 
