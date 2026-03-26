@@ -17,9 +17,10 @@ if [[ "$OS" == "Linux" ]]; then
         echo "Skipping system install; ensure git, cmake, ninja, compiler exist"
     fi
 elif [[ "$OS" == "Darwin" ]]; then
-    brew install gcc git cmake ninja || echo "Tools may already exist"
+    brew install gcc gfortran git cmake ninja || echo "Tools may already exist"
     export PATH="/opt/homebrew/bin:$PATH"   # Apple Silicon
     export PATH="/usr/local/bin:$PATH"      # Intel mac
+    export PATH="/opt/homebrew/opt/gcc/bin:$PATH"
 fi
 
 # -----------------------
