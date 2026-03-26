@@ -40,10 +40,14 @@ git checkout master
 ./bootstrap-vcpkg.sh
 cd ..
 
+#gety nanoflann branch for development
+git clone https://github.com/jlblancoc/nanoflann --branch v1.3.2; \
+
 # -----------------------
 # 3. Build project
 # -----------------------
 cmake -S . -B build \
+      -DNANOFLANN_INCLUDE_DIR=/path/to/nanoflann/include \
       -DCMAKE_TOOLCHAIN_FILE=$(pwd)/vcpkg/scripts/buildsystems/vcpkg.cmake \
       -G Ninja \
       -DCMAKE_BUILD_TYPE=Release

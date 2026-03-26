@@ -89,16 +89,20 @@ endif()
 # ===============================
 # nanoflann (header-only)
 # ===============================
-include(FetchContent)
-
-FetchContent_Declare(
-    nanoflann
-    GIT_REPOSITORY https://github.com/jlblancoc/nanoflann.git
-    GIT_TAG v1.3.2
-)
-
-FetchContent_MakeAvailable(nanoflann)
-target_include_directories(loco PRIVATE ${nanoflann_SOURCE_DIR}/include)
+if(DEFINED NANOFLANN_INCLUDE_DIR)
+    message(STATUS "Using nanoflann from ${NANOFLANN_INCLUDE_DIR}")
+    target_include_directories(loco PRIVATE ${NANOFLANN_INCLUDE_DIR})
+else()
+    # fallback: FetchContent
+    include(FetchContent)
+    FetchContent_Declare(
+        nanoflann
+        GIT_REPOSITORY https://github.com/jlblancoc/nanoflann.git
+        GIT_TAG v1.3.2
+    )
+    FetchContent_MakeAvailable(nanoflann)
+    target_include_directories(loco PRIVATE ${nanoflann_SOURCE_DIR}/include)
+endif()
 
 # ===============================
 # Output

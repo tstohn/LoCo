@@ -14,9 +14,9 @@ if ((git rev-parse --is-shallow-repository) -eq "true") {
 git fetch --all
 
 # Bootstrap vcpkg (disable telemetry)
-.\bootstrap-vcpkg.bat --disableMetrics
+cmd /c "bootstrap-vcpkg.bat --disableMetrics"
 
-# Install packages
-.\vcpkg.exe install
+# Install packages using CMD, not PowerShell parsing
+cmd /c "vcpkg.exe install"
 
 cd ..
