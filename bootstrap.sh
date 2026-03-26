@@ -49,7 +49,7 @@ cd ..
 # 3. Build project
 # -----------------------
 cmake -S . -B build \
-      -DNANOFLANN_INCLUDE_DIR=dependencies/nanoflann/include \
+      -DNANOFLANN_INCLUDE_DIR=$(pwd)/dependencies/nanoflann/include \
       -DCMAKE_TOOLCHAIN_FILE=$(pwd)/vcpkg/scripts/buildsystems/vcpkg.cmake \
       -G Ninja \
       -DCMAKE_BUILD_TYPE=Release
