@@ -549,13 +549,24 @@ void GraphHandler::calc_dense_groups_kcore(std::vector<std::vector<int>>& clique
         return;
 
     // build subgraph with those nodes
+    igraph_vector_int_t vids;
+    igraph_vector_int_init(&vids, (igraph_integer_t)validNodes.size());
+    // Fill the igraph vector from your std::vector
+    for (size_t i = 0; i < validNodes.size(); ++i) 
+    {
+        VECTOR(vids)[i] = validNodes[i];
+    }
+
     igraph_vs_t vs;
-    igraph_vs_vector_small(&vs, validNodes.data(), validNodes.size());
+    // Use the standard vector selector, which respects the vector size
+    igraph_vs_vector(&vs, &vids); 
 
     igraph_t subgraph;
     igraph_induced_subgraph(&igraphData.g, &subgraph, vs, IGRAPH_SUBGRAPH_CREATE_FROM_SCRATCH);
 
+    // Clean up
     igraph_vs_destroy(&vs);
+    igraph_vector_int_destroy(&vids);
 
     // find connected components in subgraph
     igraph_vector_int_t membership;

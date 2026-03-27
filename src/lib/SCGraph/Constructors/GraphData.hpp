@@ -472,7 +472,7 @@ class GraphData
 
         //search for close points in KD tree
         void search_kd_tree();
-        std::vector<std::pair<unsigned long, double> >  get_points_within_radius(node node, double radius); // (node,distance) pairs
+        std::vector<std::pair<size_t, double> >  get_points_within_radius(node node, double radius); // (node,distance) pairs
         void brute_force_get_points_within_radius(node node, double radius);
 
     private:
