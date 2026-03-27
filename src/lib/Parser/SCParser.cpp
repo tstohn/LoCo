@@ -1,9 +1,5 @@
 #include "SCParser.hpp"
 
-#include <boost/iostreams/filtering_streambuf.hpp>
-#include <boost/iostreams/copy.hpp>
-#include <boost/iostreams/filter/gzip.hpp>
-
 std::vector<int> get_indexlist_from_genenames(const SingleCellData& scData, const std::vector<std::string>& geneList)
 {
     std::vector<int> geneIdxs;
@@ -413,16 +409,20 @@ SCParser::SCParser(std::string tsvFile, const char& del,
         exit(EXIT_FAILURE);
     }
 
-    if(endWith(tsvFile,".gz"))
+    if(endWith(tsvFile, ".gz"))
     {
-        std::ifstream instream(tsvFile, std::ios_base::in | std::ios_base::binary);
-        boost::iostreams::filtering_streambuf<boost::iostreams::input> inbuf;
-        inbuf.push(boost::iostreams::gzip_decompressor());
-        inbuf.push(instream);
+        // 1. Initialize our custom zlib buffer
+        GzStreamBuf gzbuf(tsvFile.c_str());
 
-        std::istream istream(&inbuf);
+        if(!gzbuf.is_open()) {
+            throw std::runtime_error("Could not open gzip file: " + tsvFile);
+        }
+
+        // 2. Wrap the buffer in a standard istream
+        std::istream istream(&gzbuf);
+
+        // 3. Call your template function exactly as before
         parseTsvFile<std::istream>(del, istream, col, row);
-
     }
     else
     {

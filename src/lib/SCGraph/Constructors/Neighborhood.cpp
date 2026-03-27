@@ -3,6 +3,8 @@
 #include <algorithm> 
 #include<limits>
 #include <set>
+#include <execution> // C++17 SOTA for parallel sorting/looping
+#include <atomic>
 
 #include "Neighborhood.hpp"
 
@@ -934,62 +936,79 @@ void Neighborhood::filter_cliques_present(nodePtr neighborhoodCenter, std::unord
         }
 }
 
-void Neighborhood::filter_consistent_correlation_sets(
+// Helper to create a fast bitmask for pruning
+uint64_t create_signature(const std::vector<int>& vec) {
+    uint64_t mask = 0;
+    for (int x : vec) mask |= (1ULL << (static_cast<uint32_t>(x) % 64));
+    return mask;
+}
+
+void Neighborhood::filter_consistent_correlation_sets_sota(
         const std::unordered_map<nodePtr, std::vector<std::vector<int>>>& cliquesPerNeighborhood,
         int minCliqueSize)
 {
+    // 1. GENERATE CANDIDATES: all possible subsets of found sets of allowed size
     std::set<std::vector<int>> candidateSets;
-
-    // ----- generate all candidate subsets -----
-    for(const auto& clique : cliquesVector)
-    {
+    for(const auto& clique : cliquesVector) {
         std::vector<int> sortedClique = clique;
         std::sort(sortedClique.begin(), sortedClique.end());
-
         auto subsets = neighborhoodCalculations::generate_subsets(sortedClique, minCliqueSize);
-
-        for(const auto& s : subsets)
-            candidateSets.insert(s);
+        for(auto& s : subsets){ candidateSets.insert(std::move(s));}
     }
 
-    const int neighborhoodCount = cliquesPerNeighborhood.size();
-    const int required = std::ceil(minimumCorrSetAbundance * neighborhoodCount);
+    // 2. PRE-PROCESS NEIGHBORHOODS (The Speed Boost)
+    // We sort everything once and pre-calculate bitmasks
+    struct IndexedNeighborhood {
+        std::vector<std::vector<int>> sortedCliques;
+        std::vector<uint64_t> masks;
+    };
+    
+    std::vector<IndexedNeighborhood> processedData;
+    processedData.reserve(cliquesPerNeighborhood.size());
 
+    for (auto const& [node, cliques] : cliquesPerNeighborhood) {
+        IndexedNeighborhood idx;
+        for (auto c : cliques) {
+            std::sort(c.begin(), c.end());
+            idx.masks.push_back(create_signature(c));
+            idx.sortedCliques.push_back(std::move(c));
+        }
+        processedData.push_back(std::move(idx));
+    }
+
+    const int neighborhoodCount = processedData.size();
+    const int required = std::ceil(minimumCorrSetAbundance * neighborhoodCount);
     std::vector<std::vector<int>> result;
 
-    // ----- check each candidate -----
-    for(const auto& candidate : candidateSets)
-    {
+    // check all candidates
+    for(const auto& candidate : candidateSets) {
+        uint64_t candMask = create_signature(candidate);
         int count = 0;
 
-        for(const auto& [node, sets] : cliquesPerNeighborhood)
-        {
+        for(const auto& neighborhood : processedData) {
             bool found = false;
+            for(size_t i = 0; i < neighborhood.sortedCliques.size(); ++i) {
+                // PRUNING STEP: Bitmask check is nearly free
+                if ((candMask & neighborhood.masks[i]) != candMask) continue;
+                
+                // Size check: Candidate can't be a subset if it's bigger
+                if (candidate.size() > neighborhood.sortedCliques[i].size()) continue;
 
-            for(const auto& s : sets)
-            {
-                std::vector<int> sortedS = s;
-                std::sort(sortedS.begin(), sortedS.end());
-
-                if(neighborhoodCalculations::contains_subset(sortedS, candidate))
-                {
+                // FINAL CHECK: std::includes is the fastest way to check subset on sorted vectors
+                if (std::includes(neighborhood.sortedCliques[i].begin(), neighborhood.sortedCliques[i].end(),
+                                  candidate.begin(), candidate.end())) {
                     found = true;
                     break;
                 }
             }
-
-            if(found)
-                count++;
-
-            if(count >= required)
-                break;
+            if(found) count++;
+            if(count >= required) break; // Early exit for this candidate
         }
 
-        if(count >= required)
-            result.push_back(candidate);
+        if(count >= required) result.push_back(candidate);
     }
 
-    cliquesVector = result;
+    cliquesVector = std::move(result);
 }
 
 void Neighborhood::calculate_correlation_propagation(double correlationStrengthCutoff, const bool printFoundCliquesPerNeighborhood, int minCliqueSize, int thread)
@@ -1017,7 +1036,7 @@ void Neighborhood::calculate_correlation_propagation(double correlationStrengthC
     std::cout << "\n";
 
     //cliquesVector is the final data structure storing all the correlated sets of features to process and from which to extract pairs
-    std::cout << "STEP[2/6]:\tGet unique set of cliques\n";
+    std::cout << "STEP[2/6]:\tGet unique list of correlated sets: \n";
     for(nodePtr neighborhoodCenter : centralNeighborhoodPtrs)
     {
         //for every clique in actual nHood
@@ -1029,10 +1048,12 @@ void Neighborhood::calculate_correlation_propagation(double correlationStrengthC
             }
         }
     }
+    std::cout << "\t\tdetected " << cliquesVector.size() << " cliques\n";
 
     //find consistent correlation sets
-    std::cout << "STEP[4/6]:\tFilter consistent cliques that occur several neighborhoods\n";
-    filter_consistent_correlation_sets(cliquesPerNeighborhood, minCliqueSize);
+    std::cout << "STEP[4/6]:\tFilter consistent sets/ or find subsets of those sets that occur in several neighborhoods: \n";
+    filter_consistent_correlation_sets_sota(cliquesPerNeighborhood, minCliqueSize);
+    std::cout << "\t\tdetected " << cliquesVector.size() << " correlated sets/ subsets of previously found sets\n";
 
     //cliques might contain subset-cliques of other cliques - remove those
     std::cout << "STEP[3/6]:\tRemove duplicates/ subsets\n";
@@ -1042,7 +1063,7 @@ void Neighborhood::calculate_correlation_propagation(double correlationStrengthC
         std::cerr << "Exiting program: please reduce the number of a minimum correlation set or reduce minimum correlations\n";
         exit(EXIT_FAILURE);
     }
-    remove_subsets(cliquesVector);
+    remove_subsets_sota(cliquesVector);
 
     std::cout << "STEP[5/6]:\tExtract pairwise correlations from correlated sets\n";
     //extract pairwise correlations from all found cliques.

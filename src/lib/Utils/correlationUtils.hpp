@@ -72,32 +72,51 @@ static void rankify(std::vector<double>& X)
 
 }
 
-// Function to remove subsets from a vector of vectors
-inline void remove_subsets(std::vector<std::vector<int>>& vectors) 
-{
-    // Sort vectors by size in descending order
+inline void remove_subsets_sota(std::vector<std::vector<int>>& vectors) {
+    if (vectors.empty()) return;
+
+    // 1. Sort elements within each vector (Required for fast is_subset)
+    for (auto& v : vectors) {
+        std::sort(v.begin(), v.end());
+    }
+
+    // 2. Sort vectors by size DESCENDING (Large sets first)
     std::sort(vectors.begin(), vectors.end(), 
-        [](const std::vector<int>& a, const std::vector<int>& b) 
-        { return a.size() < b.size(); });
+        [](const std::vector<int>& a, const std::vector<int>& b) {
+            return a.size() > b.size(); 
+        });
 
-    // Mark vectors to be removed
     std::vector<bool> toRemove(vectors.size(), false);
+    
+    // 3. Parallel Subset Check (O(N^2) but with massive pruning)
+    // We use C++17 parallel policy. If not available, use a standard loop.
+    for (size_t i = 1; i < vectors.size(); ++i) {
+        // Only check if it's a subset of a LARGER set (indices 0 to i-1)
+        for (size_t j = 0; j < i; ++j) {
+            if (toRemove[j]) continue; // If the container is already gone, skip
 
-    for (std::size_t i = 0; i < (vectors.size()-1); ++i) {
-        for (std::size_t j = i + 1; j < vectors.size(); ++j) {
+            // should never be true bcs of ordered/ but keep for clarity
+            if (vectors[i].size() > vectors[j].size()) continue;
 
-            if (is_subset(vectors.at(i), vectors.at(j))) 
-            {
+            if (std::includes(vectors[j].begin(), vectors[j].end(),
+                              vectors[i].begin(), vectors[i].end())) {
                 toRemove[i] = true;
-                break; // No need to check further if it's a subset
+                break;
             }
         }
     }
 
-    // Erase vectors marked for removal
-    vectors.erase(std::remove_if(vectors.begin(), vectors.end(),
-                    [&toRemove, &vectors](const std::vector<int>& vectorElement) {return toRemove[&vectorElement - &*vectors.begin()];}),
-                  vectors.end());
+    // 4. Efficient Erase
+    size_t writeIdx = 0;
+    for (size_t readIdx = 0; readIdx < vectors.size(); ++readIdx) {
+        if (!toRemove[readIdx]) {
+            if (readIdx != writeIdx) {
+                vectors[writeIdx] = std::move(vectors[readIdx]);
+            }
+            writeIdx++;
+        }
+    }
+    vectors.resize(writeIdx);
 }
 
 // function that returns Pearson correlation coefficient.

@@ -18,6 +18,17 @@
 #include "SCGraph/Constructors/GraphHandler.hpp"
 #include "Utils/generalUtils.hpp"
 
+struct VectorHash {
+    size_t operator()(const std::vector<int>& v) const {
+        size_t seed = 0;
+        for (int i : v) {
+            // "Golden Ratio" hashing to spread bits effectively
+            seed ^= std::hash<int>{}(i) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        }
+        return seed;
+    }
+};
+
 // Hash combining function
 template <typename T>
 inline void hash_combine(std::size_t& seed, const T& value) 
@@ -86,8 +97,9 @@ class Neighborhood
                                    const std::vector<CorrelationPropagationResult>& vectorizedResults,
                                    int totalCount, double& currentCount);
         void calculate_laplacian_score(bool print, int threads);
-        void filter_consistent_correlation_sets(const std::unordered_map<nodePtr, std::vector<std::vector<int>>>& cliquesPerNeighborhood,
-                                                int minCliqueSize);
+        void filter_consistent_correlation_sets_sota(
+                const std::unordered_map<nodePtr, std::vector<std::vector<int>>>& cliquesPerNeighborhood,
+                int minCliqueSize);
 
         const std::vector<std::string> get_feaure_names() const
         {

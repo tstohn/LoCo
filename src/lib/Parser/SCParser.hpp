@@ -11,10 +11,57 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <cmath>
+#include <zlib.h>
+#include <cassert>
 
-#include <boost/iostreams/filtering_streambuf.hpp>
-#include <boost/iostreams/copy.hpp>
-#include <boost/iostreams/filter/gzip.hpp>
+class GzStreamBuf : public std::streambuf {
+private:
+    gzFile file = nullptr;
+    std::vector<char> buffer;
+
+public:
+    explicit GzStreamBuf(const char* path)
+        : buffer(32 * 1024) // 32KB buffer
+    {
+        file = gzopen(path, "rb");
+        if (!file) {
+            return; //  is_open() is checkd in Parser
+        }
+
+        setg(buffer.data(), buffer.data(), buffer.data());
+    }
+
+    ~GzStreamBuf() override {
+        if (file) {
+            gzclose(file);
+        }
+    }
+
+    bool is_open() const {
+        return file != nullptr;
+    }
+
+protected:
+    int_type underflow() override {
+        if (!file) return traits_type::eof();
+
+        if (gptr() < egptr()) {
+            return traits_type::to_int_type(*gptr());
+        }
+
+        int bytesRead = gzread(file, buffer.data(), buffer.size());
+
+        if (bytesRead <= 0) {
+            return traits_type::eof();
+        }
+
+        setg(buffer.data(),
+             buffer.data(),
+             buffer.data() + bytesRead);
+
+        return traits_type::to_int_type(*gptr());
+    }
+};
 
 //struct storing the single cell data after parsing it from its raw file
 struct SingleCellData
