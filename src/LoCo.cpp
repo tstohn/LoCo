@@ -25,7 +25,7 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
                      unsigned int & numNeighborhoods, std::string& neighborhoodSizeStr, int& neighborhoodKNN, double& correlationCutoff,
                      int& numberCorrelations,
                      std::string& cellStateGeneFile, std::string& correlationStateGeneFile,
-                     bool& zscore, int& permutations, int&minSetSize, double& corrSetAbundance, uint& correlatedSetMode)
+                     bool& zscore, int& permutations, int&minSetSize, double& corrSetAbundance, unsigned int& correlatedSetMode)
 {
     try
     {
@@ -66,7 +66,7 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
             Loco then does a BFS from every node and tests which pairs of this set span a region in the Neighborhoodgraph that covers at least 5% of neighborhoods. \
             Imagine correlations between A,B,C are present in 10% but any correlation with D only in a single neighborhood: Lco will use only the set A,B,C.")
 
-            ("correlatedSetMode,q", value<uint>(&correlatedSetMode)->default_value(2), "mode to detect correlated set: 0=connected components\
+            ("correlatedSetMode,q", value<unsigned int>(&correlatedSetMode)->default_value(2), "mode to detect correlated set: 0=connected components\
             1=fully connected components, 2=components with>=2edges per node")
 
 
@@ -148,7 +148,7 @@ void run_correlation_propagation_across_graph(const SingleCellData& inFile, cons
                                               int& numberCorrelations, const std::vector<std::string>& cellStateGenes,
                                               const std::vector<std::string>& corrStateGenes, 
                                               const int permutations, const int minSetSize, const double corrSetAbundance, 
-                                              const uint correlatedSetMode)
+                                              const unsigned int correlatedSetMode)
 {
     //generate cell-cell neighborhood graph
     std::vector<int> cellStateIdxs = get_indexlist_from_genenames(inFile, cellStateGenes);
@@ -212,7 +212,7 @@ int main(int argc, char** argv)
     bool row = false;
     bool zscore = false;
     int thread;
-    uint correlatedSetMode;
+    unsigned int correlatedSetMode;
 
     //gene lists for states/ correlations
     int numberCorrelations;

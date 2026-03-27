@@ -473,7 +473,7 @@ void GraphData::search_kd_tree()
         std::vector<nanoflann::KNNResultSet<double>::IndexType> ret_indexes(num_results);
         std::vector<double> out_dists_sqr(num_results);
 
-        nanoflann::KNNResultSet<double> resultSet(static_cast<size_t>(num_results));
+        nanoflann::KNNResultSet<double> resultSet(num_results);
 
         resultSet.init(&ret_indexes[0], &out_dists_sqr[0] );
         mat_indexPtr->index->findNeighbors(resultSet, &query_pt[0], nanoflann::SearchParams(10));
@@ -488,10 +488,10 @@ void GraphData::search_kd_tree()
 }
 
 //mathces is a vector of pairs: 1st index, 2nd is distance
-std::vector<std::pair<unsigned long, double> > GraphData::get_points_within_radius(node node, double radius)
+std::vector<std::pair<size_t, double> > GraphData::get_points_within_radius(node node, double radius)
 {
 
-    std::vector<std::pair<unsigned long, double> > matches;
+    std::vector<std::pair<size_t, double> > matches;
     nanoflann::SearchParams params;
 
     std::vector<double> searchPoint = node.all_values();

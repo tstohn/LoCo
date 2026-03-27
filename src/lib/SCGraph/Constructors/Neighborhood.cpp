@@ -460,7 +460,7 @@ void Neighborhood::calculate_slopes(unsigned int numberNodes,
 {
         //calcualte mean first
     double mean = 0;
-    uint nonNanNodes = 0;
+    unsigned int nonNanNodes = 0;
     for(const nodePtr& node: neighborhoodGraph->get_all_nodes())
     {
         double slopeTmp = corrResult.at(node).slopeResult.at(correlationpair);
@@ -1084,7 +1084,7 @@ Neighborhood::Neighborhood(const std::shared_ptr<const GraphData> scData, unsign
                            unsigned int neighborhoodSize, int neighborhoodKNN,
                            const SingleCellData& inputData,
                            const std::vector<int>& cellStateGenes, const std::vector<int>& corrStateGenes, int permutations,
-                           const double& corrSetAbundance, const uint correlatedSetMode) : 
+                           const double& corrSetAbundance, const unsigned int correlatedSetMode) : 
                            neighborhoodSize(neighborhoodSize), inputDataOrigional(inputData),
                            cellStateGenes(cellStateGenes), corrStateGenes(corrStateGenes), permutations(permutations),
                            minimumCorrSetAbundance(corrSetAbundance), correlatedSetMode(correlatedSetMode)
