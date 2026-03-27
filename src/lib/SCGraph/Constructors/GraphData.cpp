@@ -469,11 +469,11 @@ void GraphData::search_kd_tree()
         {
             query_pt[d] = get_node_at(i)->value_at(d);
         }
-        const int num_results = 10;
+        const size_t num_results = 10;
         std::vector<nanoflann::KNNResultSet<double>::IndexType> ret_indexes(num_results);
         std::vector<double> out_dists_sqr(num_results);
 
-        nanoflann::KNNResultSet<double> resultSet(num_results);
+        nanoflann::KNNResultSet<double> resultSet(static_cast<size_t>(num_results));
 
         resultSet.init(&ret_indexes[0], &out_dists_sqr[0] );
         mat_indexPtr->index->findNeighbors(resultSet, &query_pt[0], nanoflann::SearchParams(10));
@@ -481,7 +481,7 @@ void GraphData::search_kd_tree()
         if(i == nodes.size()-1)
         {
         	std::cout << "knnSearch(nn="<<num_results<<"): \n";
-            for (int i = 0; i < num_results; i++)
+            for (size_t i = 0; i < num_results; i++)
                 std::cout << "ret_index["<<i<<"]=" << ret_indexes[i] << " out_dist_sqr=" << out_dists_sqr[i] << std::endl;
         }
     }
