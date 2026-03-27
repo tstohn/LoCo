@@ -695,42 +695,97 @@ void Neighborhood::calculate_laplacian_score(bool print, int threads)
     //CORRELATION VARIANCE
     std::cout << "\tSTEP[6a]:\tCalculate variance of smooth Correlations\n";
     std::unordered_map<const std::pair<int, int>, double, pair_hash> corrVariance;
-    boost::asio::thread_pool pool_corr(threads);
+    //boost::asio::thread_pool pool_corr(threads);
+    ThreadPool pool_corr(threads);
+
     double count = 0;
     for(const std::pair<int, int>& correlationpair : pairs)
     {
-        boost::asio::post(pool_corr, std::bind(&Neighborhood::calculate_correlations, this, 
-                          numberNodes, print, std::cref(correlationpair), std::ref(corrVariance), pairs.size(), std::ref(count)));
+        //boost::asio::post(pool_corr, std::bind(&Neighborhood::calculate_correlations, this, 
+        //                  numberNodes, print, std::cref(correlationpair), std::ref(corrVariance), pairs.size(), std::ref(count)));
+        pool_corr.enqueue([
+            this,                       
+            numberNodes,                
+            print,                      
+            &correlationpair,           
+            &corrVariance,              
+            pairCount = pairs.size(),   
+            &count                      
+        ]() {
+            calculate_correlations(
+                numberNodes,
+                print,
+                correlationpair,
+                corrVariance,
+                pairCount,
+                count
+            );
+        });
     }
-    pool_corr.join();
+    pool_corr.wait_for_tasks();
     printProgress(1);
     std::cout << "\n";
 
     //SLOPE VARIANCE
     std::cout << "\tSTEP[6b]:\tCalculate variance of smooth Slopes\n";
     std::unordered_map<const std::pair<int, int>, double, pair_hash> slopeVariance;
-    boost::asio::thread_pool pool_slope(threads);
+    //boost::asio::thread_pool pool_slope(threads);
+    ThreadPool pool_slope(threads);
     count = 0;
     for(const std::pair<int, int>& correlationpair : pairs)
     {
-        boost::asio::post(pool_slope, std::bind(&Neighborhood::calculate_slopes, this, 
-                          numberNodes, std::cref(correlationpair), std::ref(slopeVariance), pairs.size(), std::ref(count)));
+        //boost::asio::post(pool_slope, std::bind(&Neighborhood::calculate_slopes, this, 
+        //                  numberNodes, std::cref(correlationpair), std::ref(slopeVariance), pairs.size(), std::ref(count)));
+        pool_slope.enqueue([
+            this,                       
+            numberNodes,                
+            &correlationpair,           
+            &slopeVariance,              
+            pairCount = pairs.size(),   
+            &count                      
+        ]() {
+            calculate_slopes(
+                numberNodes,
+                correlationpair,
+                slopeVariance,
+                pairCount,
+                count
+            );
+        });
     }
-    pool_slope.join();
+    pool_slope.wait_for_tasks();
     printProgress(1);
     std::cout << "\n";
 
     //FULL LAPLACIAN SCORE
     std::cout << "\tSTEP[6c]:\tCalculate Laplacian Scores\n";
-    boost::asio::thread_pool pool_lapl(threads);
+    //boost::asio::thread_pool pool_lapl(threads);
+    ThreadPool pool_lapl(threads);
+
     count = 0;
     for(const std::pair<int, int>& pair : pairs)
     {
-        boost::asio::post(pool_lapl, std::bind(&Neighborhood::laplacian_score, this, 
-                          std::cref(pair), std::cref(corrVariance), std::cref(slopeVariance),
-                          pairs.size(), std::ref(count)));
+        //boost::asio::post(pool_lapl, std::bind(&Neighborhood::laplacian_score, this, 
+        //                  std::cref(pair), std::cref(corrVariance), std::cref(slopeVariance),
+        //                  pairs.size(), std::ref(count)));
+        pool_lapl.enqueue([
+            this,                       
+            &pair,                
+            &corrVariance,           
+            &slopeVariance,              
+            pairCount = pairs.size(),   
+            &count                      
+        ]() {
+            laplacian_score(
+                pair,                
+                corrVariance,           
+                slopeVariance,              
+                pairCount,   
+                count  
+            );
+        });
     }
-    pool_lapl.join();
+    pool_lapl.wait_for_tasks();
     printProgress(1);
     std::cout << "\n";
 
@@ -745,15 +800,33 @@ void Neighborhood::calculate_laplacian_score(bool print, int threads)
     {
         vectorizedResults.push_back(result);
     }
-    boost::asio::thread_pool pool_shuffle(threads);
+    ThreadPool pool_shuffle(threads);
     for(const std::pair<int, int>& pair : pairs)
     {
-        boost::asio::post(pool_shuffle, std::bind(&Neighborhood::laplacian_significance, this, 
-                          std::cref(pair), std::cref(corrVariance), std::cref(slopeVariance),
-                          std::cref(vectorizedResults),
-                          pairs.size(), std::ref(count)));
+        //boost::asio::post(pool_shuffle, std::bind(&Neighborhood::laplacian_significance, this, 
+        //                  std::cref(pair), std::cref(corrVariance), std::cref(slopeVariance),
+        //                 std::cref(vectorizedResults),
+        //                  pairs.size(), std::ref(count)));
+        pool_shuffle.enqueue([
+            this,                       
+            &pair,                
+            &corrVariance,           
+            &slopeVariance,   
+            &vectorizedResults,           
+            pairCount = pairs.size(),   
+            &count                      
+        ]() {
+            laplacian_significance(
+                pair,                
+                corrVariance,           
+                slopeVariance, 
+                vectorizedResults,             
+                pairCount,   
+                count  
+            );
+        });
     }
-    pool_shuffle.join();
+    pool_shuffle.wait_for_tasks();
     printProgress(1);
     std::cout << "\n";
 
@@ -1011,7 +1084,7 @@ void Neighborhood::filter_consistent_correlation_sets_sota(
     cliquesVector = std::move(result);
 }
 
-void Neighborhood::calculate_correlation_propagation(double correlationStrengthCutoff, const bool printFoundCliquesPerNeighborhood, int minCliqueSize, int thread)
+void Neighborhood::calculate_correlation_propagation(double correlationStrengthCutoff, const bool printFoundCliquesPerNeighborhood, int minCliqueSize, int threads)
 {
 
     //calculate all CLIQUES in all neighborhoods: TODO: maybe add storing slope/correlation
@@ -1023,15 +1096,37 @@ void Neighborhood::calculate_correlation_propagation(double correlationStrengthC
     //enqueue threads in pool for each thread to handle a separate neighborhood to calc all correlated cliques
     double count = 0;
     //create thread pool
-    boost::asio::thread_pool pool_1(thread);
+    ThreadPool pool_1(threads);
     for( nodePtr neighborhoodCenter : centralNeighborhoodPtrs)
     {
-        boost::asio::post(pool_1, std::bind(&Neighborhood::detect_cliques_in_neighborhood, this, 
-                          neighborhoodCenter, std::cref(correlationStrengthCutoff), minCliqueSize, printFoundCliquesPerNeighborhood,
-                          std::ref(cliquesPerNeighborhood), std::ref(neighborhoodCorrelations),
-                          centralNeighborhoodPtrs.size(), std::ref(count)));
+        //boost::asio::post(pool_1, std::bind(&Neighborhood::detect_cliques_in_neighborhood, this, 
+        //                  neighborhoodCenter, std::cref(correlationStrengthCutoff), minCliqueSize, printFoundCliquesPerNeighborhood,
+        //                  std::ref(cliquesPerNeighborhood), std::ref(neighborhoodCorrelations),
+        //                  centralNeighborhoodPtrs.size(), std::ref(count)));
+        pool_1.enqueue([
+            this,                              
+            neighborhoodCenter,                        
+            &correlationStrengthCutoff,                              
+            minCliqueSize,                           
+            printFoundCliquesPerNeighborhood,
+            &cliquesPerNeighborhood,
+            &neighborhoodCorrelations,                         
+            nPtrSize = centralNeighborhoodPtrs.size(),
+            &count                        
+        ]() {
+            detect_cliques_in_neighborhood(
+                neighborhoodCenter,                        
+                correlationStrengthCutoff,                              
+                minCliqueSize,                           
+                printFoundCliquesPerNeighborhood,
+                cliquesPerNeighborhood,
+                neighborhoodCorrelations,                         
+                nPtrSize,
+                count  
+            );
+        });
     }
-    pool_1.join();
+    pool_1.wait_for_tasks();
     printProgress(1);
     std::cout << "\n";
 
@@ -1073,7 +1168,7 @@ void Neighborhood::calculate_correlation_propagation(double correlationStrengthC
 
     std::cout << "STEP[6/6]:\tCalculate Laplacian score\n";
     //make calculate_laplacian_score for all those slopes/ correlations
-    calculate_laplacian_score(printFoundCliquesPerNeighborhood, thread);
+    calculate_laplacian_score(printFoundCliquesPerNeighborhood, threads);
 
     //PRINT ALL RESULT
     if(printFoundCliquesPerNeighborhood)

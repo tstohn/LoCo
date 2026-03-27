@@ -12,11 +12,10 @@
 #include <thread>
 #include <pthread.h>
 #include <cmath>
-#include <boost/asio/thread_pool.hpp>
-#include <boost/asio/post.hpp>
 
 #include "SCGraph/Constructors/GraphHandler.hpp"
 #include "Utils/generalUtils.hpp"
+#include "Utils/threadPool.hpp"
 
 struct VectorHash {
     size_t operator()(const std::vector<int>& v) const {

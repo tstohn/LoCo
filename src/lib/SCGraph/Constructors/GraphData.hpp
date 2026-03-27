@@ -14,8 +14,7 @@
 #include "Parser/SCParser.hpp"
 #include "Utils/correlationUtils.hpp"
 #include "Utils/generalUtils.hpp"
-#include <boost/asio/thread_pool.hpp>
-#include <boost/asio/post.hpp>
+#include "Utils/threadPool.hpp"
 
 // vector of positions of the dimensions that contribute to a subspace
 typedef std::vector<int> subSpace;

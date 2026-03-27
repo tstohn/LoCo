@@ -254,7 +254,7 @@ test_loco_sigmoidal_granularities:
 
 # simulate the signaling markers as uniformal distributions
 test_loco_uniform:
-	/usr/bin/time ./bin/loco -i ./test/data_2.tsv -o bin -p data_2 -c -n 1000 -s 50 -x 0.5 -z -t 10 -f 20 -v test/paperCellstateMarkers.txt -w test/paperCellsignalMarkers.txt
+	/usr/bin/time ./bin/loco -i ./test/data_2.tsv -o bin -p data_2 -c -n 1000 -s 100 -x 0.5 -z -t 10 -f 20 -v test/paperCellstateMarkers.txt -w test/paperCellsignalMarkers.txt
 
 #5K cells,m when having more than 50N p-values seem to not make sense anymore
 test_loco_uniform_noSignalMarkers:

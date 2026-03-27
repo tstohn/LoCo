@@ -128,7 +128,9 @@ namespace InitializationHelper
         for(auto x : cellStateGenes){std::cout << x << " ";}
         std::cout << "\n";
 
-        boost::asio::thread_pool pool_dist(threads);
+        //boost::asio::thread_pool pool_dist(threads);
+        ThreadPool pool_dist(threads);
+
         std::atomic<int> count = 0;
         double totalDist = (graphData->number_of_nodes() * graphData->number_of_nodes())/2 - graphData->number_of_nodes();
         std::mutex statusUpdateLock;
@@ -147,8 +149,30 @@ namespace InitializationHelper
                 //COPY THE PAIR BUCKET!!!
                 if(numberPairs == 10000)
                 {
-                    boost::asio::post(pool_dist, std::bind(&calculate_distance, 
-                            graphData, std::cref(cellStateGenes), std::cref(distance), nodeIdxPairs, std::ref(count), totalDist, std::ref(statusUpdateLock), statusUpdate));
+                    //boost::asio::post(pool_dist, std::bind(&calculate_distance, 
+                    //       graphData, std::cref(cellStateGenes), std::cref(distance), nodeIdxPairs, std::ref(count), totalDist, std::ref(statusUpdateLock), statusUpdate));
+                    pool_dist.enqueue([
+                        graphData,                              
+                        &cellStateGenes,                        
+                        &distance,                              
+                        nodeIdxPairs,                           
+                        &count,                                 
+                        totalDist,                              
+                        &statusUpdateLock,                      
+                        statusUpdate                            
+                    ]() {
+                        calculate_distance(
+                            graphData,
+                            cellStateGenes,
+                            distance,
+                            nodeIdxPairs,
+                            count,
+                            totalDist,
+                            statusUpdateLock,
+                            statusUpdate
+                        );
+                    });
+                    
                     numberPairs = 0;
                     nodeIdxPairs.clear();
                 }
@@ -156,8 +180,29 @@ namespace InitializationHelper
         }
         if(!nodeIdxPairs.empty())
         {
-            boost::asio::post(pool_dist, std::bind(&calculate_distance, 
-                graphData, std::cref(cellStateGenes), std::cref(distance), nodeIdxPairs, std::ref(count), totalDist, std::ref(statusUpdateLock), statusUpdate));
+            //boost::asio::post(pool_dist, std::bind(&calculate_distance, 
+            //    graphData, std::cref(cellStateGenes), std::cref(distance), nodeIdxPairs, std::ref(count), totalDist, std::ref(statusUpdateLock), statusUpdate));
+            pool_dist.enqueue([
+                        graphData,                              
+                        &cellStateGenes,                        
+                        &distance,                              
+                        nodeIdxPairs,                           
+                        &count,                                 
+                        totalDist,                              
+                        &statusUpdateLock,                      
+                        statusUpdate                            
+                    ]() {
+                        calculate_distance(
+                            graphData,
+                            cellStateGenes,
+                            distance,
+                            nodeIdxPairs,
+                            count,
+                            totalDist,
+                            statusUpdateLock,
+                            statusUpdate
+                        );
+                    });
              if(statusUpdate)
             {
                 statusUpdateLock.lock();
@@ -166,8 +211,8 @@ namespace InitializationHelper
                 statusUpdateLock.unlock();
             }
         }
-        
-        pool_dist.join();
+        pool_dist.wait_for_tasks();
+
         printProgress(1);
         std::cout << "\n";
 
