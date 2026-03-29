@@ -1131,6 +1131,7 @@ void Neighborhood::calculate_correlation_propagation(double correlationStrengthC
     std::cout << "\n";
 
     //cliquesVector is the final data structure storing all the correlated sets of features to process and from which to extract pairs
+    // we might have the same set of features from several neighborhoods
     std::cout << "STEP[2/6]:\tGet unique list of correlated sets: \n";
     for(nodePtr neighborhoodCenter : centralNeighborhoodPtrs)
     {
