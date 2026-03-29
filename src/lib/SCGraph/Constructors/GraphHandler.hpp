@@ -9,14 +9,21 @@
 #include <unordered_map>
 #include <exception>
 #include <numeric>
-#include <igraph.h>
 
 #include "GraphData.hpp"
 
-struct iGraphHolder
-{
-    igraph_vector_t weights;
-    igraph_t g;
+//graph structure for graphs in which we search for connected components
+//this graph is not used for the neighborhoods graph, but only to create a quick/ fast accessable and traversable graph
+// of proteins for all neighbourshoods
+struct Graph {
+    int num_nodes;
+    //the starting positions for edges for every node
+    std::vector<int> offsets;   // size = num_nodes + 1 because the last node needs and end (the offset of the next node which is just the end of the edges vector)
+    // core element, a list of edges like [1,2,1,3], in this list all elements are nodes that the ofdfset node points to
+    //these edges are ordered by nodes (for 1 edges, then 2 edges) and one can access the edges for a node with offset
+    //so offset[0] until offset[1] are all the nodes that can be reached from node 0
+    std::vector<int> edges;     
+    std::vector<double> weights; // same as edges but containing the weights
 };
 
 /**
@@ -48,15 +55,6 @@ class GraphHandler
                 free((weightedAdjacencyMatrix)[i]);
             }
             free(weightedAdjacencyMatrix);
-
-            //free igraph data structure
-            igraph_vector_destroy(&igraphData.weights);
-            igraph_destroy(&igraphData.g);
-        }
-
-        iGraphHolder* get_igraph()
-        {
-            return(&igraphData);
         }
 
         //returns the edge weight between ndoes if they exist, if they r not connected its zero
@@ -73,21 +71,23 @@ class GraphHandler
         {
             return(data->get_all_feature_names());
         }
-        void print_adj_list();
 
         void create_graph();
 
-        void calc_all_max_clique(std::vector<std::vector<int>>& cliqueVector, const int minCliqueSize, bool mergeSimilarCliques = false, bool print = false);
-        void find_correlation_sets(std::vector<std::vector<int>>& correlationSet, const size_t minSetSize);
-        void calc_dense_groups_kcore(std::vector<std::vector<int>>& cliqueVector,
-                                           const size_t minCliqueSize,
-                                           int kcoreThreshold,
-                                           bool mergeSimilarCliques,
-                                           bool print);
-
-        void create_clustering(double resolution = 0);
-        void create_modularity_clustering();
-        void create_edge_betweenness_clustering(std::vector<std::pair<int, int>>& mergesVector);
+        void dfs_search(const int start,
+                        std::vector<char>& visited,
+                        std::vector<int>& component,
+                        std::vector<int>& stack,
+                        const int minDegree);
+        void bron_kerbosch(std::vector<std::vector<int>>& correlationSet,
+                                std::vector<int>& R,
+                                std::vector<int>& P,
+                                std::vector<int>& X,
+                                const int minSetSize);
+        void calculate_fully_connected_components(std::vector<std::vector<int>>& cliqueVector, const int minCliqueSize);
+        void calculate_connected_components(std::vector<std::vector<int>>& correlationSet, const size_t minSetSize);
+        void calculate_min_edge_connected_components(std::vector<std::vector<int>>& cliqueVector,
+                                           const size_t minCliqueSize, int kcoreThreshold);
 
         void fill_distance_matrix(double** weightMatrix);
         void fill_knn_matrix(double** weightMatrix);
@@ -134,7 +134,7 @@ class GraphHandler
         std::vector<subSpace> subSpaces;
 
         //iGraph: nodes and adj matrix in the same order as ndoes in GraphData!!
-        iGraphHolder igraphData;
+        Graph graph;
         // adjacency matrix: symmetric 
         double** weightedAdjacencyMatrix = nullptr;
 };

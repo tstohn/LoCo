@@ -290,334 +290,267 @@ GraphHandler::GraphHandler(std::shared_ptr<const GraphData> data, int knn, doubl
 
 }
 
-void GraphHandler::print_adj_list()
-{
-    igraph_vector_int_t el;
-    igraph_vector_int_init(&el, 0);
-    igraph_get_edgelist(&igraphData.g, &el, 0);
-    igraph_integer_t i, j, n;
-    n = igraph_ecount(&igraphData.g);
-    for (i = 0, j = 0; i < n; i++, j += 2) {
-        printf("%" IGRAPH_PRId " --> %" IGRAPH_PRId ": %g\n", VECTOR(el)[j], VECTOR(el)[j + 1], VECTOR(igraphData.weights)[i]);
-    }
-}
-
 void GraphHandler::create_graph()
 {
-
+    int n = data->number_of_nodes();
     double** m = weightedAdjacencyMatrix;
-    igraph_integer_t i, j;
-    igraph_vector_int_t el;
-    igraph_matrix_t mat;
-    igraph_vector_int_init(&el, 0);
-    igraph_vector_init(&igraphData.weights, 0);
-    int numberNodes = data->number_of_nodes();
-    igraph_matrix_init(&mat, numberNodes, numberNodes);
 
-    for (i = 0; i < numberNodes; i++) 
-    {
-        for (j = 0; j < numberNodes; j++) 
+    graph.num_nodes = n;
+    graph.offsets.resize(n + 1);
+
+    // get number of edges for every nodes (exclude self edges)
+    std::vector<int> degree(n, 0);
+
+    for (int i = 0; i < n; i++) {
+        for (int j = i + 1; j < n; j++) 
         {
-            MATRIX(mat, i, j) = m[i][j];
-        }
-    }
+            double w = m[i][j];
 
-    //filling weights and graph
-    igraph_weighted_adjacency(&igraphData.g, &mat, IGRAPH_ADJ_UNDIRECTED, &igraphData.weights, IGRAPH_LOOPS_ONCE);
-    igraph_matrix_destroy(&mat);
-    igraph_vector_int_destroy(&el);
-}
-
-void GraphHandler::create_clustering(double resolution)
-{
-
-    igraph_vector_int_t membership;
-    igraph_integer_t nb_clusters;
-    igraph_real_t quality;
-
-    /* Set default seed to get reproducible results */
-    igraph_rng_seed(igraph_rng_default(), 0);
-    /*initialize cluster membership vector, which will be filled*/
-    //igraph_vector_int_init(&membership, igraph_vcount(&igraphData.g));
-    //igraph_vector_int_init(&membership, igraph_vcount(&igraphData.g));
-    igraph_vector_int_init_range(&membership, 0, 10);
-
-    if(resolution == 0) 
-    {
-        resolution = 1.0 / (2 * igraph_ecount(&igraphData.g));
-    }
-    //number iterations: -1 to run until it does no longer change
-    int iterations = 10;
-    igraph_community_leiden(&igraphData.g, &igraphData.weights, NULL, resolution, 0.01, 0, iterations, &membership, &nb_clusters, &quality);
-
-    std::cout << "CLUSTER: " << std::to_string(nb_clusters) << " , QUALITY: " << std::to_string(quality) <<  "\n";
-
-    igraph_vector_int_destroy(&membership);
-}
-
-void show_results(igraph_t *g, igraph_vector_int_t *membership, igraph_matrix_int_t *memberships, igraph_vector_t *modularity, FILE* f) {
-    igraph_integer_t i, j, no_of_nodes = igraph_vcount(g);
-
-    j = igraph_vector_which_max(modularity);
-    for (i = 0; i < igraph_vector_int_size(membership); i++) {
-        if (VECTOR(*membership)[i] != MATRIX(*memberships, j, i)) {
-            fprintf(f, "WARNING: best membership vector element %" IGRAPH_PRId " does not match the best one in the membership matrix\n", i);
-        }
-    }
-
-    fprintf(f, "Modularities:\n");
-    igraph_vector_print(modularity);
-
-    for (i = 0; i < igraph_matrix_int_nrow(memberships); i++) {
-        for (j = 0; j < no_of_nodes; j++) {
-            fprintf(f, "%" IGRAPH_PRId " ", MATRIX(*memberships, i, j));
-        }
-        fprintf(f, "||||\n");
-    }
-
-    fprintf(f, "\n");
-}
-
-// a method to create hierarchical clustering based on edge betweeness: quadric on numbr of edges!!!!
-//number of nodes will be the first cluster ID of a cell-merge (it starts from zero with singletons)
-void GraphHandler::create_edge_betweenness_clustering(std::vector<std::pair<int, int>>& mergesVector)
-{
-    igraph_vector_int_t edges;
-    igraph_vector_t eb;
-    igraph_matrix_int_t merges;
-    igraph_vector_int_t membership;
-
-    igraph_vector_init(&eb, 0);
-    igraph_vector_int_init(&edges, 0);
-    igraph_matrix_int_init(&merges, 0, 0);
-    igraph_vector_int_init(&membership, 0);
-
-    igraph_community_edge_betweenness(&igraphData.g, &edges, &eb, &merges,
-                                      nullptr, nullptr,
-                                      &membership,
-                                      IGRAPH_UNDIRECTED,
-                                      &igraphData.weights);
-
-    for(long i = 0; i < merges.nrow; ++i)
-    {
-        mergesVector.emplace_back(std::pair<int, int>(MATRIX(merges, i, 0), MATRIX(merges, i, 1)));
-    }
-
-    igraph_matrix_int_print(&merges);
-
-    igraph_vector_int_destroy(&edges);
-    igraph_vector_destroy(&eb);
-    igraph_matrix_int_destroy(&merges);
-    igraph_vector_int_destroy(&membership);
-}
-
-void GraphHandler::create_modularity_clustering()
-{
-    igraph_vector_t modularity;
-    igraph_vector_int_t membership;
-    igraph_matrix_int_t memberships;
-
-    igraph_vector_init(&modularity, 0);
-    igraph_vector_int_init(&membership, 0);
-    igraph_matrix_int_init(&memberships, 0, 0);
-    igraph_rng_seed(igraph_rng_default(), 42);
-
-    igraph_community_multilevel(&igraphData.g, 0, 1, &membership, &memberships, &modularity);
-    show_results(&igraphData.g, &membership, &memberships, &modularity, stdout);
-
-    igraph_vector_destroy(&modularity);
-    igraph_vector_int_destroy(&membership);
-    igraph_matrix_int_destroy(&memberships);
-}
-
-//find all sets of correlated features
-// this is a subgraph of connected nodes (features) in the graph
-void GraphHandler::find_correlation_sets(std::vector<std::vector<int>>& correlationSet, const size_t minSetSize)
-{
-    igraph_vector_int_t corrSet;
-    igraph_vector_int_init(&corrSet, 0);
-    igraph_integer_t no;
-    igraph_connected_components(
-        &igraphData.g,
-        &corrSet,
-        NULL,
-        &no,
-        IGRAPH_WEAK
-    );
-
-    std::vector<std::vector<int>> igraphCorrelationSets(no);
-    for (int v = 0; v < igraph_vcount(&igraphData.g); ++v)
-    {
-        int comp = VECTOR(corrSet)[v];
-        igraphCorrelationSets[comp].push_back(v);
-    }
-
-    for (auto& comp : igraphCorrelationSets)
-    {
-        if (comp.size() >= minSetSize)
-        {
-            std::sort(comp.begin(), comp.end());  // same as your clique sorting
-            correlationSet.push_back(comp);
-        }
-    }
-
-    //destroy igraph cliques vector
-    igraph_vector_int_destroy(&corrSet);
-}
-
-
-//calculates cliques: SORTS every clique by its IDs in ascending order
-void GraphHandler::calc_all_max_clique(std::vector<std::vector<int>>& cliqueVector, const int minCliqueSize, bool mergeSimilarCliques, bool print)
-{
-
-    igraph_vector_int_list_t cliques;
-    igraph_integer_t no;
-
-    igraph_vector_int_list_init(&cliques, 0);
-    igraph_maximal_cliques(&igraphData.g, &cliques, /*min_size=*/ minCliqueSize,
-                           /*max_size=*/ 0 /*no limit*/);
-    igraph_maximal_cliques_count(&igraphData.g, &no, /*min_size=*/ minCliqueSize,
-                                 /*max_size=*/ 0 /*no limit*/);
-
-    //no clique found
-    if (no != igraph_vector_int_list_size(&cliques)) 
-    {
-        throw std::logic_error("Error in Clique calculation!");
-        exit(EXIT_FAILURE);
-    }
-
-    //print found cliques
-    if(print)
-    {
-        std::cout << "_____\n";
-        for (igraph_integer_t i = 0; i < igraph_vector_int_list_size(&cliques); i++) 
-        {
-            igraph_vector_int_t *v = igraph_vector_int_list_get_ptr(&cliques, i);
-            igraph_vector_int_print(v);
-        }
-    }
-
-    //safe the found cliques -igraph_vector- in a normal data type(vector of a vector of all proteins) (we ll afterwards delete the igraph object)
-    igraph_integer_t igraphListSize = igraph_vector_int_list_size(&cliques);
-    for (int i = 0; i < igraphListSize; ++i) 
-    {
-        igraph_vector_int_t* currentClique = igraph_vector_int_list_get_ptr(&cliques, i);
-        // Convert the igraph_vector_int_t to std::vector<int>
-        std::vector<int> currentCliqueVector(VECTOR(*currentClique), VECTOR(*currentClique) + igraph_vector_int_size(currentClique));
-        //sort this vector for increasing number of proteinIDs
-        std::sort(currentCliqueVector.begin(), currentCliqueVector.end());
-        // Add the std::vector<int> to the cppVector
-        cliqueVector.push_back(currentCliqueVector);
-    }
-
-    if(mergeSimilarCliques)
-    {
-        collapse_all_similar_cliques(cliqueVector, 0.8);
-    }
-    //destroy igraph cliques vector
-    igraph_vector_int_list_destroy(&cliques);
-}
-
-
-void GraphHandler::calc_dense_groups_kcore(std::vector<std::vector<int>>& cliqueVector,
-                                           const size_t minCliqueSize,
-                                           int kcoreThreshold,
-                                           bool mergeSimilarCliques,
-                                           bool print)
-{
-    igraph_vector_int_t coreness;
-    igraph_vector_int_init(&coreness, 0);
-
-    // compute coreness
-    igraph_coreness(&igraphData.g, &coreness, IGRAPH_ALL);
-
-    igraph_integer_t nodeCount = igraph_vcount(&igraphData.g);
-
-    // collect nodes that satisfy coreness threshold
-    std::vector<int> validNodes;
-    for (igraph_integer_t i = 0; i < nodeCount; i++)
-    {
-        if (VECTOR(coreness)[i] >= kcoreThreshold)
-        {
-            validNodes.push_back(i);
-        }
-    }
-
-    igraph_vector_int_destroy(&coreness);
-
-    if(validNodes.empty())
-        return;
-
-    // build subgraph with those nodes
-    igraph_vector_int_t vids;
-    igraph_vector_int_init(&vids, (igraph_integer_t)validNodes.size());
-    // Fill the igraph vector from your std::vector
-    for (size_t i = 0; i < validNodes.size(); ++i) 
-    {
-        VECTOR(vids)[i] = validNodes[i];
-    }
-
-    igraph_vs_t vs;
-    // Use the standard vector selector, which respects the vector size
-    igraph_vs_vector(&vs, &vids); 
-
-    igraph_t subgraph;
-    igraph_induced_subgraph(&igraphData.g, &subgraph, vs, IGRAPH_SUBGRAPH_CREATE_FROM_SCRATCH);
-
-    // Clean up
-    igraph_vs_destroy(&vs);
-    igraph_vector_int_destroy(&vids);
-
-    // find connected components in subgraph
-    igraph_vector_int_t membership;
-    igraph_vector_int_init(&membership, 0);
-
-    igraph_vector_int_t csize;
-    igraph_vector_int_init(&csize, 0);
-
-    igraph_integer_t no;
-
-    igraph_connected_components(&subgraph,
-                                &membership,
-                                &csize,
-                                &no,
-                                IGRAPH_WEAK);
-
-    if(print)
-        std::cout << "Found " << no << " dense components\n";
-
-    // collect nodes per component
-    std::vector<std::vector<int>> components(no);
-
-    for(int i=0;i<igraph_vector_int_size(&membership);i++)
-    {
-        int comp = VECTOR(membership)[i];
-        components[comp].push_back(validNodes[i]);
-    }
-
-    // filter by size
-    for(auto& comp : components)
-    {
-        if(comp.size() >= minCliqueSize)
-        {
-            std::sort(comp.begin(), comp.end());
-            cliqueVector.push_back(comp);
-
-            if(print)
-            {
-                for(int v : comp)
-                    std::cout << v << " ";
-                std::cout << "\n";
+            if (w != 0.0) {
+                degree[i]++;
+                degree[j]++;
             }
         }
     }
 
-    if(mergeSimilarCliques)
-    {
-        collapse_all_similar_cliques(cliqueVector, 0.8);
+    // set the offset of edges for nodes (we add a last element denoting the end of this element)
+    graph.offsets[0] = 0;
+    for (int i = 0; i < n; i++) {
+        graph.offsets[i + 1] = graph.offsets[i] + degree[i];
     }
 
-    igraph_vector_int_destroy(&membership);
-    igraph_vector_int_destroy(&csize);
-    igraph_destroy(&subgraph);
+    // allocate size for edge/ weight vectors
+    int total_edges = graph.offsets[n];
+    graph.edges.resize(total_edges);
+    graph.weights.resize(total_edges);
+
+    // now store all edges (store them in BOTH direction)
+    //cursor stores the current position in edges/ weights where the next node neighbour is stored into
+    std::vector<int> cursor = graph.offsets;
+
+    for (int i = 0; i < n; i++) {
+        for (int j = i + 1; j < n; j++) 
+        {
+            double w = m[i][j];
+
+            if (w != 0.0) {
+                // i -> j
+                int pos_i = cursor[i]++;
+                graph.edges[pos_i] = j;
+                graph.weights[pos_i] = w;
+
+                // j -> i
+                int pos_j = cursor[j]++;
+                graph.edges[pos_j] = i;
+                graph.weights[pos_j] = w;
+            }
+        }
+    }
+}
+
+void GraphHandler::dfs_search(const int start,
+                                std::vector<char>& visited,
+                                std::vector<int>& component,
+                                std::vector<int>& stack,
+                                const int minDegree
+                            )
+{
+    stack.clear();
+    stack.push_back(start);
+    visited[start] = 1;
+
+    while (!stack.empty())
+    {
+        int u = stack.back();
+        stack.pop_back();
+
+        component.push_back(u);
+
+        // iterate neighbors
+        for (int k = graph.offsets[u]; k < graph.offsets[u + 1]; k++)
+        {
+            int v = graph.edges[k];
+
+            if(minDegree > 0)
+            {
+                int deg_v = graph.offsets[v + 1] - graph.offsets[v];
+                if(deg_v < minDegree){continue;}
+            }
+
+            if (!visited[v])
+            {
+                visited[v] = 1;
+                stack.push_back(v);
+            }
+        }
+    }
+}
+
+//find all sets of correlated features
+// this is a subgraph of connected nodes (features) in the graph
+void GraphHandler::calculate_connected_components(std::vector<std::vector<int>>& correlationSet, 
+                                                    const size_t minSetSize)
+{
+    int n = graph.num_nodes;
+
+    std::vector<char> visited(n, 0);
+    std::vector<int> stack;
+    stack.reserve(n);
+
+    correlationSet.clear();
+    correlationSet.reserve(n / 4); // heuristic
+
+    for (int start = 0; start < n; start++)
+    {
+        if (visited[start]) continue;
+
+        std::vector<int> component;
+        component.reserve(32);
+
+        // call reusable DFS
+        dfs_search(start, visited, component, stack, 0);
+
+        if (component.size() >= minSetSize)
+        {
+            std::sort(component.begin(), component.end());
+            correlationSet.push_back(std::move(component));
+        }
+    }
+}
+
+void GraphHandler::bron_kerbosch(std::vector<std::vector<int>>& correlationSet,
+                                 std::vector<int>& R,
+                                 std::vector<int>& P,
+                                 std::vector<int>& X,
+                                 const int minSetSize)
+{
+    // Base case: maximal clique found
+    if (P.empty() && X.empty())
+    {
+        if ((int)R.size() >= minSetSize)
+        {
+            std::vector<int> clique = R;
+            std::sort(clique.begin(), clique.end());
+            correlationSet.push_back(std::move(clique));
+        }
+        return;
+    }
+
+    // ---- Pivot Selection ----
+    // To maximize pruning, we usually pick the pivot from (P U X) 
+    // with the most neighbors in P. Let's stick to your simple choice for now.
+    int pivot = -1;
+    if (!P.empty()) pivot = P.back();
+    else if (!X.empty()) pivot = X.back();
+
+    // ---- Mark neighbors of pivot ----
+    std::vector<char> isPivotNeighbor(graph.num_nodes, 0);
+    if (pivot != -1)
+    {
+        for (int k = graph.offsets[pivot]; k < graph.offsets[pivot + 1]; k++)
+        {
+            isPivotNeighbor[graph.edges[k]] = 1;
+        }
+    }
+
+    // ---- Pre-map P and X for O(1) intersections ----
+    // This replaces the incredibly slow std::find
+    std::vector<char> inP(graph.num_nodes, 0);
+    for (int v : P) inP[v] = 1;
+
+    std::vector<char> inX(graph.num_nodes, 0);
+    for (int v : X) inX[v] = 1;
+
+    // ---- Candidates are P \ N(pivot) ----
+    std::vector<int> candidates;
+    for (int v : P)
+    {
+        if (pivot == -1 || !isPivotNeighbor[v])
+            candidates.push_back(v);
+    }
+
+    // Process candidates
+    for (int v : candidates)
+    {
+        // P might have shrank in previous iterations of this loop!
+        // We must make sure v is still in P before processing.
+        if (!inP[v]) continue;
+
+        R.push_back(v);
+
+        std::vector<int> newP;
+        std::vector<int> newX;
+
+        // Intersect neighbors of v with P and X in O(deg(v)) instead of O(deg(v) * N)
+        for (int k = graph.offsets[v]; k < graph.offsets[v + 1]; k++)
+        {
+            int u = graph.edges[k];
+            if (inP[u]) newP.push_back(u);
+            if (inX[u]) newX.push_back(u);
+        }
+
+        bron_kerbosch(correlationSet, R, newP, newX, minSetSize);
+
+        R.pop_back();
+
+        // Move v from P to X
+        inP[v] = 0;
+        inX[v] = 1;
+        
+        // Remove v from P physically
+        P.erase(std::remove(P.begin(), P.end(), v), P.end());
+        X.push_back(v);
+    }
+}
+
+//calculates cliques: SORTS every clique by its IDs in ascending order
+void GraphHandler::calculate_fully_connected_components(std::vector<std::vector<int>>& correlationSet, const int minSetSize)
+{
+
+    int n = graph.num_nodes;
+
+    correlationSet.clear();
+
+    std::vector<int> R;
+    std::vector<int> P(n);
+    std::vector<int> X;
+
+    // P = all nodes
+    for (int i = 0; i < n; i++)
+        P[i] = i;
+
+    bron_kerbosch(correlationSet, R, P, X, minSetSize);
+}
+
+
+void GraphHandler::calculate_min_edge_connected_components(std::vector<std::vector<int>>& correlationSet,
+                                           const size_t minSetSize,
+                                           int minDegree)
+{
+    int n = graph.num_nodes;
+
+    std::vector<char> visited(n, 0);
+    std::vector<int> stack;
+    stack.reserve(n);
+
+    correlationSet.clear();
+
+    for (int start = 0; start < n; start++)
+    {
+        int deg_start = graph.offsets[start + 1] - graph.offsets[start];
+
+        // skip invalid starting nodes
+        if (visited[start] || deg_start < minDegree) continue;
+
+        std::vector<int> component;
+        component.reserve(32);
+
+        dfs_search(start, visited, component, stack, minDegree);
+
+        if (component.size() >= minSetSize)
+        {
+            std::sort(component.begin(), component.end());
+            correlationSet.push_back(std::move(component));
+        }
+    }
 }

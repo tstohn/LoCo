@@ -7,11 +7,6 @@
 namespace
 {
 
-bool is_subset(const std::vector<int>& a, const std::vector<int>& b) 
-{
-    return std::includes(b.begin(), b.end(), a.begin(), a.end());
-}
-
 inline std::vector<std::vector<double>> filterVector(const std::vector<std::vector<double>>& original, const std::vector<int>& indices) 
 {
     std::vector<std::vector<double>> result;

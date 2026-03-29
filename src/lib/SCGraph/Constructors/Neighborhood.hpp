@@ -68,7 +68,7 @@ class Neighborhood
         //calculate how correlation cliques of proteins change smoothly along the
         //cell-cell neighborhood graph (from neighborhood to neighborhood)
         //fills the corrResult
-        void calculate_correlation_propagation(double correlationStrengthCutoff, const bool printFoundCliquesPerNeighborhood, int minCliqueSize=2, int thread=5);
+        void calculate_correlation_propagation(double correlationStrengthCutoff, int minCliqueSize=2, int thread=5);
         void write_results_to_file(const std::string& output, const std::string& prefix, int& numberCorrelations);
         void write_shuffled_laplacians(const std::string& outFile);
 
@@ -80,7 +80,7 @@ class Neighborhood
         void bfs_enumerate_x_closest_neighborhoods(int x, int nodeID, std::vector<int> neighbors);
         std::vector<int> get_neighborhoodIds_by_distance(const int nHoodID);
         void extract_pairs_from_correlation_sets(std::unordered_map<nodePtr, std::shared_ptr<GraphData>>& neighborhoodCorrelations);
-        void calculate_correlations(unsigned int numberNodes, bool print, const std::pair<int, int>& correlationpair,
+        void calculate_correlations(unsigned int numberNodes, const std::pair<int, int>& correlationpair,
                                     std::unordered_map<const std::pair<int, int>, double, pair_hash>& corrVariance,
                                     int totalCount, double& currentCount);
         void calculate_slopes(unsigned int numberNodes, const std::pair<int, int>& correlationpair,
@@ -95,7 +95,7 @@ class Neighborhood
                                    const std::unordered_map<const std::pair<int, int>, double, pair_hash>& slopeVariance,
                                    const std::vector<CorrelationPropagationResult>& vectorizedResults,
                                    int totalCount, double& currentCount);
-        void calculate_laplacian_score(bool print, int threads);
+        void calculate_laplacian_score(int threads);
         void filter_consistent_correlation_sets_sota(
                 const std::unordered_map<nodePtr, std::vector<std::vector<int>>>& cliquesPerNeighborhood,
                 int minCliqueSize);
@@ -104,7 +104,7 @@ class Neighborhood
         {
             return(inputDataOrigional.geneNames);
         }
-        void detect_cliques_in_neighborhood(nodePtr neighborhoodCenter, const double& correlationStrengthCutoff, int minCliqueSize, const bool printFoundCliquesPerNeighborhood,
+        void detect_cliques_in_neighborhood(nodePtr neighborhoodCenter, const double& correlationStrengthCutoff, int minCliqueSize,
                                             std::unordered_map<nodePtr, std::vector<std::vector<int>>>& cliquesPerNeighborhood, 
                                             std::unordered_map<nodePtr, std::shared_ptr<GraphData>>& neighborhoodCorrelations,
                                             int totalCount, double& currentCount);

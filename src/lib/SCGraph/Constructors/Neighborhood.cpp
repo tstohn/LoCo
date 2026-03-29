@@ -401,7 +401,7 @@ void Neighborhood::write_results_to_file(const std::string& outFile, const std::
 
 }
 
-void Neighborhood::calculate_correlations(unsigned int numberNodes, bool print, 
+void Neighborhood::calculate_correlations(unsigned int numberNodes, 
                                           const std::pair<int, int>& correlationpair,
                                           std::unordered_map<const std::pair<int, int>, double, pair_hash>& corrVariance,
                                           int totalCount, double& currentCount)
@@ -412,7 +412,7 @@ void Neighborhood::calculate_correlations(unsigned int numberNodes, bool print,
     for(const nodePtr& node: neighborhoodGraph->get_all_nodes())
     {
         double correlationTmp = corrResult.at(node).correlationResult.at(correlationpair);
-        if(!isnan(correlationTmp))
+        if(!std::isnan(correlationTmp))
         {
             mean += correlationTmp;
             nonNanNodes++;
@@ -434,7 +434,7 @@ void Neighborhood::calculate_correlations(unsigned int numberNodes, bool print,
         for(const nodePtr& node: neighborhoodGraph->get_all_nodes())
         {
             double correlationTmp = corrResult.at(node).correlationResult.at(correlationpair);
-            if(!isnan(correlationTmp))
+            if(!std::isnan(correlationTmp))
             {
                 variance += pow((correlationTmp-mean), 2);
             }
@@ -443,10 +443,6 @@ void Neighborhood::calculate_correlations(unsigned int numberNodes, bool print,
         variance /= nonNanNodes;
     }
 
-    if(print)
-    {
-        std::cout << "VARIANCE: " << correlationpair.first << "-" << correlationpair.second << ": " << variance << "\n";
-    }
     threadLock.lock();
     corrVariance.insert(std::pair<const std::pair<int, int>, double>(correlationpair, variance));
     ++currentCount; 
@@ -466,7 +462,7 @@ void Neighborhood::calculate_slopes(unsigned int numberNodes,
     for(const nodePtr& node: neighborhoodGraph->get_all_nodes())
     {
         double slopeTmp = corrResult.at(node).slopeResult.at(correlationpair);
-        if(!isnan(slopeTmp))
+        if(!std::isnan(slopeTmp))
         {
             mean += slopeTmp;
             nonNanNodes++;
@@ -485,7 +481,7 @@ void Neighborhood::calculate_slopes(unsigned int numberNodes,
         for(const nodePtr& node: neighborhoodGraph->get_all_nodes())
         {
             double slopeTmp = corrResult.at(node).slopeResult.at(correlationpair);
-            if(!isnan(slopeTmp))
+            if(!std::isnan(slopeTmp))
             {
                 variance += pow((slopeTmp-mean), 2);
             }
@@ -530,11 +526,11 @@ void Neighborhood::laplacian_score(const std::pair<int, int>& pair,
             double featureNodeASlope = corrResult.at(nodeA).slopeResult.at(pair);
             double featureNodeBSlope = corrResult.at(nodeB).slopeResult.at(pair);
 
-            if( !isnan(featureNodeACorr) && !isnan(featureNodeBCorr))
+            if( !std::isnan(featureNodeACorr) && !std::isnan(featureNodeBCorr))
             {
                 corrWeightSum += weight * pow((featureNodeACorr - featureNodeBCorr), 2); //square the result
             }
-            if( !isnan(featureNodeASlope) && !isnan(featureNodeBSlope))
+            if( !std::isnan(featureNodeASlope) && !std::isnan(featureNodeBSlope))
             {
                 slopeWeightSum += weight * pow((featureNodeASlope - featureNodeBSlope), 2); //square the result
             }
@@ -686,7 +682,7 @@ void Neighborhood::laplacian_significance(
 //for now simply calculate sum of all edge weights
 // -> smaller values mean tiny changes between nodes
 //in origional paper is a matrix-multiplication formular
-void Neighborhood::calculate_laplacian_score(bool print, int threads)
+void Neighborhood::calculate_laplacian_score(int threads)
 {   
 
     //calculate once the variance that we observe in all correlations/ slopes
@@ -706,7 +702,6 @@ void Neighborhood::calculate_laplacian_score(bool print, int threads)
         pool_corr.enqueue([
             this,                       
             numberNodes,                
-            print,                      
             &correlationpair,           
             &corrVariance,              
             pairCount = pairs.size(),   
@@ -714,7 +709,6 @@ void Neighborhood::calculate_laplacian_score(bool print, int threads)
         ]() {
             calculate_correlations(
                 numberNodes,
-                print,
                 correlationpair,
                 corrVariance,
                 pairCount,
@@ -921,7 +915,7 @@ void Neighborhood::extract_pairs_from_correlation_sets(std::unordered_map<nodePt
     
 }
 
-void Neighborhood::detect_cliques_in_neighborhood(nodePtr neighborhoodCenter, const double& correlationStrengthCutoff, int minCliqueSize, const bool printFoundCliquesPerNeighborhood,
+void Neighborhood::detect_cliques_in_neighborhood(nodePtr neighborhoodCenter, const double& correlationStrengthCutoff, int minCliqueSize,
                                                   std::unordered_map<nodePtr, std::vector<std::vector<int>>>& cliquesPerNeighborhood, 
                                                   std::unordered_map<nodePtr, std::shared_ptr<GraphData>>& neighborhoodCorrelations,
                                                   int totalCount, double& currentCount)
@@ -938,23 +932,22 @@ void Neighborhood::detect_cliques_in_neighborhood(nodePtr neighborhoodCenter, co
 
         //results are stored here afterwards
         std::vector<std::vector<int>> cliqueVectorRaw;
-        if(correlatedSetMode == 0)
+        if(correlatedSetMode == 1)
         {
-            corrGraphBuilder.find_correlation_sets(cliqueVectorRaw, minCliqueSize);
+            corrGraphBuilder.calculate_connected_components(cliqueVectorRaw, minCliqueSize);
         }
-        else if(correlatedSetMode == 1)
+        else if(correlatedSetMode == 0)
         {
-            corrGraphBuilder.calc_all_max_clique(cliqueVectorRaw, minCliqueSize, false, printFoundCliquesPerNeighborhood); //no clique merging, no printing
+            corrGraphBuilder.calculate_fully_connected_components(cliqueVectorRaw, minCliqueSize);
         }
-        else if(correlatedSetMode == 2)
+        else if(correlatedSetMode >= 2)
         {
-            int minEdgeNumPerNode = 2;
-            corrGraphBuilder.calc_dense_groups_kcore(cliqueVectorRaw, minCliqueSize, minEdgeNumPerNode, false, printFoundCliquesPerNeighborhood);
+            corrGraphBuilder.calculate_min_edge_connected_components(cliqueVectorRaw, minCliqueSize, correlatedSetMode);
         }
         else
         {
             std::cout << "Invalid mode for detection of correlated sets: fallback to connected component -> mode 0\n";
-            corrGraphBuilder.find_correlation_sets(cliqueVectorRaw, minCliqueSize);
+            corrGraphBuilder.calculate_connected_components(cliqueVectorRaw, minCliqueSize);
         }
 
         //insert cliques in map<neighborhoodID -> cliques>
@@ -1084,7 +1077,7 @@ void Neighborhood::filter_consistent_correlation_sets_sota(
     cliquesVector = std::move(result);
 }
 
-void Neighborhood::calculate_correlation_propagation(double correlationStrengthCutoff, const bool printFoundCliquesPerNeighborhood, int minCliqueSize, int threads)
+void Neighborhood::calculate_correlation_propagation(double correlationStrengthCutoff, int minCliqueSize, int threads)
 {
 
     //calculate all CLIQUES in all neighborhoods: TODO: maybe add storing slope/correlation
@@ -1108,7 +1101,6 @@ void Neighborhood::calculate_correlation_propagation(double correlationStrengthC
             neighborhoodCenter,                        
             &correlationStrengthCutoff,                              
             minCliqueSize,                           
-            printFoundCliquesPerNeighborhood,
             &cliquesPerNeighborhood,
             &neighborhoodCorrelations,                         
             nPtrSize = centralNeighborhoodPtrs.size(),
@@ -1118,7 +1110,6 @@ void Neighborhood::calculate_correlation_propagation(double correlationStrengthC
                 neighborhoodCenter,                        
                 correlationStrengthCutoff,                              
                 minCliqueSize,                           
-                printFoundCliquesPerNeighborhood,
                 cliquesPerNeighborhood,
                 neighborhoodCorrelations,                         
                 nPtrSize,
@@ -1169,22 +1160,7 @@ void Neighborhood::calculate_correlation_propagation(double correlationStrengthC
 
     std::cout << "STEP[6/6]:\tCalculate Laplacian score\n";
     //make calculate_laplacian_score for all those slopes/ correlations
-    calculate_laplacian_score(printFoundCliquesPerNeighborhood, threads);
-
-    //PRINT ALL RESULT
-    if(printFoundCliquesPerNeighborhood)
-    {
-        std::cout << "CORRELATIONS:\n";
-        for (auto& it: correlationLaplacian) 
-        {
-            std::cout << inputDataOrigional.geneNames.at(it.first.first) << " " << inputDataOrigional.geneNames.at(it.first.second) << " " << it.second << "\n";
-        }
-        std::cout << "SLOPE:\n";
-        for (auto& it: slopeLaplacian) 
-        {
-            std::cout << inputDataOrigional.geneNames.at(it.first.first) << " " << inputDataOrigional.geneNames.at(it.first.second) << " " << it.second << "\n";
-        }
-    }
+    calculate_laplacian_score(threads);
 
 }
 
