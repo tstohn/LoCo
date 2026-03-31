@@ -1,0 +1,11 @@
+Package: loco
+Type: Package
+Title: LoCo - Local Correlation Analysis
+Version: 0.1.0
+Author: Tim Stohn
+Maintainer: tim.stohn@yahoo.com
+Description: LoCo, a tool (C++) to quickly detect local correlation patterns between features in single-cell data.
+License: GPL-3.0 license
+LinkingTo: Rcpp
+Imports: Rcpp
+SystemRequirements: C++17
