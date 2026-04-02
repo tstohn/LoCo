@@ -10,11 +10,11 @@
 #include <numeric>
 
 #include "Node.hpp"
-#include "Utils/kdTreeUtils.hpp"
-#include "Parser/SCParser.hpp"
-#include "Utils/correlationUtils.hpp"
-#include "Utils/generalUtils.hpp"
-#include "Utils/threadPool.hpp"
+#include "kdTreeUtils.hpp"
+#include "SCParser.hpp"
+#include "correlationUtils.hpp"
+#include "generalUtils.hpp"
+#include "threadPool.hpp"
 
 // vector of positions of the dimensions that contribute to a subspace
 typedef std::vector<int> subSpace;

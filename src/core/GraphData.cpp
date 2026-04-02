@@ -1,9 +1,5 @@
-#include <boost/iostreams/filtering_streambuf.hpp>
-#include <boost/iostreams/copy.hpp>
-#include <boost/iostreams/filter/gzip.hpp>
-
-#include "Constructors/GraphData.hpp"
-// #include "opencv2/core.hpp" //for pca
+#include <memory>
+#include "GraphData.hpp"
 
 using namespace nanoflann;
 

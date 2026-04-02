@@ -13,9 +13,9 @@
 #include <pthread.h>
 #include <cmath>
 
-#include "SCGraph/Constructors/GraphHandler.hpp"
-#include "Utils/generalUtils.hpp"
-#include "Utils/threadPool.hpp"
+#include "GraphHandler.hpp"
+#include "generalUtils.hpp"
+#include "threadPool.hpp"
 
 struct VectorHash {
     size_t operator()(const std::vector<int>& v) const {

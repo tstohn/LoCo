@@ -60,13 +60,13 @@ ifneq ($(IS_WIN),)
                   $(BOOST_LIBS) -lz -lwinpthread -lws2_32
 else ifneq ($(IS_LINUX),)
     PLATFORM = Linux
-    BOOST_FLAGS := -lboost_iostreams -lboost_program_options -lpthread
+    BOOST_FLAGS := -lboost_program_options
 	BOOST_INCLUDE :=
 	BOOST_LIB :=
 else ifneq ($(IS_DARWIN),)
     PLATFORM = macOS
 	#make install installs boost with brew, we need to get the actual path to include boost correctly
-    BOOST_FLAGS := -lboost_iostreams -lboost_program_options -lpthread
+    BOOST_FLAGS := -lboost_program_options
   	BOOST_PREFIX := $(shell brew --prefix boost 2>/dev/null || echo /opt/homebrew)
   	BOOST_INCLUDE := $(BOOST_PREFIX)/include
   	BOOST_LIB := $(BOOST_PREFIX)/lib
@@ -75,27 +75,12 @@ endif
 #add boost disr to include flags - important for windows and macOS
 INCLUDE_DIRS += $(if $(BOOST_INCLUDE),-I$(BOOST_INCLUDE),)
 
-# -------------------------------
-# IGRAPH detection in case its installed locally (as we did for non-admin environments)
-# -------------------------------
-# Try pkg-config first
-# Detect igraph via pkg-config or fallback
-PKG_CFLAGS := $(shell pkg-config --cflags igraph 2>/dev/null)
-PKG_LIBS   := $(shell pkg-config --libs igraph 2>/dev/null)
-
-ifeq ($(PKG_CFLAGS),)
-    IG_INCLUDE = -I$(HOME)/libraries/igraph_libs/include/igraph
-    IG_LIB     = -L$(HOME)/libraries/igraph_libs/lib -ligraph
-else
-    IG_INCLUDE = $(PKG_CFLAGS)
-    IG_LIB     = $(PKG_LIBS)
-    EXTRA_LIBS = # pkg-config already includes dependencies
-endif
 #add path to nanoflann
-IG_INCLUDE += -I dependencies/nanoflann/include
+#IG_INCLUDE += -I dependencies/nanoflann/include
+NANO_INCLUDE = -I inst/include/nanoflann
 
-CXXFLAGS = -std=c++17 -O3 -Wall -Wextra $(INCLUDE_DIRS) -Idependencies $(IG_INCLUDE) $(INCLUDE_DIRS)
-LDFLAGS  = $(IG_LIB) -larpack -lblas -llapack -lgfortran -lboost_program_options -lboost_iostreams -lpthread -lz
+CXXFLAGS = -std=c++17 -O3 -Wall -Wextra $(INCLUDE_DIRS) -Idependencies $(NANO_INCLUDE) $(INCLUDE_DIRS)
+LDFLAGS  = $(IG_LIB) -lboost_program_options -lz
 # add LTO only for Linux/Mac
 ifneq ($(IS_LINUX),)
 	CXXFLAGS += -flto=5
@@ -105,13 +90,12 @@ endif
 
 # Source files
 SRC_FILES := $(SRC_DIR)/LoCo.cpp \
-             $(SRC_DIR)/lib/Parser/SCParser.cpp \
-             $(SRC_DIR)/lib/SCGraph/Constructors/GraphData.cpp \
-             $(SRC_DIR)/lib/SCGraph/Constructors/GraphHandler.cpp \
-             $(SRC_DIR)/lib/SCGraph/Constructors/Neighborhood.cpp
+             $(SRC_DIR)/core/SCParser.cpp \
+             $(SRC_DIR)/core/GraphData.cpp \
+             $(SRC_DIR)/core///GraphHandler.cpp \
+             $(SRC_DIR)/core/Neighborhood.cpp
 
 OBJ_FILES := $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(SRC_FILES))
-
 
 # ===============================
 # Install dependencies
@@ -119,7 +103,7 @@ OBJ_FILES := $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(SRC_FILES))
 install:
 	@echo "Installing dependencies for $(PLATFORM)..."
 # -------------------------------
-# INSTALL NANOFLANN (header-only)
+# INSTALL NANOFLANN (header-only) - now just add it to the directory
 # -------------------------------	
 	mkdir -p dependencies
 	cd dependencies && \

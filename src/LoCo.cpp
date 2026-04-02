@@ -4,7 +4,7 @@
 #include <unordered_set>
 #include <random>
 
-#include "SCGraph/Constructors/Neighborhood.hpp"
+#include "Neighborhood.hpp"
 
 using namespace boost::program_options;
 
