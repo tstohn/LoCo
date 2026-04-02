@@ -101,68 +101,54 @@ OBJ_FILES := $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(SRC_FILES))
 # Install dependencies
 # ===============================
 install:
-	@echo "Installing dependencies for $(PLATFORM)..."
 # -------------------------------
-# INSTALL NANOFLANN (header-only) - now just add it to the directory
+# NANOFLANN is included as a header only in the repository - therefore we origionally used the branch below
 # -------------------------------	
-	mkdir -p dependencies
-	cd dependencies && \
-	if [ ! -d nanoflann ]; then \
-		git clone https://github.com/jlblancoc/nanoflann --branch v1.3.2; \
-	else \
-		echo "nanoflann already exists, skipping clone"; \
-	fi
+#	mkdir -p inst/include
+#	cd inst/include && \
+#	if [ ! -d nanoflann ]; then \
+#		git clone https://github.com/jlblancoc/nanoflann --branch v1.3.2; \
+#	else \
+#		echo "nanoflann already exists, skipping clone"; \
+#	fi
 
 # -------------------------------
-# INSTALL SYSTEM DEPENDENCIES: igraph, boost, fortran, BLAS/LAPACK, ARPACK
+# INSTALL SYSTEM DEPENDENCIES: boost
 # -------------------------------
+.PHONY: install-deps
+install-deps:
 ifeq ($(PLATFORM),Windows)
 	@echo "Windows detected: install dependencies manually (vcpkg/conda recommended)."
-else
-	# shell uname inside shell commands
-	@if [ "$$(uname -s)" = "Darwin" ]; then \
-		echo "macOS detected"; \
-		brew update; \
-		brew install igraph boost gfortran lapack arpack; \
-	elif [ "$$(uname -s)" = "Linux" ]; then \
-		echo "Linux detected"; \
-		if command -v apt >/dev/null; then \
-			sudo apt update; \
-			sudo apt install -y \
-				libigraph-dev \
-				libboost-all-dev \
-				gfortran \
-				libblas-dev \
-				liblapack-dev \
-				libarpack2-dev \
-				build-essential \
-				pkg-config; \
-		elif command -v dnf >/dev/null; then \
-			sudo dnf install -y \
-				igraph-devel \
-				boost-devel \
-				gfortran \
-				blas-devel \
-				lapack-devel \
-				arpack-devel \
-				pkgconf-pkg-config \
-				gcc-c++; \
-		elif command -v pacman >/dev/null; then \
-			sudo pacman -S --noconfirm \
-				igraph \
-				boost \
-				gcc-fortran \
-				blas \
-				lapack \
-				arpack \
-				base-devel \
-				pkgconf; \
-		else \
-			echo "Unknown Linux package manager. Install igraph, boost, Fortran, BLAS/LAPACK, ARPACK manually."; \
-		fi; \
+else ifeq ($(PLATFORM),macOS)
+	@echo "macOS detected"
+	brew update
+	brew install boost
+else ifeq ($(PLATFORM),Linux)
+	@echo "Linux detected"
+	@if command -v apt >/dev/null; then \
+		echo "Using APT (Debian/Ubuntu)"; \
+		sudo apt update; \
+		sudo apt install -y \
+			libboost-program-options-dev \
+			build-essential \
+			pkg-config; \
+	elif command -v dnf >/dev/null; then \
+		echo "Using DNF (Fedora/RHEL)"; \
+		sudo dnf install -y \
+			boost-devel \
+			pkgconf-pkg-config \
+			gcc-c++; \
+	elif command -v pacman >/dev/null; then \
+		echo "Using Pacman (Arch)"; \
+		sudo pacman -S --noconfirm \
+			boost \
+			base-devel \
+			pkgconf; \
 	else \
-		echo "Unknown OS. Install dependencies manually."; \
+		echo "Unknown Linux package manager. Install boost program options manually."; \
 	fi
+else
+	@echo "Unknown OS. Install dependencies manually."
 endif
 
 	mkdir -p $(BUILD_DIR)
