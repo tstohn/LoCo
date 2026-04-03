@@ -10,46 +10,52 @@ jobs:
   build:
     name: Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+
     strategy:
-      # This ensures that if Windows fails, Ubuntu and macOS keep running
-      fail-fast: false 
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
       # -------------------------------
-      # Checkout repo (Upgraded to v4)
+      # Checkout
       # -------------------------------
       - uses: actions/checkout@v4
 
       # -------------------------------
-      # Linux/macOS permissions
+      # Install build tools (cross-platform)
       # -------------------------------
-      - name: Set executable permission for bootstrap.sh
-        if: runner.os != 'Windows'
-        run: chmod +x bootstrap.sh
+      - name: Install dependencies (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential make zlib1g-dev
 
-      # -------------------------------
-      # Build via bootstrap
-      # -------------------------------
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install make zlib
 
-      - name: Run bootstrap
-        if: runner.os != 'Windows'
-        # We use 'bash' to ensure the PATH export works
-        shell: bash
-        run: ./bootstrap.sh
-
-      - name: Run bootstrap (Windows)
+      - name: Install dependencies (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
-        run: .\bootstrap.ps1
+        run: |
+          choco install make -y
 
       # -------------------------------
-      # Upload binaries (Upgraded to v4)
+      # Build
+      # -------------------------------
+      - name: Build install
+        run: make install
+
+      - name: Build LoCo
+        run: make loco
+
+      # -------------------------------
+      # Upload binaries
       # -------------------------------
       - name: Upload binaries
         uses: actions/upload-artifact@v4
         with:
-          # v4 requires unique names for each matrix run
           name: loco-${{ matrix.os }}
           path: bin/
