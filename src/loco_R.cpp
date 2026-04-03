@@ -71,6 +71,9 @@ Rcpp::List build_loco_object_fast(
     bool useCorrStateGenes
 ) {
 
+    //fill all the objects that are used to write the R-result object
+    
+
     size_t P = pairs.size();
     size_t N = corrMat.size();
     size_t F = featureNames.size();

@@ -225,6 +225,11 @@ void Neighborhood::write_shuffled_laplacians(const std::string& outFile)
     outputFile.close();
 }
 
+//void Neighborhood::fill_result_objects()
+//{
+
+//}
+
 void Neighborhood::write_results_to_file(const std::string& outFile, const std::string& prefix, int& numberCorrelations)
 {
     std::ofstream outputFile;   
