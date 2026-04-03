@@ -219,24 +219,24 @@ test_loco_c:
 
 # simulate the signlaing markers also as markers with a signoidal activation
 test_run_loco_sigmoidal:
-	/usr/bin/time ./bin/loco -i ./test/data_1.tsv -o bin -p data_1 -c -n 100 -s 50 -x 0.4 -z -t 50 -m 2 -q 2 -a 0.01 -u 1000 -f 0
+	/usr/bin/time ./bin/loco -i ./test/data_1.tsv -o bin -p data_1 -c -n 100 -s 50 -x 0.4 -z 1 -t 50 -m 2 -q 2 -a 0.01 -u 1000 -f 0
 # test aboce script 5 times and make sure in the top 5 correlations pairs we only see pairs of the middle program (Ms) or an end program (Es)
 test_loco_sigmoidal:
 	./test/test_sigmoidal.sh
 
 test_loco_sigmoidal_granularities:
-	/usr/bin/time ./bin/loco -i ./test/data_1.tsv -o bin -p data_1 -c -n 100 -s [10,50,100,200] -x 0.4 -z -t 50 -m 2 -q 2 -a 0.01 -u 1000 -f 0
+	/usr/bin/time ./bin/loco -i ./test/data_1.tsv -o bin -p data_1 -c -n 100 -s [10,50,100,200] -x 0.4 -z 1 -t 50 -m 2 -q 2 -a 0.01 -u 1000 -f 0
 
 #-v ./test/paperCellstateMarkers.txt
 #-v ./test/paperCellstateMarkers.txt -w ./test/paperCellsignalMarkers.txt
 
 # simulate the signaling markers as uniformal distributions
 test_loco_uniform:
-	/usr/bin/time ./bin/loco -i ./test/data_2.tsv -o bin -p data_2 -c -n 1000 -s 100 -x 0.5 -z -t 10 -f 20 -v test/paperCellstateMarkers.txt -w test/paperCellsignalMarkers.txt
+	/usr/bin/time ./bin/loco -i ./test/data_2.tsv -o bin -p data_2 -c -n 1000 -s 100 -x 0.5 -z 1 -t 10 -f 20 -v test/paperCellstateMarkers.txt -w test/paperCellsignalMarkers.txt
 
 #5K cells,m when having more than 50N p-values seem to not make sense anymore
 test_loco_uniform_noSignalMarkers:
-	/usr/bin/time ./bin/loco -i ./test/data_2.tsv -o bin -p data_2_b -c -n 50 -s 100 -x 0.5 -z -t 10 -f 20 -v test/paperCellstateMarkers.txt
+	/usr/bin/time ./bin/loco -i ./test/data_2.tsv -o bin -p data_2_b -c -n 50 -s 100 -x 0.5 -z 1 -t 10 -f 20 -v test/paperCellstateMarkers.txt
 
 test_loco:
 	make test_loco_a

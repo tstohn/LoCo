@@ -7,7 +7,7 @@ TOTAL_RUNS=5
 REQUIRED_PASSES=4
 PASS_COUNT=0
 # Your specific command
-CMD="/usr/bin/time $EXE -i ./test/data_1.tsv -o bin -p data_1 -c -n 100 -s 50 -x 0.3 -z -t 50 -m 2 -q 2 -a 0.01 -u 1000 -f 0"
+CMD="$EXE -i ./test/data_1.tsv -o bin -p data_1 -c -n 100 -s 50 -x 0.3 -z -t 50 -m 2 -q 2 -a 0.01 -u 1000 -f 0"
 
 # Store results for a final summary
 RESULTS=()
@@ -39,7 +39,7 @@ for i in $(seq 1 $TOTAL_RUNS); do
     rm -f "$OUT_FILE"
 
     # Execute the command
-    eval "$CMD" > /dev/null 2>&1
+    eval "$CMD"
     STATUS=$?
 
     if [ $STATUS -ne 0 ]; then
