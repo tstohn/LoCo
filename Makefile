@@ -21,7 +21,7 @@ INCLUDE_DIRS += $(if $(BOOST_INCLUDE),-I$(BOOST_INCLUDE),)
 NANO_INCLUDE = -Iinst/include
 
 CXXFLAGS = -std=c++17 -O3 -Wall -Wextra $(INCLUDE_DIRS) $(NANO_INCLUDE)
-LDFLAGS  = $(IG_LIB) -lboost_program_options -lz
+LDFLAGS  = -lboost_program_options -lz
 # add LTO only for Linux/Mac
 ifneq ($(IS_LINUX),)
 	CXXFLAGS += -flto=5
@@ -61,14 +61,12 @@ IS_WIN    := $(filter MINGW% MSYS% CYGWIN%,$(UNAME_S))
 ifeq ($(IS_DARWIN),Darwin)
     BOOST_PREFIX := $(shell brew --prefix boost 2>/dev/null)
 
-    ifneq ($(BOOST_PREFIX),)
-        BOOST_CPPFLAGS += -I$(BOOST_PREFIX)/include
-        BOOST_LDFLAGS  += -L$(BOOST_PREFIX)/lib
-    endif
+    BOOST_CPPFLAGS += -I$(BOOST_PREFIX)/include
+    BOOST_LDFLAGS  += -L$(BOOST_PREFIX)/lib
 endif
 
 #######################################
-# Linux (system / CRAN-safe)
+# Linux
 #######################################
 
 ifneq ($(IS_LINUX),)
@@ -92,7 +90,7 @@ endif
 # FINAL BOOST FLAGS (USED BY COMPILER)
 #######################################
 
-CPPFLAGS += $(BOOST_CPPFLAGS)
+CXXFLAGS += $(BOOST_CPPFLAGS)
 LDFLAGS  += $(BOOST_LDFLAGS)
 LDLIBS   += $(BOOST_LIBS)
 
@@ -151,7 +149,7 @@ install:
 
 loco: $(OBJ_FILES) | $(BIN_DIR)
 	@mkdir -p $(BIN_DIR)
-	$(CXX) $(OBJ_FILES) $(LDFLAGS) -o $(BIN_DIR)/loco
+	$(CXX) $(OBJ_FILES) $(LDFLAGS) $(LDLIBS) -o $(BIN_DIR)/loco
 
 # ===============================
 # Compile sources to object files
