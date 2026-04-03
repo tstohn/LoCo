@@ -7,7 +7,7 @@ TOTAL_RUNS=5
 REQUIRED_PASSES=4
 PASS_COUNT=0
 # Your specific command
-CMD="$EXE -i ./test/data_1.tsv -o bin -p data_1 -c -n 100 -s 50 -x 0.3 -z -t 50 -m 2 -q 2 -a 0.01 -u 1000 -f 0"
+CMD="$EXE -i ./test/data_1.tsv -o bin -p data_1 -c -n 100 -s 50 -x 0.3 -z 1 -t 50 -m 2 -q 2 -a 0.01 -u 1000 -f 0"
 
 # Store results for a final summary
 RESULTS=()
