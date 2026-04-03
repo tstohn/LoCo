@@ -1,8 +1,6 @@
 # *LoCo* - _Local Correlation Analysis_
 
-[![Linux](https://img.shields.io/github/actions/workflow/status/tstohn/LoCo/tests_cpp.yml?branch=main&label=Linux&job=linux)](https://github.com/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME/actions)
-[![Mac](https://img.shields.io/github/actions/workflow/status/tstohn/LoCo/tests_cpp.yml?branch=main&label=Mac&job=macos)](https://github.com/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME/actions)
-[![Windows](https://img.shields.io/github/actions/workflow/status/tstohn/LoCo/tests_cpp.yml?branch=main&label=Windows&job=windows)](https://github.com/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME/actions)
+[![Tests](https://github.com/tstohn/LoCo/actions/workflows/tests_cpp.yml/badge.svg?branch=main)](https://github.com/tstohn/LoCo/actions/workflows/tests_cpp.yml)
 
 <img src="https://github.com/tstohn/LoCo/raw/master/docs/LoCo5.png" width="200" />
 
