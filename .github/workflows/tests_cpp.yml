@@ -1,10 +1,11 @@
-name: CI Tests
+name: Cpp Tests
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master ]
   pull_request:
-    branches: [ main ]
+    branches: [ master ]
+workflow_dispatch: # allow re-runs without push
 
 jobs:
   linux-tests:
