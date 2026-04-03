@@ -113,13 +113,13 @@ std::vector<std::pair<int, int>> Neighborhood::filter_best_pairs(size_t numberGe
     return(filteredCorrelations);
 }
 
-void Neighborhood::write_shuffled_laplacians(const std::string& outFile)
+void Neighborhood::write_shuffled_laplacians(const std::string& outFile, const std::string& prefix)
 {
     std::ofstream outputFile;
-    std::size_t found = outFile.find_last_of(".");
+    std::string folder_prefix = outFile + "/" + prefix;
 
     // CORRELATION LAPLACIANS
-    std::string outputCorr = outFile.substr(0,found) + "_shuffledCorr." + outFile.substr(found+1);
+    std::string outputCorr = folder_prefix + "_shuffledCorr." + outFile.substr(found+1);
     std::remove(outputCorr.c_str());
     outputFile.open(outputCorr, std::ofstream::app);
 
@@ -173,7 +173,7 @@ void Neighborhood::write_shuffled_laplacians(const std::string& outFile)
 
 
     // SLOPE LAPLACIANS
-    std::string outputSlope = outFile.substr(0,found) + "_shuffledSlope." + outFile.substr(found+1);
+    std::string outputSlope = folder_prefix + "_shuffledSlope." + outFile.substr(found+1);
     std::remove(outputSlope.c_str());
     outputFile.open(outputSlope, std::ofstream::app);
 
@@ -402,7 +402,7 @@ void Neighborhood::write_results_to_file(const std::string& outFile, const std::
     outputFile.close();
 
     //WRITE PERMUTATION LAPLACIANS
-    write_shuffled_laplacians(outFile);
+    write_shuffled_laplacians(outFile, prefix);
 
 }
 

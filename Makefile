@@ -14,7 +14,7 @@ SUBDIRS := $(shell find $(INC_DIR) -type d)
 INCLUDE_DIRS := $(addprefix -I,$(SUBDIRS))
 
 #add boost disr to include flags - important for windows and macOS
-INCLUDE_DIRS += $(if $(BOOST_INCLUDE),-I$(BOOST_INCLUDE),)
+INCLUDE_DIRS += -Isrc
 
 #add path to nanoflann
 #IG_INCLUDE += -I dependencies/nanoflann/include
@@ -181,13 +181,13 @@ clean:
 #test dataset has 4 correlated var that range through grpah from low to high corr, 4 medium constant corr and a bunch of non corr
 #this dataset is a bit smaller and noisy, we do not check results automatically
 test_loco_a:
-	./bin/loco -i ./test/simulatedData1.tsv -o bin -p test_a -n 20 -x 0.3 -s 25 -t 1 -q 1
+	./bin/loco -i ./test/simulatedData1.tsv -o bin/ -p test_a -n 20 -x 0.3 -s 25 -t 1 -q 1
 
 #simple test where we have 50 non corr variables of two clsuters, then in each cluster diff 3 var correlated
 #you should run it with printing cliques and find in each neighborhood roughly ONLY 1,2,3 or 4,5,6
 # RESULT: this should always find the two correlatuion sets A,B,C and D,E,F
 test_loco_b:
-	./bin/loco -i ./test/simulatedData2.tsv -o bin -p test_b -c -v ./test/cellStateGenes.txt -w ./test/cellSignalGenes.txt -t 10
+	./bin/loco -i ./test/simulatedData2.tsv -o bin/ -p test_b -c -v ./test/cellStateGenes.txt -w ./test/cellSignalGenes.txt -t 10
 	./test/test_b.sh
 
 #tets with 1000 cells and 58 features
@@ -205,24 +205,24 @@ test_loco_c:
 
 # simulate the signlaing markers also as markers with a signoidal activation
 test_run_loco_sigmoidal:
-	/usr/bin/time ./bin/loco -i ./test/data_1.tsv -o bin -p data_1 -c -n 100 -s 50 -x 0.4 -z 1 -t 50 -m 2 -q 2 -a 0.01 -u 1000 -f 0
+	/usr/bin/time ./bin/loco -i ./test/data_1.tsv -o bin/ -p data_1 -c -n 100 -s 50 -x 0.4 -z 1 -t 50 -m 2 -q 2 -a 0.01 -u 1000 -f 0
 # test aboce script 5 times and make sure in the top 5 correlations pairs we only see pairs of the middle program (Ms) or an end program (Es)
 test_loco_sigmoidal:
 	./test/test_sigmoidal.sh
 
 test_loco_sigmoidal_granularities:
-	/usr/bin/time ./bin/loco -i ./test/data_1.tsv -o bin -p data_1 -c -n 100 -s [10,50,100,200] -x 0.4 -z 1 -t 50 -m 2 -q 2 -a 0.01 -u 1000 -f 0
+	/usr/bin/time ./bin/loco -i ./test/data_1.tsv -o bin/ -p data_1 -c -n 100 -s [10,50,100,200] -x 0.4 -z 1 -t 50 -m 2 -q 2 -a 0.01 -u 1000 -f 0
 
 #-v ./test/paperCellstateMarkers.txt
 #-v ./test/paperCellstateMarkers.txt -w ./test/paperCellsignalMarkers.txt
 
 # simulate the signaling markers as uniformal distributions
 test_loco_uniform:
-	/usr/bin/time ./bin/loco -i ./test/data_2.tsv -o bin -p data_2 -c -n 1000 -s 100 -x 0.5 -z 1 -t 10 -f 20 -v test/paperCellstateMarkers.txt -w test/paperCellsignalMarkers.txt
+	/usr/bin/time ./bin/loco -i ./test/data_2.tsv -o bin/ -p data_2 -c -n 1000 -s 100 -x 0.5 -z 1 -t 10 -f 20 -v test/paperCellstateMarkers.txt -w test/paperCellsignalMarkers.txt
 
 #5K cells,m when having more than 50N p-values seem to not make sense anymore
 test_loco_uniform_noSignalMarkers:
-	/usr/bin/time ./bin/loco -i ./test/data_2.tsv -o bin -p data_2_b -c -n 50 -s 100 -x 0.5 -z 1 -t 10 -f 20 -v test/paperCellstateMarkers.txt
+	/usr/bin/time ./bin/loco -i ./test/data_2.tsv -o bin/ -p data_2_b -c -n 50 -s 100 -x 0.5 -z 1 -t 10 -f 20 -v test/paperCellstateMarkers.txt
 
 test_loco:
 	make test_loco_a
