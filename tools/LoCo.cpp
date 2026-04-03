@@ -72,7 +72,7 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
             correlation detection. Grpahs can be detected as follows: 0= fully connected components (cliques)1 = connected components (nodes with at least one edge), etc.")
 
             //GENERAL
-            ("zScore,z", "z-score normalize the data. Set flag with -z if you want to ahve the data z-scored, (default isx  false)")
+            ("zScore,z", value<bool>(&zscore)->default_value(true), "z-score normalize data, default is true (1) (1=true, 0=false)")
             ("thread,t", value<int>(&threats)->default_value(5), "number of threads")
             ("help,h", "help message");
 
