@@ -2,17 +2,16 @@ CXX_STD = CXX17
 
 # enforce compilation of cpp files
 PKG_SRC = \
-  core/GraphData.cpp \
-  core/SCParser.cpp \
-  core/GraphHandler.cpp \
-  core/Neighborhood.cpp \
+  GraphData.cpp \
+  SCParser.cpp \
+  GraphHandler.cpp \
+  Neighborhood.cpp \
   loco_R.cpp
 
 # include directories
 PKG_CPPFLAGS = \
     -I../inst/include \
-    -I$(srcdir)/core \
-    -I$(srcdir)/include
+    -Isrc
 
 # compiler flags
 PKG_CXXFLAGS = -O3 -Wall -Wextra

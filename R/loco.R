@@ -3,7 +3,7 @@
 #' @export
 run_loco <- function(
   inFile,
-  outFile,
+  outFile = NULL,
   prefix = "LoCo",
   del = "\t",
   col = FALSE,
@@ -23,10 +23,28 @@ run_loco <- function(
   corrSetAbundance = 0.01
 ) {
 
-  .Call(
+  # ---- checks ----
+  if (!file.exists(inFile)) {
+    stop("Input file does not exist: ", inFile)
+  }
+
+  if (!is.character(del) || nchar(del) != 1) {
+    stop("`del` must be a single character")
+  }
+
+  if (!is.numeric(thread) || thread < 1) {
+    stop("`thread` must be >= 1")
+  }
+
+  if (!is.null(outFile)) {
+    warning("`outFile` is deprecated and ignored.")
+  }
+
+  # ---- call C++ ----
+  res <- .Call(
     "_loco_run_loco",
     inFile,
-    outFile,
+    "",  # no longer used
     prefix,
     del,
     col,
@@ -45,4 +63,6 @@ run_loco <- function(
     as.integer(minSetSize),
     corrSetAbundance
   )
+
+  return(res)
 }

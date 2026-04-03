@@ -1,4 +1,3 @@
 useDynLib(loco, .registration = TRUE)
 import(Rcpp)
-export(compute_loco)
-export(plot_loco)
+export(run_loco)
