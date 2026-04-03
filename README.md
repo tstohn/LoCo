@@ -1,12 +1,10 @@
 # *LoCo* - _Local Correlation Analysis_
 
-<img src="https://github.com/tstohn/LoCo/raw/master/docs/LoCo5.png" width="200" />
-
-# My Project Name
-
 [![Linux](https://img.shields.io/github/actions/workflow/status/tstohn/LoCo/tests_cpp.yml?branch=main&label=Linux&job=linux)](https://github.com/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME/actions)
 [![Mac](https://img.shields.io/github/actions/workflow/status/tstohn/LoCo/tests_cpp.yml?branch=main&label=Mac&job=macos)](https://github.com/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME/actions)
 [![Windows](https://img.shields.io/github/actions/workflow/status/tstohn/LoCo/tests_cpp.yml?branch=main&label=Windows&job=windows)](https://github.com/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME/actions)
+
+<img src="https://github.com/tstohn/LoCo/raw/master/docs/LoCo5.png" width="200" />
 
 LoCo (Local Correlation Analysis) detects locally structured correlation patterns from the continuous single-cell state space.
 Input to LoCo is a single-cell features matrix and output are correlations between feature pairs. The reported correlations
