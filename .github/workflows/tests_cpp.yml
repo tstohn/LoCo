@@ -38,6 +38,9 @@ jobs:
     - name: Run make install
       run: make install
       
+    - name: Run make loco
+      run: make loco
+      
     - name: Run make test_loco
       run: make test_loco
 
@@ -49,6 +52,9 @@ jobs:
     
     - name: Run make install
       run: make install
+
+    - name: Run make loco
+      run: make loco
       
     - name: Run make test_loco
       run: make test_loco
