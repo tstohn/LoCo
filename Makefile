@@ -13,66 +13,6 @@ LIB = src/lib
 SUBDIRS := $(shell find $(INC_DIR) -type d)
 INCLUDE_DIRS := $(addprefix -I,$(SUBDIRS))
 
-#######################################
-# PLATFORM DETECTION
-#######################################
-
-UNAME_S := $(shell uname -s)
-VCPKG_ROOT ?= C:/vcpkg
-
-#definitions for systems
-IS_WIN    := $(or $(findstring Windows_NT,$(OS)), \
-                $(findstring MINGW,$(UNAME_S)),$(findstring MSYS,$(UNAME_S)),$(findstring CYGWIN,$(UNAME_S)))
-IS_LINUX  := $(filter Linux%,$(UNAME_S))
-IS_DARWIN := $(filter Darwin%,$(UNAME_S))
-
-#system dependent boost flags
-ifneq ($(IS_WIN),)
-	PLATFORM = Windows
-
-	VCPKG_ROOT ?= C:/vcpkg
-    BOOST_TRIPLET := x64-mingw-static
-    BOOST_INCLUDE := $(VCPKG_ROOT)/installed/$(BOOST_TRIPLET)/include
-    BOOST_LIB     := $(VCPKG_ROOT)/installed/$(BOOST_TRIPLET)/lib
-
-    # Resolve filenames lazily (evaluated at recipe time)
-    boost_file = $(notdir $(firstword $(wildcard $(BOOST_LIB)/libboost_$(1)*.a)))
-
-    BOOST_SYS_FILE       = $(call boost_file,system)
-    BOOST_THREAD_FILE    = $(call boost_file,thread)
-    BOOST_PO_FILE        = $(call boost_file,program_options)
-    BOOST_IOSTREAMS_FILE = $(call boost_file,iostreams)
-
-    # If Boost.System archive is absent (header-only), don't link it and define the macro
-    ifeq ($(BOOST_SYS_FILE),)
-      $(info [boost] libboost_system*.a not found; using header-only Boost.System)
-      CXXFLAGS += -DBOOST_ERROR_CODE_HEADER_ONLY
-    endif
-
-    # Build the library list, skipping any empty entries
-    BOOST_LIBS := \
-      $(if $(BOOST_SYS_FILE),-l:$(BOOST_SYS_FILE)) \
-      $(if $(BOOST_THREAD_FILE),-l:$(BOOST_THREAD_FILE)) \
-      $(if $(BOOST_PO_FILE),-l:$(BOOST_PO_FILE)) \
-      $(if $(BOOST_IOSTREAMS_FILE),-l:$(BOOST_IOSTREAMS_FILE))
-
-    # Final flags (keep recursive expansion!)
-    BOOST_FLAGS = -I"$(BOOST_INCLUDE)" -L"$(BOOST_LIB)" -Wl,-Bstatic \
-                  $(BOOST_LIBS) -lz -lwinpthread -lws2_32
-else ifneq ($(IS_LINUX),)
-    PLATFORM = Linux
-    BOOST_FLAGS := -lboost_program_options
-	BOOST_INCLUDE :=
-	BOOST_LIB :=
-else ifneq ($(IS_DARWIN),)
-    PLATFORM = macOS
-	#make install installs boost with brew, we need to get the actual path to include boost correctly
-    BOOST_FLAGS := -lboost_program_options
-  	BOOST_PREFIX := $(shell brew --prefix boost 2>/dev/null || echo /opt/homebrew)
-  	BOOST_INCLUDE := $(BOOST_PREFIX)/include
-  	BOOST_LIB := $(BOOST_PREFIX)/lib
-endif
-
 #add boost disr to include flags - important for windows and macOS
 INCLUDE_DIRS += $(if $(BOOST_INCLUDE),-I$(BOOST_INCLUDE),)
 
@@ -99,9 +39,66 @@ SRC_FILES := \
 
 OBJ_FILES := $(patsubst %.cpp,$(BUILD_DIR)/%.o,$(SRC_FILES))
 
-# ===============================
-# Install dependencies
-# ===============================
+
+#######################################
+# PLATFORM DETECTION
+#######################################
+#definitions for systems
+UNAME_S := $(shell uname -s)
+
+IS_LINUX  := $(filter Linux,$(UNAME_S))
+IS_DARWIN := $(filter Darwin,$(UNAME_S))
+IS_WIN    := $(filter MINGW% MSYS% CYGWIN%,$(UNAME_S))
+
+#######################################
+# BOOST INSTALL PATHS
+#######################################
+
+#######################################
+# macOS (Homebrew)
+#######################################
+
+ifeq ($(IS_DARWIN),Darwin)
+    BOOST_PREFIX := $(shell brew --prefix boost 2>/dev/null)
+
+    ifneq ($(BOOST_PREFIX),)
+        BOOST_CPPFLAGS += -I$(BOOST_PREFIX)/include
+        BOOST_LDFLAGS  += -L$(BOOST_PREFIX)/lib
+    endif
+endif
+
+#######################################
+# Linux (system / CRAN-safe)
+#######################################
+
+ifneq ($(IS_LINUX),)
+    BOOST_CPPFLAGS += $(shell pkg-config --cflags boost-program-options 2>/dev/null)
+    BOOST_LDFLAGS  += $(shell pkg-config --libs boost-program-options 2>/dev/null)
+endif
+
+#######################################
+# Windows (vcpkg)
+#######################################
+
+ifneq ($(IS_WIN),)
+    VCPKG_ROOT ?= C:/vcpkg
+    BOOST_TRIPLET := x64-mingw-static
+
+    BOOST_CPPFLAGS += -I$(VCPKG_ROOT)/installed/$(BOOST_TRIPLET)/include
+    BOOST_LDFLAGS  += -L$(VCPKG_ROOT)/installed/$(BOOST_TRIPLET)/lib
+endif
+
+#######################################
+# FINAL BOOST FLAGS (USED BY COMPILER)
+#######################################
+
+CPPFLAGS += $(BOOST_CPPFLAGS)
+LDFLAGS  += $(BOOST_LDFLAGS)
+LDLIBS   += $(BOOST_LIBS)
+
+#######################################
+# INSTALL DEPENDENCIES (SYSTEM-DEPENDENT)
+#######################################
 install:
 # -------------------------------
 # NANOFLANN is included as a header only in the repository - therefore we origionally used the branch below
@@ -114,44 +111,35 @@ install:
 #		echo "nanoflann already exists, skipping clone"; \
 #	fi
 
-# -------------------------------
-# INSTALL SYSTEM DEPENDENCIES: boost
-# -------------------------------
-.PHONY: install-deps
-install-deps:
-ifeq ($(PLATFORM),Windows)
-	@echo "Windows detected: install dependencies manually (vcpkg/conda recommended)."
-else ifeq ($(PLATFORM),macOS)
-	@echo "macOS detected"
-	brew update
-	brew install boost
-else ifeq ($(PLATFORM),Linux)
-	@echo "Linux detected"
-	@if command -v apt >/dev/null; then \
-		echo "Using APT (Debian/Ubuntu)"; \
-		sudo apt update; \
-		sudo apt install -y \
+#######################################
+# LINUX (APT / SYSTEM)
+#######################################
+	@if [ "$(IS_LINUX)" = "Linux" ]; then \
+		echo "Installing dependencies (Linux)..."; \
+		sudo apt-get update && sudo apt-get install -y \
 			libboost-program-options-dev \
-			build-essential \
-			pkg-config; \
-	elif command -v dnf >/dev/null; then \
-		echo "Using DNF (Fedora/RHEL)"; \
-		sudo dnf install -y \
-			boost-devel \
-			pkgconf-pkg-config \
-			gcc-c++; \
-	elif command -v pacman >/dev/null; then \
-		echo "Using Pacman (Arch)"; \
-		sudo pacman -S --noconfirm \
-			boost \
-			base-devel \
-			pkgconf; \
-	else \
-		echo "Unknown Linux package manager. Install boost program options manually."; \
+			zlib1g-dev; \
 	fi
-else
-	@echo "Unknown OS. Install dependencies manually."
-endif
+
+#######################################
+# macOS (Homebrew)
+#######################################
+	@if [ "$(IS_DARWIN)" = "Darwin" ]; then \
+		echo "Installing dependencies (macOS)..."; \
+		brew update; \
+		brew install boost zlib || true; \
+	fi
+
+#######################################
+# Windows (vcpkg)
+#######################################
+	@if echo "$(UNAME_S)" | grep -E -q "MINGW|MSYS|CYGWIN"; then \
+		echo "Installing dependencies (Windows via vcpkg)..."; \
+		$(VCPKG_ROOT)/vcpkg install \
+			boost-program-options \
+			zlib \
+			--triplet x64-mingw-static; \
+	fi
 
 	mkdir -p $(BUILD_DIR)
 	mkdir -p $(BIN_DIR)
