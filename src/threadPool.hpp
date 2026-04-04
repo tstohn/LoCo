@@ -7,6 +7,7 @@
 #include <condition_variable>
 #include <functional>
 #include <atomic>
+#include "loco_io.h"
 
 class ThreadPool {
 public:

@@ -3,6 +3,10 @@
 #include <Rcpp.h>
 using namespace Rcpp;
 
+//redefine commands for cran
+#define LOCO_RCPP
+#include "loco_io.h"
+
 // undefine PI as both R and nanoflann define it
 #undef PI 
 #include "loco_R.h"
@@ -53,26 +57,69 @@ std::vector<unsigned int> parseNeighborhoodSizes(const std::string& input)
 }
 
 //return R-object of LoCo results
-Rcpp::List build_loco_object_fast(
-    const std::vector<std::pair<int,int>>& pairs,
-    const std::vector<std::string>& geneNames,
-    const std::vector<int>& corrStateGenes,
-    const std::vector<std::vector<double>>& corrMat,
-    const std::vector<std::vector<double>>& slopeMat,
-    const std::vector<std::vector<int>>& cellMat,
-    const std::vector<std::vector<double>>& coords,
-    const std::vector<std::string>& featureNames,
-    const std::vector<std::string>& neighborhoodNames,
-    const std::vector<double>& corrL,
-    const std::vector<double>& pCorrL,
-    const std::vector<double>& slopeL,
-    const std::vector<double>& pSlopeL,
-    const std::vector<std::string>& cliquesFlat,
-    bool useCorrStateGenes
-) {
+// create a List of several dataframes
+// 1.a) raw data table
 
-    //fill all the objects that are used to write the R-result object
-    
+// 2.a) neighbourhood - cells
+// 2.b) laplacian scores
+
+// 3a) neighbourhood - coords
+// 3b) neighbourhood correlations data table
+Rcpp::List build_loco_object(const SingleCellData& rawData,
+                             const Neighborhood& neighborhood) 
+{
+
+    //fill intermittend data that are used to write the R-result object
+    std::vector<std::string> nIDs; //all neighborhoods IDs
+    std::vector<std::vector<std::string>> nID_cID; //vector off all cellIDs for all neighborhoods (same order as nIDs)
+
+    std::vector<std::string> correlation_pairs; //all names of the correlation pairs
+    std::vector<std::vector<double>> corrMat; //all correlations
+
+    std::vector<std::string> laplacian_correlation_pairs; //all names of the correlation pairs for laplacian
+    std::vector<double> corrL;
+    std::vector<double> pCorrL;
+    std::vector<std::vector<std::string>> cliquesFlat;
+    fill_result_data(
+        nIDs, nID_cID,
+        correlation_pairs,corrMat,
+        laplacian_correlation_pairs,corrL,pCorrL,cliquesFlat);
+
+    // =========================
+    // 1. safe raw data table
+    // =========================
+
+    int nrow = rawData.pointCloud.size();
+    int ncol = rawData.pointCloud[0].size();
+    Rcpp::NumericMatrix mat(nrow, ncol);
+    for (int i = 0; i < nrow; i++) 
+    {
+        for (int j = 0; j < ncol; j++) 
+        {
+            mat(i, j) = pointCloud[i][j];
+        }
+    }
+    mat.attr("dimnames") = Rcpp::List::create(
+    Rcpp::wrap(geneNames),  // row names
+    Rcpp::wrap(cellIDs)     // column names
+    );
+    Rcpp::DataFrame raw_df = Rcpp::as<Rcpp::DataFrame>(mat);
+    raw_df.push_front(Rcpp::wrap(geneNames), "gene");
+
+    // =========================
+    // 1. safe raw data table
+    // =========================
+
+    // =========================
+    // CREATE LIST OF DATA TABLES
+    // =========================
+    Rcpp::DataFrame loco_result = Rcpp::DataFrame::create(
+        Rcpp::Named("RawData") = raw_df,
+
+    );
+
+
+//OLD
 
     size_t P = pairs.size();
     size_t N = corrMat.size();
@@ -106,15 +153,6 @@ Rcpp::List build_loco_object_fast(
         pSlope[i] = pSlopeL[i];
         cliqueOut.push_back(cliquesFlat[i]);
     }
-
-    Rcpp::DataFrame laplacian = Rcpp::DataFrame::create(
-        Named("ProteinPair") = pairNames,
-        Named("CorrelationScore") = corrScore,
-        Named("p_CorrelationScore") = pCorr,
-        Named("SlopeScore") = slopeScore,
-        Named("p_SlopeScore") = pSlope,
-        Named("OrigionalCliques") = cliqueOut
-    );
 
     // =========================
     // 2. CORRELATION MATRIX (NUMERIC MATRIX = FASTER)
@@ -190,7 +228,7 @@ void run_correlation_propagation_across_graph(const SingleCellData& inFile, cons
     {
         // create graph of single-cell data
         unsigned int numNeighborhoods = inFile.pointCloud.size() / neighborhoodSize;
-        std::cout << "Creating " << numNeighborhoods << " neighbourhoods with " << neighborhoodSize << " cells\n";
+        LOCO_OUT << "Creating " << numNeighborhoods << " neighbourhoods with " << neighborhoodSize << " cells\n";
         bool printStatusUpdateCellDistCalc = true;
         unsigned int scGraphKnn = neighborhoodSize; //the KNN value is the number of cells in a neighborhood, we ONLY have to calcualte the knn closest neighbors, no need for more
         bool precalculateAllDistances = false;
@@ -202,30 +240,8 @@ void run_correlation_propagation_across_graph(const SingleCellData& inFile, cons
                                 correlatedSetMode);
         neighborhood.calculate_correlation_propagation(correlationCutoff, minSetSize, thread);
 
-        //write results to file:
-        //neighborhood, coordinates, correlation, slope for every protein-pair
-        //file for protein-pair to origional clique
-
-        neighborhood.write_results_to_file(outFile, tmpPrefix, numberCorrelations);
-
-        //replace this with RCPP data structes that loco should return
-        Rcpp::List res = build_loco_object_fast(
-            neighborhood.get_pairs(),
-            inFile.geneNames,
-            corrIdxs,
-            neighborhood.get_corr_matrix(),
-            neighborhood.get_slope_matrix(),
-            neighborhood.get_cell_matrix(),
-            neighborhood.get_coords(),
-            neighborhood.get_feature_names(),
-            neighborhood.get_neighborhood_names(),
-            neighborhood.get_corr_laplacian(),
-            neighborhood.get_p_corr(),
-            neighborhood.get_slope_laplacian(),
-            neighborhood.get_p_slope(),
-            neighborhood.get_cliques_flat(),
-            true
-        );
+        //return the RCPP data structure for loco
+        Rcpp::List res = build_loco_object(rawData, neighborhood);
     }
 }
 
@@ -259,7 +275,7 @@ void run_loco(
 
     if(zscore)
     {
-        std::cout << "z-score normalize data (scale feature counts for each single-cell)\n";
+        LOCO_OUT << "z-score normalize data (scale feature counts for each single-cell)\n";
         zscore_singleCelldata(inputDataRaw);
     }
 

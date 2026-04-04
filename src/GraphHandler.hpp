@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <exception>
 #include <numeric>
+#include "loco_io.h"
 
 #include "GraphData.hpp"
 
@@ -103,8 +104,8 @@ class GraphHandler
             //this only works for KNN graphs, not for K-DIST graphs
             if(knn == 0)
             {
-                std::cerr << "Error: Can not calculate neighbors when knn is set to zero";
-                exit(EXIT_FAILURE);
+                LOCO_ERR << "Error: Can not calculate neighbors when knn is set to zero";
+                LOCO_EXIT(EXIT_FAILURE);
             }
 
             //get all neighbors from data (fastest way, it has all neighbors ordered)

@@ -37,8 +37,8 @@ namespace InitializationHelper
             }
             else
             {
-                std::cout << "Error: No distance metric for cell-similarity graph\n";
-                exit(1);
+                LOCO_OUT << "Error: No distance metric for cell-similarity graph\n";
+                LOCO_EXIT(1);
             }
 
             //save the distance
@@ -79,24 +79,24 @@ namespace InitializationHelper
         if(graphData->distances_precalcualted())
         {
             if (statusUpdate)
-                std::cout << "\tSTEP[0a]:\tCalculate kNN cell-cell distances\n";
+                LOCO_OUT << "\tSTEP[0a]:\tCalculate kNN cell-cell distances\n";
 
             graphData->build_knn_adjacency(graphData->get_knn());
 
             if (statusUpdate)
-                std::cout << "\tSTEP[0b]:\tSorting cell-cell distances\n";
+                LOCO_OUT << "\tSTEP[0b]:\tSorting cell-cell distances\n";
 
             graphData->sort_adjacencyList();
         }
         else
         {
             if (statusUpdate)
-                std::cout << "\tSTEP[0a]:\tCreate KD-tree only\n";
+                LOCO_OUT << "\tSTEP[0a]:\tCreate KD-tree only\n";
 
             graphData->create_kd_tree();
 
             if (statusUpdate)
-                std::cout << "Skipping distance calculations and do not fill adj. list\n";
+                LOCO_OUT << "Skipping distance calculations and do not fill adj. list\n";
 
         }
 
@@ -112,17 +112,17 @@ namespace InitializationHelper
 
         if(statusUpdate)
         {
-            std::cout << "\tSTEP[0a]:\tCalculate cell-cell distances\n";
+            LOCO_OUT << "\tSTEP[0a]:\tCalculate cell-cell distances\n";
             if(!graphData->distances_precalcualted())
             {
-                std::cout << "WARNING: Distances get precalcualted despite seeting the flag to not precalcualte!!!\n";
-                std::cout << "Distances can only be NOT calcualted when calcualting distances with the KD-tree\n";
+                LOCO_OUT << "WARNING: Distances get precalcualted despite seeting the flag to not precalcualte!!!\n";
+                LOCO_OUT << "Distances can only be NOT calcualted when calcualting distances with the KD-tree\n";
             }
         }
         
-        std::cout << "CALCULATING DISTANCES FROM \n";
-        for(auto x : cellStateGenes){std::cout << x << " ";}
-        std::cout << "\n";
+        LOCO_OUT << "CALCULATING DISTANCES FROM \n";
+        for(auto x : cellStateGenes){LOCO_OUT << x << " ";}
+        LOCO_OUT << "\n";
 
         //boost::asio::thread_pool pool_dist(threads);
         ThreadPool pool_dist(threads);
@@ -210,11 +210,11 @@ namespace InitializationHelper
         pool_dist.wait_for_tasks();
 
         printProgress(1);
-        std::cout << "\n";
+        LOCO_OUT << "\n";
 
         if(statusUpdate)
         {
-            std::cout << "\tSTEP[0b]:\tSorting cell-cell distances\n";
+            LOCO_OUT << "\tSTEP[0b]:\tSorting cell-cell distances\n";
         }
         //sort the values: before we simply inserted them all to the back
         graphData->sort_adjacencyList();
@@ -419,7 +419,7 @@ if(!corrStateGenes.empty()){geneSize = corrStateGenes.size();}
     {
         //eigenvalues ordered from highest to lowest
         double eigenVal = pca.eigenvalues.at<double>(i);
-        std::cout << "NEXT EIGENVAL: " << eigenVal << "\n";
+        LOCO_OUT << "NEXT EIGENVAL: " << eigenVal << "\n";
     }
 }*/
 
@@ -437,7 +437,7 @@ void GraphData::build_knn_adjacency(int k)
     adjacencyList.clear();
     adjacencyList.reserve(N);  // unordered_map reserve
 
-    std::cout << "creating cell-cell dist with k " << k << "\n";
+    LOCO_OUT << "creating cell-cell dist with k " << k << "\n";
     // 3. For each node, query its k nearest neighbors (the point itself is part of the results and will be added to cells for this N)
     for (size_t i = 0; i < N; ++i)
     {
@@ -488,7 +488,7 @@ void GraphData::build_knn_adjacency(int k)
 
 void GraphData::create_kd_tree()
 {
-    std::cout << "\t# BUILDING KD-TREE\n";
+    LOCO_OUT << "\t# BUILDING KD-TREE\n";
     const int dim = get_node_at(0)->dimensions();
        
     typedef KDTreeVectorOfNodePtrAdaptor<> my_kd_tree_t;
@@ -521,9 +521,9 @@ void GraphData::search_kd_tree()
 
         if(i == nodes.size()-1)
         {
-        	std::cout << "knnSearch(nn="<<num_results<<"): \n";
+        	LOCO_OUT << "knnSearch(nn="<<num_results<<"): \n";
             for (size_t i = 0; i < num_results; i++)
-                std::cout << "ret_index["<<i<<"]=" << ret_indexes[i] << " out_dist_sqr=" << out_dists_sqr[i] << std::endl;
+                LOCO_OUT << "ret_index["<<i<<"]=" << ret_indexes[i] << " out_dist_sqr=" << out_dists_sqr[i] << std::endl;
         }
     }
 }
@@ -561,7 +561,7 @@ void GraphData::brute_force_get_points_within_radius(node node, double radius)
         }
     }
 
-    //std::cout << "MATCHES FOUND: " << solutionNodes.size() << "\n";
+    //LOCO_OUT << "MATCHES FOUND: " << solutionNodes.size() << "\n";
 
 }
 

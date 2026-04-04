@@ -66,3 +66,18 @@ run_loco <- function(
 
   return(res)
 }
+
+# TODO: add umap coords to res, when plot_n is called the first time these umap coords are filled
+
+#' Plot correlation for features by neighbourhoods
+#' Therefore create UMAP space first to then plot neighbourhoods into the same space
+#' @import ggplot2
+#' @export
+plot_neighbourhood <- function(res, featureA = "x", featureB = "y") 
+{
+
+
+  p +
+    ggplot2::geom_point(alpha = 0.7) +
+    ggplot2::theme_minimal()
+}

@@ -5,6 +5,7 @@
 #include <random>
 
 #include "Neighborhood.hpp"
+#include "loco_io.h"
 
 using namespace boost::program_options;
 

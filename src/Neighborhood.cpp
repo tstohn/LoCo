@@ -119,7 +119,7 @@ void Neighborhood::write_shuffled_laplacians(const std::string& outFile, const s
     std::string folder_prefix = outFile + "/" + prefix;
 
     // CORRELATION LAPLACIANS
-    std::string outputCorr = folder_prefix + "_shuffledCorr." + outFile.substr(found+1);
+    std::string outputCorr = folder_prefix + "_shuffledCorr.tsv" ;
     std::remove(outputCorr.c_str());
     outputFile.open(outputCorr, std::ofstream::app);
 
@@ -173,7 +173,7 @@ void Neighborhood::write_shuffled_laplacians(const std::string& outFile, const s
 
 
     // SLOPE LAPLACIANS
-    std::string outputSlope = folder_prefix + "_shuffledSlope." + outFile.substr(found+1);
+    std::string outputSlope = folder_prefix + "_shuffledSlope.tsv";
     std::remove(outputSlope.c_str());
     outputFile.open(outputSlope, std::ofstream::app);
 
@@ -224,11 +224,6 @@ void Neighborhood::write_shuffled_laplacians(const std::string& outFile, const s
 
     outputFile.close();
 }
-
-//void Neighborhood::fill_result_objects()
-//{
-
-//}
 
 void Neighborhood::write_results_to_file(const std::string& outFile, const std::string& prefix, int& numberCorrelations)
 {
@@ -694,7 +689,7 @@ void Neighborhood::calculate_laplacian_score(int threads)
     unsigned int numberNodes = neighborhoodGraph->get_all_nodes().size();
 
     //CORRELATION VARIANCE
-    std::cout << "\tSTEP[6a]:\tCalculate variance of smooth Correlations\n";
+    LOCO_OUT << "\tSTEP[6a]:\tCalculate variance of smooth Correlations\n";
     std::unordered_map<const std::pair<int, int>, double, pair_hash> corrVariance;
     //boost::asio::thread_pool pool_corr(threads);
     ThreadPool pool_corr(threads);
@@ -723,10 +718,10 @@ void Neighborhood::calculate_laplacian_score(int threads)
     }
     pool_corr.wait_for_tasks();
     printProgress(1);
-    std::cout << "\n";
+    LOCO_OUT << "\n";
 
     //SLOPE VARIANCE
-    std::cout << "\tSTEP[6b]:\tCalculate variance of smooth Slopes\n";
+    LOCO_OUT << "\tSTEP[6b]:\tCalculate variance of smooth Slopes\n";
     std::unordered_map<const std::pair<int, int>, double, pair_hash> slopeVariance;
     //boost::asio::thread_pool pool_slope(threads);
     ThreadPool pool_slope(threads);
@@ -754,10 +749,10 @@ void Neighborhood::calculate_laplacian_score(int threads)
     }
     pool_slope.wait_for_tasks();
     printProgress(1);
-    std::cout << "\n";
+    LOCO_OUT << "\n";
 
     //FULL LAPLACIAN SCORE
-    std::cout << "\tSTEP[6c]:\tCalculate Laplacian Scores\n";
+    LOCO_OUT << "\tSTEP[6c]:\tCalculate Laplacian Scores\n";
     //boost::asio::thread_pool pool_lapl(threads);
     ThreadPool pool_lapl(threads);
 
@@ -786,11 +781,11 @@ void Neighborhood::calculate_laplacian_score(int threads)
     }
     pool_lapl.wait_for_tasks();
     printProgress(1);
-    std::cout << "\n";
+    LOCO_OUT << "\n";
 
     //calcualte significance: calcualte laplacian score for randomly shuffled features across N
-    std::cout << "\tSTEP[6d]:\tCalculate Significance: Laplacian Scores after shuffling correlations\n";
-    std::cout << "\t\t We keep the KNN graph and randomly reassign all correlations/slops of a neighborhood to a different neighborhood\n";
+    LOCO_OUT << "\tSTEP[6d]:\tCalculate Significance: Laplacian Scores after shuffling correlations\n";
+    LOCO_OUT << "\t\t We keep the KNN graph and randomly reassign all correlations/slops of a neighborhood to a different neighborhood\n";
     count = 0;
     //firstly write the correlation/slope results to a vector that is easily shufflable
     std::vector<CorrelationPropagationResult> vectorizedResults;
@@ -827,7 +822,7 @@ void Neighborhood::calculate_laplacian_score(int threads)
     }
     pool_shuffle.wait_for_tasks();
     printProgress(1);
-    std::cout << "\n";
+    LOCO_OUT << "\n";
 
 }
 
@@ -951,7 +946,7 @@ void Neighborhood::detect_cliques_in_neighborhood(nodePtr neighborhoodCenter, co
         }
         else
         {
-            std::cout << "Invalid mode for detection of correlated sets: fallback to connected component -> mode 0\n";
+            LOCO_OUT << "Invalid mode for detection of correlated sets: fallback to connected component -> mode 0\n";
             corrGraphBuilder.calculate_connected_components(cliqueVectorRaw, minCliqueSize);
         }
 
@@ -1086,7 +1081,7 @@ void Neighborhood::calculate_correlation_propagation(double correlationStrengthC
 {
 
     //calculate all CLIQUES in all neighborhoods: TODO: maybe add storing slope/correlation
-    std::cout << "STEP[1/6]:\tCalculate Cliques in all neighborhoods\n";
+    LOCO_OUT << "STEP[1/6]:\tCalculate Cliques in all neighborhoods\n";
     //cliques in every neighborhood
     std::unordered_map<nodePtr, std::vector<std::vector<int>>> cliquesPerNeighborhood;
     //we calcualte all pairwise correlations already, store them here to not calc again later
@@ -1124,11 +1119,11 @@ void Neighborhood::calculate_correlation_propagation(double correlationStrengthC
     }
     pool_1.wait_for_tasks();
     printProgress(1);
-    std::cout << "\n";
+    LOCO_OUT << "\n";
 
     //cliquesVector is the final data structure storing all the correlated sets of features to process and from which to extract pairs
     // we might have the same set of features from several neighborhoods
-    std::cout << "STEP[2/6]:\tGet unique list of correlated sets: \n";
+    LOCO_OUT << "STEP[2/6]:\tGet unique list of correlated sets: \n";
     for(nodePtr neighborhoodCenter : centralNeighborhoodPtrs)
     {
         //for every clique in actual nHood
@@ -1140,30 +1135,30 @@ void Neighborhood::calculate_correlation_propagation(double correlationStrengthC
             }
         }
     }
-    std::cout << "\t\tdetected " << cliquesVector.size() << " cliques\n";
+    LOCO_OUT << "\t\tdetected " << cliquesVector.size() << " cliques\n";
 
     //find consistent correlation sets
-    std::cout << "STEP[4/6]:\tFilter consistent sets/ or find subsets of those sets that occur in several neighborhoods: \n";
+    LOCO_OUT << "STEP[4/6]:\tFilter consistent sets/ or find subsets of those sets that occur in several neighborhoods: \n";
     filter_consistent_correlation_sets_sota(cliquesPerNeighborhood, minCliqueSize);
-    std::cout << "\t\tdetected " << cliquesVector.size() << " correlated sets/ subsets of previously found sets\n";
+    LOCO_OUT << "\t\tdetected " << cliquesVector.size() << " correlated sets/ subsets of previously found sets\n";
 
     //cliques might contain subset-cliques of other cliques - remove those
-    std::cout << "STEP[3/6]:\tRemove duplicates/ subsets\n";
+    LOCO_OUT << "STEP[3/6]:\tRemove duplicates/ subsets\n";
     if(cliquesVector.size() == 0)
     {
-        std::cerr << "No Cliques detected with minimum clique size: " << minCliqueSize << "\n";
-        std::cerr << "Exiting program: please reduce the number of a minimum correlation set or reduce minimum correlations\n";
-        exit(EXIT_FAILURE);
+        LOCO_ERR << "No Cliques detected with minimum clique size: " << minCliqueSize << "\n";
+        LOCO_ERR << "Exiting program: please reduce the number of a minimum correlation set or reduce minimum correlations\n";
+        LOCO_EXIT(EXIT_FAILURE);
     }
     remove_subsets_sota(cliquesVector);
 
-    std::cout << "STEP[5/6]:\tExtract pairwise correlations from correlated sets\n";
+    LOCO_OUT << "STEP[5/6]:\tExtract pairwise correlations from correlated sets\n";
     //extract pairwise correlations from all found cliques.
     //pairwise correlations r extracted for cliquesVector data structure
     //results are correlations/ slopes for all pairs of features from cliques
     extract_pairs_from_correlation_sets(neighborhoodCorrelations);
 
-    std::cout << "STEP[6/6]:\tCalculate Laplacian score\n";
+    LOCO_OUT << "STEP[6/6]:\tCalculate Laplacian score\n";
     //make calculate_laplacian_score for all those slopes/ correlations
     calculate_laplacian_score(threads);
 
@@ -1203,4 +1198,32 @@ Neighborhood::Neighborhood(const std::shared_ptr<const GraphData> scData, unsign
     //create the neighborhood graph (how to neighborhoods connect)
     // creates single-cell Graph and neighborhoods from that
     create_neighborhood_graph(neighborhoodKNN);
+}
+
+//the final R structure needs:
+//return R-object of LoCo results
+// create a List of several dataframes
+// 1.a) raw data table
+// 1.b) UMAP data table
+
+// 2.a) neighbourhood - cells
+// 2.b) laplacian scores
+// 2c) shuffled results
+
+// 3a) neighbourhood - coords
+// 3b) neighbourhood correlations data table
+void Neighborhood::fill_result_data(
+    std::vector<std::string>& nIDs, //all neighborhoods IDs
+    std::vector<std::vector<std::string>>& nID_cID, //vector off all cellIDs for all neighborhoods (same order as nIDs)
+
+    std::vector<std::string>& correlation_pairs, //all names of the correlation pairs
+    std::vector<std::vector<double>>& corrMat, //all correlations
+
+    std::vector<std::string>& laplacian_correlation_pairs, //all names of the correlation pairs for laplacian
+    std::vector<double>& corrL,
+    std::vector<double>& pCorrL,
+    std::vector<std::vector<std::string>>& cliquesFlat
+)
+{
+
 }

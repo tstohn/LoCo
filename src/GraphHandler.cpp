@@ -112,9 +112,9 @@ void GraphHandler::fill_distance_matrix(double** weightMatrix)
     bool descending = data->is_node_order_descending();
     if( (descending == true) && bandwidth != -1)
     {
-        std::cerr << "When nodes are in descending order we can not apply gaussian kernel, we assumes this is use for protein \
+        LOCO_ERR << "When nodes are in descending order we can not apply gaussian kernel, we assumes this is use for protein \
         correclation graphs, where only un-scaled values make sense \n";
-        std::exit(EXIT_FAILURE);
+        LOCO_EXIT(EXIT_FAILURE);
     }
 
     int numberNodes = data->number_of_nodes();
@@ -179,8 +179,8 @@ void GraphHandler::fill_knn_matrix(double** weightMatrix)
 {
     if(data->is_node_order_descending() == true)
     {
-        std::cerr << "For KNN graphs we must order nodes in ascending order \n";
-        std::exit(EXIT_FAILURE);
+        LOCO_ERR << "For KNN graphs we must order nodes in ascending order \n";
+        LOCO_EXIT(EXIT_FAILURE);
     }
     int numberNodes = data->number_of_nodes();
     //initialize matrix with zeroes

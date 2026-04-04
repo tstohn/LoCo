@@ -13,6 +13,7 @@
 #include <cmath>
 #include <zlib.h>
 #include <cassert>
+#include "loco_io.h"
 
 class GzStreamBuf : public std::streambuf {
 private:

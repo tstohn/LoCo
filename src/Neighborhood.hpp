@@ -16,6 +16,7 @@
 #include "GraphHandler.hpp"
 #include "generalUtils.hpp"
 #include "threadPool.hpp"
+#include "loco_io.h"
 
 struct VectorHash {
     size_t operator()(const std::vector<int>& v) const {
@@ -70,8 +71,19 @@ class Neighborhood
         //fills the corrResult
         void calculate_correlation_propagation(double correlationStrengthCutoff, int minCliqueSize=2, int thread=5);
         void write_results_to_file(const std::string& output, const std::string& prefix, int& numberCorrelations);
-        void write_shuffled_laplacians(const std::string& outFile);
+        void write_shuffled_laplacians(const std::string& outFile, const std::string& prefix);
+        void fill_result_data(
+            std::vector<std::string>& nIDs, //all neighborhoods IDs
+            std::vector<std::vector<std::string>>& nID_cID, //vector off all cellIDs for all neighborhoods (same order as nIDs)
 
+            std::vector<std::string>& correlation_pairs, //all names of the correlation pairs
+            std::vector<std::vector<double>>& corrMat, //all correlations
+
+            std::vector<std::string>& laplacian_correlation_pairs, //all names of the correlation pairs for laplacian
+            std::vector<double>& corrL,
+            std::vector<double>& pCorrL,
+            std::vector<std::vector<std::string>>& cliquesFlat
+        );
     private:
 
         // randomly select x elements from a vector

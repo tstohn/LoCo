@@ -10,9 +10,9 @@ std::vector<int> get_indexlist_from_genenames(const SingleCellData& scData, cons
             idx = scData.geneNameToIdx.at(gene);
         }
         catch (const std::out_of_range& e) {
-            std::cerr << "Gene name not found: " << gene << "\n";
-            std::cerr << "Please double check your file for correlation/ state markers\n";
-            exit(EXIT_FAILURE);
+            LOCO_ERR << "Gene name not found: " << gene << "\n";
+            LOCO_ERR << "Please double check your file for correlation/ state markers\n";
+            LOCO_EXIT(EXIT_FAILURE);
         }
 
         geneIdxs.push_back(idx);
@@ -42,8 +42,8 @@ std::vector<std::string> parse_list(const std::string& listFile, const char& sep
     } 
     else 
     {
-        std::cerr << "Unable to open file!" << std::endl;
-        exit(EXIT_FAILURE);
+        LOCO_ERR << "Unable to open file!" << std::endl;
+        LOCO_EXIT(EXIT_FAILURE);
     }
 
     return(list);
@@ -121,7 +121,7 @@ SingleCellData filter_singleCelldata(const SingleCellData& origionalScData, cons
         else 
         {
             // Handle out-of-bounds index if needed
-            std::cerr << "Warning: Index " << index << " is out of bounds." << std::endl;
+            LOCO_ERR << "Warning: Index " << index << " is out of bounds." << std::endl;
         }
     }
 
@@ -176,16 +176,16 @@ void SCParser::readGeneNames(const std::string& line, const char& del,
         if(count == 0 && substr=="")
         {
             hasRowNames = true;
-            std::cout << "The first column entry in the first row is empty, we therefore assume that rownames (cell-names) are provided!\
+            LOCO_OUT << "The first column entry in the first row is empty, we therefore assume that rownames (cell-names) are provided!\
             If this is not the case please remove the empty entry, give a proper gene name or remove the gene-name header entirely\n.";
             continue;
         }
 
         if(!is_number(substr) && count > 0 && !hasColumnNames)
         {
-            std::cerr << "Encountered a string in a later column of the first row of input data - but loco expected NO column names.\n\
+            LOCO_ERR << "Encountered a string in a later column of the first row of input data - but loco expected NO column names.\n\
             Column names flag was not set and the first values in the row are numeric !!!!";
-            exit(EXIT_FAILURE);
+            LOCO_EXIT(EXIT_FAILURE);
         }
 
         std::string colname = substr;
@@ -193,7 +193,7 @@ void SCParser::readGeneNames(const std::string& line, const char& del,
         {
             colname = std::to_string(nextGeneId);
         }
-        std::cout << "adding gene: " << colname << "\n";
+        LOCO_OUT << "adding gene: " << colname << "\n";
         data.geneNames.push_back( colname );
         ++nextGeneId;
 
@@ -234,9 +234,9 @@ void SCParser::readValueLine(const std::string& line, const char& del, bool& has
                 }
                 else if(hasRowNames == false)
                 {
-                    std::cerr << "We were expecting no row names (cell names). Previous lines did not seem to have cell names.\
+                    LOCO_ERR << "We were expecting no row names (cell names). Previous lines did not seem to have cell names.\
                     Please provide input with names (strings) in every row of the first column or in none.\n";
-                    exit(EXIT_FAILURE);
+                    LOCO_EXIT(EXIT_FAILURE);
                 }
             }
         }
@@ -400,13 +400,13 @@ SCParser::SCParser(std::string tsvFile, const char& del,
                    const bool& col, const bool& row)
 {
     //read in tsvFile: create firstly only a pointCloud
-    std::cout << "Reading Input file: delimiter=<" << del << ">, cell-ids=<" << row << ">, feature-ids=<" << col << ">\n";
+    LOCO_OUT << "Reading Input file: delimiter=<" << del << ">, cell-ids=<" << row << ">, feature-ids=<" << col << ">\n";
 
     struct stat info;
     if( stat(tsvFile.c_str(), &info ) != 0 )
     {
-        std::cout << "File " << tsvFile << " does not exist!\n";
-        exit(EXIT_FAILURE);
+        LOCO_OUT << "File " << tsvFile << " does not exist!\n";
+        LOCO_EXIT(EXIT_FAILURE);
     }
 
     if(endWith(tsvFile, ".gz"))

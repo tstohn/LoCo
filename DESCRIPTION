@@ -9,6 +9,6 @@ Description: Quickly detect local correlation patterns between features in singl
              space from neighbourhood to neighbourhood.
 License: GPL-3.0 license
 LinkingTo: Rcpp
-Imports: Rcpp
+Imports: Rcpp,ggplot2
 SystemRequirements: C++17
 RoxygenNote: 7.1.2

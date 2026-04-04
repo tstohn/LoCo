@@ -3,6 +3,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include "loco_io.h"
 
 namespace
 {
@@ -22,7 +23,7 @@ inline std::vector<std::vector<double>> filterVector(const std::vector<std::vect
         else 
         {
             // Handle out-of-bounds index if needed
-            std::cerr << "Warning: Index " << index << " is out of bounds." << std::endl;
+            LOCO_ERR << "Warning: Index " << index << " is out of bounds." << std::endl;
         }
     }
 
@@ -155,8 +156,8 @@ inline double calculate_slope(const std::vector<double>& pointsA, const std::vec
 {
     if(pointsA.size() != pointsB.size())
     {
-        std::cerr << "In \'calculate_slope\' the size of the two vectors is not equal!!!\n";
-        exit(EXIT_FAILURE);
+        LOCO_ERR << "In \'calculate_slope\' the size of the two vectors is not equal!!!\n";
+        LOCO_EXIT(EXIT_FAILURE);
     }
 
     double sum_xy = 0;

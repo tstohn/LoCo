@@ -15,6 +15,7 @@
 #include "correlationUtils.hpp"
 #include "generalUtils.hpp"
 #include "threadPool.hpp"
+#include "loco_io.h"
 
 // vector of positions of the dimensions that contribute to a subspace
 typedef std::vector<int> subSpace;
@@ -268,16 +269,16 @@ class GraphData
         {
             if(!distancesPrecalculated)
             {
-                std::cerr << "requesting to return distances from adjacency list, but they have not been precalcualted!\n";
-                exit(EXIT_FAILURE);
+                LOCO_ERR << "requesting to return distances from adjacency list, but they have not been precalcualted!\n";
+                LOCO_EXIT(EXIT_FAILURE);
             }
 
             std::vector<int> adjNodes;
             const OrderedNeighborDistanceHash neighbors = get_adjacent_nodes(node);
             if(knn > neighbors.size())
             {
-                std::cerr << "Requesting more neighbors from node than it has!!!\n";
-                std::cerr << knn << " requested, but only" << neighbors.size() << " neighbors exist\n";
+                LOCO_ERR << "Requesting more neighbors from node than it has!!!\n";
+                LOCO_ERR << knn << " requested, but only" << neighbors.size() << " neighbors exist\n";
             }
             size_t count = 0;
             for(const std::pair<nodePtr, const double> neighbor : neighbors)
@@ -293,15 +294,15 @@ class GraphData
         {
             if(!distancesPrecalculated)
             {
-                std::cerr << "requesting to return distances from adjacency list, but they have not been precalcualted!\n";
-                exit(EXIT_FAILURE);
+                LOCO_ERR << "requesting to return distances from adjacency list, but they have not been precalcualted!\n";
+                LOCO_EXIT(EXIT_FAILURE);
             }
 
             std::vector<nodePtr> adjNodes;
             const OrderedNeighborDistanceHash neighbors = get_adjacent_nodes(node);
             if(knn > neighbors.size())
             {
-                std::cerr << "Requesting more neighbors from node than it has!!!\n";
+                LOCO_ERR << "Requesting more neighbors from node than it has!!!\n";
             }
             size_t count = 0;
             for(const std::pair<const nodePtr, const double> neighbor : neighbors)
@@ -320,7 +321,7 @@ class GraphData
         {
             if(distancesPrecalculated)
             {
-                std::cout << "WARNING: requesting to return distances from KD-tree but distances were precalcualted!\n";
+                LOCO_OUT << "WARNING: requesting to return distances from KD-tree but distances were precalcualted!\n";
             }
 
             std::vector<int> adjNodes;
@@ -358,7 +359,7 @@ class GraphData
         {
             if(distancesPrecalculated)
             {
-                std::cout << "WARNING: requesting to return distances from KD-tree but distances were precalcualted!\n";
+                LOCO_OUT << "WARNING: requesting to return distances from KD-tree but distances were precalcualted!\n";
             }
             std::vector<nodePtr> adjNodes;
             
@@ -412,15 +413,15 @@ class GraphData
         //writes edges between nodes to terminal
         void print_adjacency_by_name() const
         {            
-            std::cout << "ADJ LIST:\n" << "_______________\n";
+            LOCO_OUT << "ADJ LIST:\n" << "_______________\n";
             for(nodePtr nodeTmp : nodes)
             {
-                std::cout << "FROM: " << nodeTmp->get_name() << "\n";
+                LOCO_OUT << "FROM: " << nodeTmp->get_name() << "\n";
                 for(const std::pair<const nodePtr, const double> neighbor : get_adjacent_nodes(nodeTmp))
                 {
-                    std::cout << neighbor.first->get_name() << "(" << std::to_string(neighbor.second) << ")" << " - ";
+                    LOCO_OUT << neighbor.first->get_name() << "(" << std::to_string(neighbor.second) << ")" << " - ";
                 }
-                std::cout << "\n";
+                LOCO_OUT << "\n";
             }
         }
         void print_adjacency_by_order() const 
@@ -431,7 +432,7 @@ class GraphData
                 for(size_t j = 0; j < nodes.size(); ++j)
                 {
                     double dist = nodeNeighborList.at(nodes.at(j));
-                    std::cout << std::to_string(i) << " " << std::to_string(j) << " " << std::to_string(dist) << "\n"; 
+                    LOCO_OUT << std::to_string(i) << " " << std::to_string(j) << " " << std::to_string(dist) << "\n"; 
                 }
             }
         }
@@ -439,13 +440,13 @@ class GraphData
         //writes nodes and their values to terminal
         void print_data()
         {
-            std::cout << "NODE VECTORS:\n" << "_______________\n";
+            LOCO_OUT << "NODE VECTORS:\n" << "_______________\n";
             for(nodePtr nodeTmp : nodes)
             {
-                std::cout << "#: " << nodeTmp->get_name() << "\n";
+                LOCO_OUT << "#: " << nodeTmp->get_name() << "\n";
                 for( const double& dim : nodeTmp->all_values())
                 {
-                    std::cout << std::to_string(dim) << "\n";
+                    LOCO_OUT << std::to_string(dim) << "\n";
                 }
             }
         }
