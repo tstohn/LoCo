@@ -1213,17 +1213,109 @@ Neighborhood::Neighborhood(const std::shared_ptr<const GraphData> scData, unsign
 // 3a) neighbourhood - coords
 // 3b) neighbourhood correlations data table
 void Neighborhood::fill_result_data(
-    std::vector<std::string>& nIDs, //all neighborhoods IDs
-    std::vector<std::vector<std::string>>& nID_cID, //vector off all cellIDs for all neighborhoods (same order as nIDs)
+    const int& numberCorrelations,
+
+    std::vector<std::string>& nIDs, // all neighborhoods IDs
+    std::vector<std::string> nID_anchorCellID, //achnor cell IDs for neighborhoods
+    std::vector<std::vector<std::string>>& nID_allCellIDs, //vector off all cellIDs for all neighborhoods (same order as nIDs)
 
     std::vector<std::string>& correlation_pairs, //all names of the correlation pairs
     std::vector<std::vector<double>>& corrMat, //all correlations
 
     std::vector<std::string>& laplacian_correlation_pairs, //all names of the correlation pairs for laplacian
-    std::vector<double>& corrL,
-    std::vector<double>& pCorrL,
-    std::vector<std::vector<std::string>>& cliquesFlat
+    std::vector<double>& corrL, 
+    std::vector<double>& pCorrL, 
+    std::vector<std::vector<std::string>>& cliquesFlat 
 )
 {
+    // =========================
+    // FILTER PAIRS
+    // =========================
+    std::vector<std::pair<int, int>> filteredPairs = filter_best_pairs(numberCorrelations);
 
+    // =========================
+    // anchor cell IDs for neighbourhood IDs
+    // =========================
+    const std::vector<nodePtr> nodes = neighborhoodGraph->get_all_nodes();
+    for(const auto& node : nodes)
+    {
+        std::string cellID = node->get_name();
+        nID_anchorCellID.push_back(cellID);
+    }
+
+    // =========================
+    // LAPLACIAN RESULTS
+    // =========================
+    for(const auto& pair : filteredPairs)
+    {
+        int name_a_idx = pair.first;
+        int name_b_idx = pair.second;
+
+        if(!corrStateGenes.empty())
+        {
+            name_a_idx = corrStateGenes.at(name_a_idx);
+            name_b_idx = corrStateGenes.at(name_b_idx);
+        }
+
+        // build pair name
+        std::string pairName =
+            inputDataOrigional.geneNames.at(name_a_idx) + "_" +
+            inputDataOrigional.geneNames.at(name_b_idx);
+
+        correlation_pairs.push_back(pairName);
+        laplacian_correlation_pairs.push_back(pairName);
+
+        // values
+        corrL.push_back(correlationLaplacian.at(pair));
+        pCorrL.push_back(p_corr.at(pair));
+
+        // flatten cliques
+        std::vector<std::string> cliqueStrings;
+
+        for(const auto& clique : pairToClique.at(pair))
+        {
+            std::string c = "";
+            for(size_t i = 0; i < clique.size(); ++i)
+            {
+                c += clique[i];
+                if(i < clique.size() - 1) c += ",";
+            }
+            cliqueStrings.push_back(c);
+        }
+
+        cliquesFlat.push_back(cliqueStrings);
+    }
+
+    // =========================
+    // CORRELATION MATRIX
+    // =========================
+
+    // rows = neighborhoods in nIDs, cols = correlationPairs in correlation_pairs
+    for(const auto& neighborhoodResult : corrResult)
+    {
+        std::vector<double> row;
+
+        for(const auto& pair : filteredPairs)
+        {
+            row.push_back(neighborhoodResult.second.correlationResult.at(pair));
+        }
+        //safe the neighbourhood ID
+        nIDs.push_back(neighborhoodResult.first->get_name());
+        //safe the correlation matrix
+        corrMat.push_back(row);
+    }
+
+    // =========================
+    // CELL IDs PER NEIGHBORHOOD
+    // =========================
+    for(const auto& neighbourhoodCellList : neighborhoods)
+    {
+        std::vector<std::string> cellIDList;
+        for(const auto& cell : neighbourhoodCellList.second)
+        {
+            //get the cellID at position cell and push into cellIDList 
+            inputDataOrigional.cellIDs.at(cell);
+        }
+        nID_allCellIDs.push_back(cellIDList);
+    }
 }

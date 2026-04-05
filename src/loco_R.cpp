@@ -66,7 +66,8 @@ std::vector<unsigned int> parseNeighborhoodSizes(const std::string& input)
 // 3a) neighbourhood - coords
 // 3b) neighbourhood correlations data table
 Rcpp::List build_loco_object(const SingleCellData& rawData,
-                             const Neighborhood& neighborhood) 
+                             const Neighborhood& neighborhood,
+                             const int& numberCorrelations) 
 {
 
     //fill intermittend data that are used to write the R-result object
@@ -81,6 +82,7 @@ Rcpp::List build_loco_object(const SingleCellData& rawData,
     std::vector<double> pCorrL;
     std::vector<std::vector<std::string>> cliquesFlat;
     fill_result_data(
+        numberCorrelations,
         nIDs, nID_cID,
         correlation_pairs,corrMat,
         laplacian_correlation_pairs,corrL,pCorrL,cliquesFlat);
@@ -100,15 +102,18 @@ Rcpp::List build_loco_object(const SingleCellData& rawData,
         }
     }
     mat.attr("dimnames") = Rcpp::List::create(
-    Rcpp::wrap(geneNames),  // row names
-    Rcpp::wrap(cellIDs)     // column names
+    Rcpp::wrap(rawData.geneNames),  // row names
+    Rcpp::wrap(rawData.cellIDs)     // column names
     );
     Rcpp::DataFrame raw_df = Rcpp::as<Rcpp::DataFrame>(mat);
-    raw_df.push_front(Rcpp::wrap(geneNames), "gene");
+    raw_df.push_front(Rcpp::wrap(rawData.geneNames), "gene");
 
     // =========================
-    // 1. safe raw data table
+    // 2. safe neighbourhoodIDs - cells
+    // and laplacian scores
     // =========================
+
+    continue here
 
     // =========================
     // CREATE LIST OF DATA TABLES
@@ -118,98 +123,6 @@ Rcpp::List build_loco_object(const SingleCellData& rawData,
 
     );
 
-
-//OLD
-
-    size_t P = pairs.size();
-    size_t N = corrMat.size();
-    size_t F = featureNames.size();
-
-    // =========================
-    // 1. LAPPLACIAN (preallocated vectors)
-    // =========================
-    std::vector<std::string> pairNames;
-    std::vector<double> corrScore(P), pCorr(P), slopeScore(P), pSlope(P), ;
-    std::vector<std::string> cliqueOut;
-
-    pairNames.reserve(P);
-    cliqueOut.reserve(P);
-
-    for (size_t i = 0; i < P; i++) {
-
-        int a = pairs[i].first;
-        int b = pairs[i].second;
-
-        if (useCorrStateGenes) {
-            a = corrStateGenes[a];
-            b = corrStateGenes[b];
-        }
-
-        pairNames.push_back(geneNames[a] + "_" + geneNames[b]);
-
-        corrScore[i] = corrL[i];
-        pCorr[i] = pCorrL[i];
-        slopeScore[i] = slopeL[i];
-        pSlope[i] = pSlopeL[i];
-        cliqueOut.push_back(cliquesFlat[i]);
-    }
-
-    // =========================
-    // 2. CORRELATION MATRIX (NUMERIC MATRIX = FASTER)
-    // =========================
-    Rcpp::NumericMatrix corr(N, P);
-
-    for (size_t i = 0; i < N; i++)
-        for (size_t j = 0; j < P; j++)
-            corr(i, j) = corrMat[i][j];
-
-    colnames(corr) = pairNames;
-
-    // =========================
-    // 3. SLOPE MATRIX
-    // =========================
-    Rcpp::NumericMatrix slope(N, P);
-
-    for (size_t i = 0; i < N; i++)
-        for (size_t j = 0; j < P; j++)
-            slope(i, j) = slopeMat[i][j];
-
-    colnames(slope) = pairNames;
-
-    // =========================
-    // 4. COORDINATES (matrix not vector-of-vectors)
-    // =========================
-    Rcpp::NumericMatrix coord(coords.size(), F);
-
-    for (size_t i = 0; i < coords.size(); i++)
-        for (size_t j = 0; j < F; j++)
-            coord(i, j) = coords[i][j];
-
-    colnames(coord) = featureNames;
-    rownames(coord) = neighborhoodNames;
-
-    // =========================
-    // 5. CELL MATRIX
-    // =========================
-    size_t C = cellMat[0].size();
-    Rcpp::NumericMatrix cells(N, C);
-
-    for (size_t i = 0; i < N; i++)
-        for (size_t j = 0; j < C; j++)
-            cells(i, j) = cellMat[i][j];
-
-    colnames(cells) = neighborhoodNames;
-
-    // =========================
-    // FINAL OBJECT
-    // =========================
-    return Rcpp::List::create(
-        Named("laplacian") = laplacian,
-        Named("correlations") = corr,
-        Named("slopes") = slope,
-        Named("neighborhoods") = coord,
-        Named("cells") = cells
-    );
 }
 
 void run_correlation_propagation_across_graph(const SingleCellData& inFile, const std::string& outFile, std::string& prefix, int thread,
@@ -241,7 +154,7 @@ void run_correlation_propagation_across_graph(const SingleCellData& inFile, cons
         neighborhood.calculate_correlation_propagation(correlationCutoff, minSetSize, thread);
 
         //return the RCPP data structure for loco
-        Rcpp::List res = build_loco_object(rawData, neighborhood);
+        Rcpp::List res = build_loco_object(rawData, neighborhood, numberCorrelations);
     }
 }
 
