@@ -1,6 +1,6 @@
 # *LoCo* - _Local Correlation Analysis_
 
-[![Tests](https://github.com/tstohn/LoCo/actions/workflows/tests_cpp.yml/badge.svg?branch=main)](https://github.com/tstohn/LoCo/actions/workflows/tests_cpp.yml)
+[![Tests](https://github.com/tstohn/LoCo/actions/workflows/tests_cpp.yml/badge.svg?branch=master)](https://github.com/tstohn/LoCo/actions/workflows/tests_cpp.yml)
 
 <img src="https://github.com/tstohn/LoCo/raw/master/docs/LoCo5.png" width="200" />
 
