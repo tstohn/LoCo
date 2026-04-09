@@ -83,7 +83,10 @@ ifneq ($(IS_WIN),)
     BOOST_TRIPLET := x64-mingw-static
 
     BOOST_CPPFLAGS += -I$(VCPKG_ROOT)/installed/$(BOOST_TRIPLET)/include
+    # Add the library path
     BOOST_LDFLAGS  += -L$(VCPKG_ROOT)/installed/$(BOOST_TRIPLET)/lib
+    # Explicitly link zlib and boost (order matters!)
+    BOOST_LIBS     += -lboost_program_options -lz
 endif
 
 #######################################
