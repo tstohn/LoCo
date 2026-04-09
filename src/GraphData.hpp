@@ -1,4 +1,5 @@
 #pragma once
+#include "loco_io.h"
 
 #include <iostream>
 #include <string>
@@ -15,7 +16,6 @@
 #include "correlationUtils.hpp"
 #include "generalUtils.hpp"
 #include "threadPool.hpp"
-#include "loco_io.h"
 
 // vector of positions of the dimensions that contribute to a subspace
 typedef std::vector<int> subSpace;

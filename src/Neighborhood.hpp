@@ -1,4 +1,9 @@
 #pragma once
+#include "loco_io.h"
+
+#include "GraphHandler.hpp"
+#include "generalUtils.hpp"
+#include "threadPool.hpp"
 
 #include <iostream>
 #include <string>
@@ -12,11 +17,6 @@
 #include <thread>
 #include <pthread.h>
 #include <cmath>
-
-#include "GraphHandler.hpp"
-#include "generalUtils.hpp"
-#include "threadPool.hpp"
-#include "loco_io.h"
 
 struct VectorHash {
     size_t operator()(const std::vector<int>& v) const {

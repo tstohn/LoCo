@@ -1,4 +1,5 @@
 #pragma once
+#include "loco_io.h"
 
 #include <iostream>
 #include <memory>
@@ -9,7 +10,6 @@
 #include <unordered_map>
 #include <exception>
 #include <numeric>
-#include "loco_io.h"
 
 #include "GraphData.hpp"
 

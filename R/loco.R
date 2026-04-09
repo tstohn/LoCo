@@ -15,7 +15,7 @@ run_loco <- function(
   cellStateGeneFile = "",
   correlationStateGeneFile = "",
   numNeighborhoods = 0,
-  neighborhoodSizeString = "50",
+  neighborhoodSizeString = 50,
   neighborhoodKNN = 5,
   correlationCutoff = 0.7,
   permutations = 100,
@@ -41,8 +41,7 @@ run_loco <- function(
   }
 
   # ---- call C++ ----
-  res <- .Call(
-    "_loco_run_loco",
+  res <- run_loco_cpp(
     inFile,
     "",  # no longer used
     prefix,

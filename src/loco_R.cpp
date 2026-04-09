@@ -1,10 +1,7 @@
-#pragma once
-
 #include <Rcpp.h>
 using namespace Rcpp;
 
 //redefine commands for cran
-#define LOCO_RCPP
 #include "loco_io.h"
 
 // undefine PI as both R and nanoflann define it
@@ -16,46 +13,6 @@ using namespace Rcpp;
 #include "GraphData.hpp"
 #include "SCParser.hpp"
 
-std::vector<unsigned int> parseNeighborhoodSizes(const std::string& input)
-{
-    std::vector<unsigned int> result;
-
-    std::string s = input;
-    s.erase(std::remove_if(s.begin(), s.end(), ::isspace), s.end());
-
-    if (s.empty())
-        throw std::invalid_argument("Empty input for neighborhood size");
-
-    if (s.front() == '[' && s.back() == ']')
-    {
-        s = s.substr(1, s.size() - 2);
-        std::stringstream ss(s);
-        std::string item;
-
-        while (std::getline(ss, item, ','))
-        {
-            try {
-                result.push_back(static_cast<unsigned int>(std::stoul(item)));
-            } catch (const std::exception&) {
-                throw std::invalid_argument("Invalid number in list: '" + item + "'");
-            }
-        }
-
-        if (result.empty())
-            throw std::invalid_argument("No numbers found inside brackets");
-    }
-    else
-    {
-        try {
-            result.push_back(static_cast<unsigned int>(std::stoul(s)));
-        } catch (const std::exception&) {
-            throw std::invalid_argument("Invalid single number: '" + s + "'");
-        }
-    }
-
-    return result;
-}
-
 //return R-object of LoCo results
 // create a List of several dataframes
 // 1.a) raw data table
@@ -66,13 +23,14 @@ std::vector<unsigned int> parseNeighborhoodSizes(const std::string& input)
 // 3a) neighbourhood - coords
 // 3b) neighbourhood correlations data table
 Rcpp::List build_loco_object(const SingleCellData& rawData,
-                             const Neighborhood& neighborhood,
+                             Neighborhood& neighborhood,
                              const int& numberCorrelations) 
 {
 
     //fill intermittend data that are used to write the R-result object
     std::vector<std::string> nIDs; //all neighborhoods IDs
-    std::vector<std::vector<std::string>> nID_cID; //vector off all cellIDs for all neighborhoods (same order as nIDs)
+    std::vector<std::string> nID_anchorCellID; //vector (for each nID) off all anchor cellIDs (same order as nIDs)
+    std::vector<std::vector<std::string>> nID_allCellIDs;// vector (for each nID) of vector of all cell IDs 
 
     std::vector<std::string> correlation_pairs; //all names of the correlation pairs
     std::vector<std::vector<double>> corrMat; //all correlations
@@ -81,9 +39,9 @@ Rcpp::List build_loco_object(const SingleCellData& rawData,
     std::vector<double> corrL;
     std::vector<double> pCorrL;
     std::vector<std::vector<std::string>> cliquesFlat;
-    fill_result_data(
+    neighborhood.fill_result_data(
         numberCorrelations,
-        nIDs, nID_cID,
+        nIDs, nID_anchorCellID,nID_allCellIDs,
         correlation_pairs,corrMat,
         laplacian_correlation_pairs,corrL,pCorrL,cliquesFlat);
 
@@ -93,12 +51,14 @@ Rcpp::List build_loco_object(const SingleCellData& rawData,
 
     int nrow = rawData.pointCloud.size();
     int ncol = rawData.pointCloud[0].size();
+
+    std::cout << nrow << " " << ncol << " " << rawData.geneNames.size() << " " << rawData.cellIDs.size() << "\n";
     Rcpp::NumericMatrix mat(nrow, ncol);
     for (int i = 0; i < nrow; i++) 
     {
         for (int j = 0; j < ncol; j++) 
         {
-            mat(i, j) = pointCloud[i][j];
+            mat(i, j) = rawData.pointCloud[i][j];
         }
     }
     mat.attr("dimnames") = Rcpp::List::create(
@@ -113,52 +73,55 @@ Rcpp::List build_loco_object(const SingleCellData& rawData,
     // and laplacian scores
     // =========================
 
-    continue here
 
     // =========================
     // CREATE LIST OF DATA TABLES
     // =========================
     Rcpp::DataFrame loco_result = Rcpp::DataFrame::create(
-        Rcpp::Named("RawData") = raw_df,
+        Rcpp::Named("RawData") = raw_df
 
     );
 
+    return(loco_result);
 }
 
-void run_correlation_propagation_across_graph(const SingleCellData& inFile, const std::string& outFile, std::string& prefix, int thread,
-                                              const std::vector<unsigned int>& neighborhoodSizes, 
+Rcpp::List run_correlation_propagation_across_graph(const SingleCellData& inFile, const std::string& outFile, std::string& prefix, int thread,
+                                              const unsigned int& neighborhoodSize, 
                                               const int neighborhoodKNN, const double& correlationCutoff,
                                               int& numberCorrelations, const std::vector<std::string>& cellStateGenes,
                                               const std::vector<std::string>& corrStateGenes, 
                                               const int permutations, const int minSetSize, const double corrSetAbundance, 
                                               const unsigned int correlatedSetMode)
 {
+    //we can store results for many Neighbourhood-size simultaneously
+    Rcpp::List all_results;
+
     //generate cell-cell neighborhood graph
     std::vector<int> cellStateIdxs = get_indexlist_from_genenames(inFile, cellStateGenes);
     std::vector<int> corrIdxs = get_indexlist_from_genenames(inFile, corrStateGenes);
 
-    for(const unsigned int neighborhoodSize : neighborhoodSizes)
-    {
-        // create graph of single-cell data
-        unsigned int numNeighborhoods = inFile.pointCloud.size() / neighborhoodSize;
-        LOCO_OUT << "Creating " << numNeighborhoods << " neighbourhoods with " << neighborhoodSize << " cells\n";
-        bool printStatusUpdateCellDistCalc = true;
-        unsigned int scGraphKnn = neighborhoodSize; //the KNN value is the number of cells in a neighborhood, we ONLY have to calcualte the knn closest neighbors, no need for more
-        bool precalculateAllDistances = false;
-        std::shared_ptr<GraphData> scNormData = std::make_shared<GraphData>(inFile, cellStateIdxs, scGraphKnn, &GraphIni::cell_similarity_graph_manhattan_raw, thread, printStatusUpdateCellDistCalc, precalculateAllDistances);
+    // create graph of single-cell data
+    unsigned int numNeighborhoods = inFile.pointCloud.size() / neighborhoodSize;
+    LOCO_OUT << "Creating " << numNeighborhoods << " neighbourhoods with " << neighborhoodSize << " cells\n";
+    bool printStatusUpdateCellDistCalc = true;
+    unsigned int scGraphKnn = neighborhoodSize; //the KNN value is the number of cells in a neighborhood, we ONLY have to calcualte the knn closest neighbors, no need for more
+    bool precalculateAllDistances = false;
+    std::shared_ptr<GraphData> scNormData = std::make_shared<GraphData>(inFile, cellStateIdxs, scGraphKnn, &GraphIni::cell_similarity_graph_manhattan_raw, thread, printStatusUpdateCellDistCalc, precalculateAllDistances);
 
-        //create Neighborhoods
-        Neighborhood neighborhood(scNormData, numNeighborhoods, neighborhoodSize, neighborhoodKNN, 
-                                inFile, cellStateIdxs, corrIdxs, permutations, corrSetAbundance,
-                                correlatedSetMode);
-        neighborhood.calculate_correlation_propagation(correlationCutoff, minSetSize, thread);
+    //create Neighborhoods
+    Neighborhood neighborhood(scNormData, numNeighborhoods, neighborhoodSize, neighborhoodKNN, 
+                            inFile, cellStateIdxs, corrIdxs, permutations, corrSetAbundance,
+                            correlatedSetMode);
+    neighborhood.calculate_correlation_propagation(correlationCutoff, minSetSize, thread);
 
-        //return the RCPP data structure for loco
-        Rcpp::List res = build_loco_object(rawData, neighborhood, numberCorrelations);
-    }
+    //return the RCPP data structure for loco
+    Rcpp::List res = build_loco_object(inFile, neighborhood, numberCorrelations);
+
+    return(res);
 }
 
-void run_loco(
+// [[Rcpp::export]]
+Rcpp::List run_loco_cpp(
     std::string inFile,
     std::string outFile,
     std::string prefix,
@@ -172,15 +135,13 @@ void run_loco(
     std::string cellStateGeneFile,
     std::string correlationStateGeneFile,
     unsigned int numNeighborhoods,
-    std::string neighborhoodSizeString,
+    unsigned int neighborhoodSize,
     int neighborhoodKNN,
     double correlationCutoff,
     int permutations,
     int minSetSize,
     double corrSetAbundance
 ){
-
-    std::vector<unsigned int> neighborhoodSizes = parseNeighborhoodSizes(neighborhoodSizeString);
 
     //READ IN DATA
     SCParser parser(inFile, del, col, row);
@@ -202,12 +163,12 @@ void run_loco(
     if (!correlationStateGeneFile.empty())
         corrStateGenes = parse_list(correlationStateGeneFile, ',');
 
-    run_correlation_propagation_across_graph(
+    Rcpp::List result = run_correlation_propagation_across_graph(
         inputDataRaw,
         outFile,
         prefix,
         thread,
-        neighborhoodSizes,
+        neighborhoodSize,
         neighborhoodKNN,
         correlationCutoff,
         numberCorrelations,
@@ -218,5 +179,7 @@ void run_loco(
         corrSetAbundance,
         correlatedSetMode
     );
+
+    return(result);
 }
 

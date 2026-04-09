@@ -1,10 +1,10 @@
 #pragma once
+#include "loco_io.h"
 
 #include "nanoflann/nanoflann.hpp"
 #include "Node.hpp"
 #include <vector>
 #include <assert.h>
-#include "loco_io.h"
 
 /** A simple vector-of-nodes adaptor for nanoflann, without duplicating the storage.
   *  The i'th vector represents a point in the state space.

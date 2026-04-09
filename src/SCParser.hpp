@@ -1,5 +1,6 @@
 #ifndef SC_PARSER
 #define SC_PARSER
+#include "loco_io.h"
 
 #include <iostream>
 #include <string>
@@ -13,7 +14,6 @@
 #include <cmath>
 #include <zlib.h>
 #include <cassert>
-#include "loco_io.h"
 
 class GzStreamBuf : public std::streambuf {
 private:

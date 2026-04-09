@@ -1,5 +1,7 @@
 // thread_pool.hpp
 #pragma once
+#include "loco_io.h"
+
 #include <vector>
 #include <thread>
 #include <queue>
@@ -7,7 +9,6 @@
 #include <condition_variable>
 #include <functional>
 #include <atomic>
-#include "loco_io.h"
 
 class ThreadPool {
 public:

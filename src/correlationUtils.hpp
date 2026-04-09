@@ -1,9 +1,9 @@
 #pragma once
+#include "loco_io.h"
 
 #include <iostream>
 #include <string>
 #include <vector>
-#include "loco_io.h"
 
 namespace
 {

@@ -9,7 +9,6 @@
 #include <numeric>
 #include <vector>
 #include <cmath>
-#include "loco_io.h"
 
 class node;
 typedef std::shared_ptr<node> nodePtr;
