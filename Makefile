@@ -13,15 +13,12 @@ LIB = src/lib
 SUBDIRS := $(shell find $(INC_DIR) -type d)
 INCLUDE_DIRS := $(addprefix -I,$(SUBDIRS))
 
-#add boost disr to include flags - important for windows and macOS
-INCLUDE_DIRS += -Isrc
-
 #add path to nanoflann
 #IG_INCLUDE += -I dependencies/nanoflann/include
 NANO_INCLUDE = -Iinst/include
 
 CXXFLAGS = -std=c++17 -O3 -Wall -Wextra $(INCLUDE_DIRS) $(NANO_INCLUDE)
-LDFLAGS  = -lboost_program_options -lz
+
 # add LTO only for Linux/Mac
 ifneq ($(IS_LINUX),)
 	CXXFLAGS += -flto=5
@@ -39,7 +36,6 @@ SRC_FILES := \
 
 OBJ_FILES := $(patsubst %.cpp,$(BUILD_DIR)/%.o,$(SRC_FILES))
 
-
 #######################################
 # PLATFORM DETECTION
 #######################################
@@ -51,51 +47,65 @@ IS_DARWIN := $(filter Darwin,$(UNAME_S))
 IS_WIN    := $(filter MINGW% MSYS% CYGWIN%,$(UNAME_S))
 
 #######################################
-# BOOST INSTALL PATHS
+# BOOST HANDLING (ROBUST, CROSS-PLATFORM)
 #######################################
 
-#######################################
-# macOS (Homebrew)
-#######################################
-
-ifeq ($(IS_DARWIN),Darwin)
-    BOOST_PREFIX := $(shell brew --prefix boost 2>/dev/null)
-
-    BOOST_CPPFLAGS += -I$(BOOST_PREFIX)/include
-    BOOST_LDFLAGS  += -L$(BOOST_PREFIX)/lib
-endif
+# Default empty
+BOOST_FLAGS :=
+BOOST_INCLUDE :=
+BOOST_LIB :=
 
 #######################################
 # Linux
 #######################################
-
 ifneq ($(IS_LINUX),)
-    BOOST_CPPFLAGS += $(shell pkg-config --cflags boost-program-options 2>/dev/null)
-    BOOST_LDFLAGS  += $(shell pkg-config --libs boost-program-options 2>/dev/null)
+    BOOST_FLAGS := -lboost_program_options -lpthread -lz
 endif
 
 #######################################
-# Windows (vcpkg)
+# macOS
 #######################################
+ifneq ($(IS_DARWIN),)
+    BOOST_PREFIX := $(shell brew --prefix boost 2>/dev/null || echo /opt/homebrew)
+    BOOST_INCLUDE := $(BOOST_PREFIX)/include
+    BOOST_LIB := $(BOOST_PREFIX)/lib
 
+    BOOST_FLAGS := -I$(BOOST_INCLUDE) -L$(BOOST_LIB) -lboost_program_options -lpthread -lz
+endif
+
+#######################################
+# Windows (vcpkg, static, ROBUST)
+#######################################
 ifneq ($(IS_WIN),)
     VCPKG_ROOT ?= C:/vcpkg
     BOOST_TRIPLET := x64-mingw-static
 
-    BOOST_CPPFLAGS += -I$(VCPKG_ROOT)/installed/$(BOOST_TRIPLET)/include
-    # Add the library path
-    BOOST_LDFLAGS  += -L$(VCPKG_ROOT)/installed/$(BOOST_TRIPLET)/lib
-    # Explicitly link zlib and boost (order matters!)
-    BOOST_LIBS     += -lboost_program_options -lz
+    BOOST_INCLUDE := $(VCPKG_ROOT)/installed/$(BOOST_TRIPLET)/include
+    BOOST_LIB     := $(VCPKG_ROOT)/installed/$(BOOST_TRIPLET)/lib
+
+    # helper: resolve actual filenames (important!)
+    boost_file = $(notdir $(firstword $(wildcard $(BOOST_LIB)/libboost_$(1)*.a)))
+
+    BOOST_PO_FILE = $(call boost_file,program_options)
+
+    BOOST_LIBS := \
+        $(if $(BOOST_PO_FILE),-l:$(BOOST_PO_FILE))
+
+    BOOST_FLAGS = -I"$(BOOST_INCLUDE)" -L"$(BOOST_LIB)" -Wl,-Bstatic \
+                  $(BOOST_LIBS) -lz -lwinpthread -lws2_32
+endif
+
+LDFLAGS := $(BOOST_FLAGS)
+ifneq ($(IS_WIN),)
+    LDFLAGS += -static -static-libgcc -static-libstdc++
 endif
 
 #######################################
 # FINAL BOOST FLAGS (USED BY COMPILER)
 #######################################
 
-CXXFLAGS += $(BOOST_CPPFLAGS)
-LDFLAGS  += $(BOOST_LDFLAGS)
-LDLIBS   += $(BOOST_LIBS)
+#add boost disr to include flags - important for windows and macOS
+INCLUDE_DIRS += -Isrc $(if $(BOOST_INCLUDE),-I$(BOOST_INCLUDE))
 
 #######################################
 # INSTALL DEPENDENCIES (SYSTEM-DEPENDENT)
@@ -152,7 +162,7 @@ install:
 
 loco: $(OBJ_FILES) | $(BIN_DIR)
 	@mkdir -p $(BIN_DIR)
-	$(CXX) $(OBJ_FILES) $(LDFLAGS) $(LDLIBS) -o $(BIN_DIR)/loco
+	$(CXX) $(OBJ_FILES) $(LDFLAGS) -o $(BIN_DIR)/loco
 
 # ===============================
 # Compile sources to object files

@@ -52,7 +52,6 @@ Rcpp::List build_loco_object(const SingleCellData& rawData,
     int nrow = rawData.pointCloud.size();
     int ncol = rawData.pointCloud[0].size();
 
-    std::cout << nrow << " " << ncol << " " << rawData.geneNames.size() << " " << rawData.cellIDs.size() << "\n";
     Rcpp::NumericMatrix mat(nrow, ncol);
     for (int i = 0; i < nrow; i++) 
     {
@@ -62,11 +61,11 @@ Rcpp::List build_loco_object(const SingleCellData& rawData,
         }
     }
     mat.attr("dimnames") = Rcpp::List::create(
-    Rcpp::wrap(rawData.geneNames),  // row names
-    Rcpp::wrap(rawData.cellIDs)     // column names
+    Rcpp::wrap(rawData.cellIDs),  // row names
+    Rcpp::wrap(rawData.geneNames)   // column names
     );
     Rcpp::DataFrame raw_df = Rcpp::as<Rcpp::DataFrame>(mat);
-    raw_df.push_front(Rcpp::wrap(rawData.geneNames), "gene");
+    raw_df.push_front(Rcpp::wrap(rawData.cellIDs), "cellID");
 
     // =========================
     // 2. safe neighbourhoodIDs - cells
@@ -77,7 +76,7 @@ Rcpp::List build_loco_object(const SingleCellData& rawData,
     // =========================
     // CREATE LIST OF DATA TABLES
     // =========================
-    Rcpp::DataFrame loco_result = Rcpp::DataFrame::create(
+    Rcpp::List loco_result = Rcpp::List::create(
         Rcpp::Named("RawData") = raw_df
 
     );

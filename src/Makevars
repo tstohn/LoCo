@@ -16,4 +16,4 @@ PKG_CPPFLAGS = \
 
 # compiler flags
 PKG_CXXFLAGS = -O3 -Wall -Wextra
-PKG_LIBS = -lz
+PKG_LIBS = -lz -ltbb
