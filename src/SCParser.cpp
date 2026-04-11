@@ -278,7 +278,7 @@ void SCParser::readValueLine(const std::string& line, const char& del, bool& has
         {
             currentCellId = lineNum - 1;
         }
-        data.cellIDs.push_back(std::to_string(currentCellId));
+        data.cellIDs.push_back("C" + std::to_string(currentCellId));
     }
 }
 

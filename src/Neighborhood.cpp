@@ -1216,7 +1216,7 @@ void Neighborhood::fill_result_data(
     const int& numberCorrelations,
 
     std::vector<std::string>& nIDs, // all neighborhoods IDs
-    std::vector<std::string> nID_anchorCellID, //achnor cell IDs for neighborhoods
+    std::vector<std::string>& nID_anchorCellID, //achnor cell IDs for neighborhoods
     std::vector<std::vector<std::string>>& nID_allCellIDs, //vector off all cellIDs for all neighborhoods (same order as nIDs)
 
     std::vector<std::string>& correlation_pairs, //all names of the correlation pairs
@@ -1240,6 +1240,7 @@ void Neighborhood::fill_result_data(
     for(const auto& node : nodes)
     {
         std::string cellID = node->get_name();
+        nIDs.push_back("N_" + cellID);
         nID_anchorCellID.push_back(cellID);
     }
 
@@ -1291,6 +1292,7 @@ void Neighborhood::fill_result_data(
     // =========================
 
     // rows = neighborhoods in nIDs, cols = correlationPairs in correlation_pairs
+    std::vector<std::string> nID_correlation_order;
     for(const auto& neighborhoodResult : corrResult)
     {
         std::vector<double> row;
@@ -1300,22 +1302,76 @@ void Neighborhood::fill_result_data(
             row.push_back(neighborhoodResult.second.correlationResult.at(pair));
         }
         //safe the neighbourhood ID
-        nIDs.push_back(neighborhoodResult.first->get_name());
+        nID_correlation_order.push_back("N_" + neighborhoodResult.first->get_name());
         //safe the correlation matrix
         corrMat.push_back(row);
     }
 
+    //re-order by nIDs order
+    //create index map and create new empty matrix
+    std::unordered_map<std::string, size_t> indexMap;
+    for (size_t i = 0; i < nID_correlation_order.size(); ++i)
+    {
+        indexMap[nID_correlation_order[i]] = i;
+    }
+    std::vector<std::vector<double>> reorderedMat;
+    std::vector<std::string> reorderedNames;
+    reorderedMat.reserve(nIDs.size());
+    reorderedNames.reserve(nIDs.size());
+
+    //fill new matrix with the nIDs order
+    for (const auto& nID : nIDs)
+    {
+        auto it = indexMap.find(nID);
+        if (it == indexMap.end())
+        {
+            throw std::runtime_error("nID not found in correlation results: " + nID);
+        }
+
+        size_t idx = it->second;
+
+        reorderedMat.push_back(corrMat[idx]);
+    }
+    corrMat = std::move(reorderedMat);
+
     // =========================
     // CELL IDs PER NEIGHBORHOOD
     // =========================
+    std::vector<std::string> nIDs_cell_order;
     for(const auto& neighbourhoodCellList : neighborhoods)
     {
         std::vector<std::string> cellIDList;
-        for(const auto& cell : neighbourhoodCellList.second)
+        //every cellID is an int from the vector of ints for cell-positions in raw data
+        for(const auto& cellID : neighbourhoodCellList.second)
         {
             //get the cellID at position cell and push into cellIDList 
-            inputDataOrigional.cellIDs.at(cell);
+            cellIDList.push_back(inputDataOrigional.cellIDs.at(cellID));
         }
         nID_allCellIDs.push_back(cellIDList);
+        nIDs_cell_order.push_back("N_" + neighbourhoodCellList.first->get_name());
     }
+
+    //reorder according to nIDs:
+    // Build lookup: current order -> index
+    std::unordered_map<std::string, size_t> indexMap_allCellNids;
+    for (size_t i = 0; i < nIDs_cell_order.size(); ++i)
+    {
+        indexMap_allCellNids[nIDs_cell_order[i]] = i;
+    }
+    // Prepare reordered containers
+    std::vector<std::vector<std::string>> reorderedCellIDs;
+    reorderedCellIDs.reserve(nIDs.size());
+    // Reorder according to nIDs
+    for (const auto& nID : nIDs)
+    {
+        auto it = indexMap_allCellNids.find(nID);
+        if (it == indexMap_allCellNids.end())
+        {
+            throw std::runtime_error("nID not found in cellID data: " + nID);
+        }
+        size_t idx = it->second;
+        reorderedCellIDs.push_back(nID_allCellIDs[idx]);
+    }
+    // Replace originals
+    nID_allCellIDs = std::move(reorderedCellIDs);
 }

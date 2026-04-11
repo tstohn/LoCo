@@ -75,7 +75,7 @@ class Neighborhood
         void fill_result_data(
             const int& numberCorrelations,
             std::vector<std::string>& nIDs, // all neighborhoods IDs
-            std::vector<std::string> nID_anchorCellID, //achnor cell IDs for neighborhoods
+            std::vector<std::string>& nID_anchorCellID, //achnor cell IDs for neighborhoods
             std::vector<std::vector<std::string>>& nID_allCellIDs, //vector off all cellIDs for all neighborhoods (same order as nIDs)
             std::vector<std::string>& correlation_pairs, //all names of the correlation pairs
             std::vector<std::vector<double>>& corrMat, //all correlations
