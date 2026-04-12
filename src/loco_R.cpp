@@ -246,7 +246,6 @@ Rcpp::List run_loco_cpp(
     int numberCorrelations,
     std::string cellStateGeneFile,
     std::string correlationStateGeneFile,
-    unsigned int numNeighborhoods,
     unsigned int neighborhoodSize,
     int neighborhoodKNN,
     double correlationCutoff,
