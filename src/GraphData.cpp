@@ -69,12 +69,9 @@ namespace InitializationHelper
 
 //NEW
     void initialize_adjacency_list_knn(GraphData* graphData,
-                                        const std::vector<int>& cellStateGenes,
-                                        const std::string& distance,
-                                        int threads,
                                         bool statusUpdate)
     {
-
+        
         //precalcualte all distances between cells and sort them
         if(graphData->distances_precalcualted())
         {
@@ -250,7 +247,7 @@ namespace InitializationHelper
         //create AdjacencyMatrix
         if(graphData->get_knn() > 0)
         {
-            initialize_adjacency_list_knn(graphData, cellStateGenes, distance, threads, statusUpdate);
+            initialize_adjacency_list_knn(graphData, statusUpdate);
         }
         else
         {
@@ -276,7 +273,7 @@ namespace InitializationHelper
         //create AdjacencyMatrix
         if(graphData->get_knn() > 0)
         {
-            initialize_adjacency_list_knn(graphData, cellStateGenes, distance, threads, statusUpdate);
+            initialize_adjacency_list_knn(graphData, statusUpdate);
         }
         else
         {
