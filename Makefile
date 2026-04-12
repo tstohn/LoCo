@@ -8,13 +8,9 @@ SRC_DIR = src
 BUILD_DIR = build
 BIN_DIR = bin
 TOOL_DIR = tools
-INC_DIR = $(SRC_DIR)
 LIB = src/lib
-SUBDIRS := $(shell find $(INC_DIR) -type d)
-INCLUDE_DIRS := $(addprefix -I,$(SUBDIRS))
-
+INCLUDE_DIRS := -Iinclude -I$(SRC_DIR)
 #add path to nanoflann
-#IG_INCLUDE += -I dependencies/nanoflann/include
 NANO_INCLUDE = -Iinst/include
 
 CXXFLAGS = -std=c++17 -O3 -Wall -Wextra $(INCLUDE_DIRS) $(NANO_INCLUDE)
@@ -27,13 +23,10 @@ else ifneq ($(IS_DARWIN),)
 endif
 
 # Source files
-SRC_FILES := \
-  $(SRC_DIR)/SCParser.cpp \
-  $(SRC_DIR)/GraphData.cpp \
-  $(SRC_DIR)/GraphHandler.cpp \
-  $(SRC_DIR)/Neighborhood.cpp \
-  $(TOOL_DIR)/LoCo.cpp
-
+SRC_FILES := $(shell find src -name "*.cpp" \
+    ! -name "loco_R.cpp" \
+    ! -name "RcppExports.cpp")
+SRC_FILES += tools/LoCo.cpp
 OBJ_FILES := $(patsubst %.cpp,$(BUILD_DIR)/%.o,$(SRC_FILES))
 
 #######################################

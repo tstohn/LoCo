@@ -11,6 +11,7 @@ PKG_SRC = \
 # include directories
 PKG_CPPFLAGS = \
     -I../inst/include \
+    -I../include \
     -Isrc \
     -DLOCO_RCPP
 

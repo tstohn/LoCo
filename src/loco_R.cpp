@@ -1,3 +1,6 @@
+#pragma once
+
+#include <string>
 #include <Rcpp.h>
 using namespace Rcpp;
 
@@ -6,7 +9,6 @@ using namespace Rcpp;
 
 // undefine PI as both R and nanoflann define it
 #undef PI 
-#include "loco_R.h"
 
 // include your existing headers
 #include "Neighborhood.hpp"
