@@ -27,6 +27,8 @@ global single-cell space.
 # Getting started:
 LoCo can be easily installed as an R-package or be build as a command line tool in cpp.
 
+## install R-package loco
+
 ## install cpp-tool
 The C++ command-line tool depends on Boost.Program_options and zlib, which must be installed on your system before building. These dependencies are required for parsing command-line arguments and handling compressed data streams.
 You can easily install boost/ zlib and build loco with following command:
@@ -37,10 +39,18 @@ You can easily install boost/ zlib and build loco with following command:
   make loco
 ```
 
-## install R-package loco
+# Run LoCo:
 
-# CPP-tool
 
+## R-package
+
+### Run
+
+### Output
+
+## CPP-tool
+
+### Run
 
 You will then find LoCo as an executable in the folder 'bin'. 
 To see a description of the input parameters and how to use LoCo run 'bin/loco --help' from 'bin'. 
@@ -49,7 +59,7 @@ The only one compulsary parameter of LoCo is the input file:
 Nevertheless, it might make sense to set additional parameters like number of neighbourhoods, number of cells within a neighbourhood, etc.
 For some examples you can have a look into the Makefile under 'make test' to see some examples of using loco.
 
-# Output:
+### Output:
 
 LoCo will create several files that can be used to analyze/ plot local correlation patterns in the data. Those files will state neighborhood-ids (aas the id of the anchor cell) and cell-ids for cells in the neighborhoods. All indices start from zero and index the row of the origional input file.
 Among those the most important ones are:
