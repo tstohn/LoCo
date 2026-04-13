@@ -237,3 +237,4 @@ test_loco:
 	make test_loco_sigmoidal
 	make test_run_loco_sigmoidal
 	make test_loco_uniform
+	test_loco_sigmoidal_granularities
