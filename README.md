@@ -29,6 +29,8 @@ global single-cell space.
 LoCo is a cpp-tool that has to be compiled and can then be run from the command line in a terminal - an R-package is following soon. To compile the tool LoCo requires boost::program_options as well as nanoflann (https://github.com/jlblancoc/nanoflann), which is included as a header in this git-repo.
 To download LoCo, install boost::program_options and compile the tool run the commands below:
 
+# CPP-tool
+
 ```bash
   git clone https://github.com/tstohn/LoCo
   make install
@@ -50,3 +52,5 @@ Among those the most important ones are:
   - LoCo_laplacian.tsv: This file contains all the laplacian scores/ p-values for found correlations.
   - LoCo_coord.tsv: This file contains the coordinates of all the enighborhoods. The coordinates are defined by the used features and are the counts for all the features of the anchor cells that were used to construct those neighborhoods.
   - LoCo_cells.tsv: The first row contains all neighborhood indices, then all rows below this one contains the cell indices of the cells that are part of this neighborhood (including the anchor cell).
+
+# R
