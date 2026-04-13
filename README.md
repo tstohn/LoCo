@@ -28,6 +28,9 @@ global single-cell space.
 
 LoCo is a cpp-tool that has to be compiled and can then be run from the command line in a terminal - an R-package is following soon. To compile the tool LoCo requires boost::program_options as well as nanoflann (https://github.com/jlblancoc/nanoflann), which is included as a header in this git-repo.
 To download LoCo, install boost::program_options and compile the tool run the commands below:
+## install cpp-tool
+
+## install R-package loco
 
 # CPP-tool
 
