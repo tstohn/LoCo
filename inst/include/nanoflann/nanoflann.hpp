@@ -47,6 +47,8 @@
 #ifndef NANOFLANN_HPP_
 #define NANOFLANN_HPP_
 
+#include "loco_io.h"
+
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -669,7 +671,7 @@ public:
       // use the standard C malloc to allocate memory
       void *m = ::malloc(blocksize);
       if (!m) {
-        fprintf(stderr, "Failed to allocate memory.\n");
+        LOCO_ERR << "Failed to allocate memory for nanoflann (KD-tree building).\n";
         throw std::bad_alloc();
       }
 

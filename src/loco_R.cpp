@@ -17,13 +17,10 @@ using namespace Rcpp;
 
 //return R-object of LoCo results
 // create a List of several dataframes
-// 1.a) raw data table
-
-// 2.a) neighbourhood - cells
-// 2.b) laplacian scores
-
-// 3a) neighbourhood - coords
-// 3b) neighbourhood correlations data table
+// 1.) raw data table
+// 2.) laplacian scores
+// 3.) correlations
+// 4,) neighbourhoods: anchor cell + contained cells
 Rcpp::List build_loco_object(const SingleCellData& rawData,
                              Neighborhood& neighborhood,
                              const int& numberCorrelations) 
@@ -199,7 +196,7 @@ Rcpp::List build_loco_object(const SingleCellData& rawData,
     return(loco_result);
 }
 
-Rcpp::List run_correlation_propagation_across_graph(const SingleCellData& inFile, const std::string& outFile, std::string& prefix, int thread,
+Rcpp::List run_correlation_propagation_across_graph(const SingleCellData& inFile, int thread,
                                               const unsigned int& neighborhoodSize, 
                                               const int neighborhoodKNN, const double& correlationCutoff,
                                               int& numberCorrelations, const std::vector<std::string>& cellStateGenes,
@@ -237,8 +234,6 @@ Rcpp::List run_correlation_propagation_across_graph(const SingleCellData& inFile
 // [[Rcpp::export]]
 Rcpp::List run_loco_cpp(
     std::string inFile,
-    std::string outFile,
-    std::string prefix,
     char del,
     bool col,
     bool row,
@@ -278,8 +273,6 @@ Rcpp::List run_loco_cpp(
 
     Rcpp::List result = run_correlation_propagation_across_graph(
         inputDataRaw,
-        outFile,
-        prefix,
         thread,
         neighborhoodSize,
         neighborhoodKNN,

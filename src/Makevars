@@ -16,5 +16,5 @@ PKG_CPPFLAGS = \
     -DLOCO_RCPP
 
 # compiler flags
-PKG_CXXFLAGS = -O3 -Wall -Wextra
+PKG_CXXFLAGS =
 PKG_LIBS = -lz -ltbb
