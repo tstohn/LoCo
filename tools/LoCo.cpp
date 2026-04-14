@@ -145,7 +145,7 @@ std::vector<unsigned int> parseNeighborhoodSizes(const std::string& input)
 }
 
 void run_correlation_propagation_across_graph(const SingleCellData& inFile, const std::string& outFile, std::string& prefix, int thread,
-                                              const std::vector<unsigned int>& neighborhoodSizes, 
+                                              const unsigned int numNeighborhoods, const std::vector<unsigned int>& neighborhoodSizes, 
                                               const int neighborhoodKNN, const double& correlationCutoff,
                                               int& numberCorrelations, const std::vector<std::string>& cellStateGenes,
                                               const std::vector<std::string>& corrStateGenes, 
@@ -159,15 +159,19 @@ void run_correlation_propagation_across_graph(const SingleCellData& inFile, cons
     for(const unsigned int neighborhoodSize : neighborhoodSizes)
     {
         // create graph of single-cell data
-        unsigned int numNeighborhoods = inFile.pointCloud.size() / neighborhoodSize;
-        std::cout << "Creating " << numNeighborhoods << " neighbourhoods with " << neighborhoodSize << " cells\n";
+        unsigned int numNeighborhoodsCalculated = numNeighborhoods;
+        if(numNeighborhoods == 0)
+        {
+            numNeighborhoodsCalculated = inFile.pointCloud.size() / neighborhoodSize;
+        }
+        std::cout << "Creating " << numNeighborhoodsCalculated << " neighbourhoods with " << neighborhoodSize << " cells\n";
         bool printStatusUpdateCellDistCalc = true;
         unsigned int scGraphKnn = neighborhoodSize; //the KNN value is the number of cells in a neighborhood, we ONLY have to calcualte the knn closest neighbors, no need for more
         bool precalculateAllDistances = false;
         std::shared_ptr<GraphData> scNormData = std::make_shared<GraphData>(inFile, cellStateIdxs, scGraphKnn, &GraphIni::cell_similarity_graph_manhattan_raw, thread, printStatusUpdateCellDistCalc, precalculateAllDistances);
 
         //create Neighborhoods
-        Neighborhood neighborhood(scNormData, numNeighborhoods, neighborhoodSize, neighborhoodKNN, 
+        Neighborhood neighborhood(scNormData, numNeighborhoodsCalculated, neighborhoodSize, neighborhoodKNN, 
                                 inFile, cellStateIdxs, corrIdxs, permutations, corrSetAbundance,
                                 correlatedSetMode);
         neighborhood.calculate_correlation_propagation(correlationCutoff, minSetSize, thread);
@@ -221,7 +225,7 @@ int main(int argc, char** argv)
     std::string correlationStateGeneFile = "";
 
     //Neighborhood Variables
-    unsigned int numNeighborhoods; //number of neighborhoods
+    unsigned int numNeighborhoods = 0; //number of neighborhoods
     std::vector<unsigned int> neighborhoodSizes; //number of cells in every neighborhood
     std::string neighborhoodSizeString;
     double correlationCutoff;
@@ -267,7 +271,8 @@ int main(int argc, char** argv)
     //CALL TOOL
     std::cout << "Running Correlation Analysis over single-cell graph\n";
     run_correlation_propagation_across_graph(inputDataRaw, outFile, prefix, thread,
-                                              neighborhoodSizes, neighborhoodKNN, correlationCutoff,
+                                              numNeighborhoods, neighborhoodSizes, 
+                                              neighborhoodKNN, correlationCutoff,
                                               numberCorrelations, cellStateGenes, corrStateGenes, 
                                               permutations, minSetSize, corrSetAbundance, correlatedSetMode);
 

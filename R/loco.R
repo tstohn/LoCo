@@ -10,6 +10,7 @@
 #' @param numberCorrelations Number of correlations to compute.
 #' @param cellStateGeneFile Path to cell state gene file. Only these features are used to create cell neighbourhoods.
 #' @param correlationStateGeneFile Path to correlation state gene file: only these features are used to calculate pairwise correlations.
+#' @param numberNeighbourhoods number of neighbourhoods to create. Per default (0), LoCo creates x = (totalCellNumber/ neighborhoodSize) neighbourhoods.
 #' @param neighborhoodSize Size of neighbourhoods.
 #' @param neighborhoodKNN Number of nearest neighbours.
 #' @param correlationCutoff Correlation threshold (minimum correlation between pairs to consider this correlation)
@@ -83,6 +84,7 @@ run_loco <- function(
   numberCorrelations = 0,
   cellStateGeneFile = "",
   correlationStateGeneFile = "",
+  numberNeighbourhoods = 0,
   neighborhoodSize = 50,
   neighborhoodKNN = 5,
   correlationCutoff = 0.7,
@@ -116,7 +118,8 @@ run_loco <- function(
     as.integer(numberCorrelations),
     cellStateGeneFile,
     correlationStateGeneFile,
-    neighborhoodSize,
+    as.integer(numberNeighbourhoods),
+    as.integer(neighborhoodSize),
     as.integer(neighborhoodKNN),
     correlationCutoff,
     as.integer(permutations),
@@ -128,6 +131,11 @@ run_loco <- function(
 }
 
 # TODO: add umap coords to res, when plot_n is called the first time these umap coords are filled
+
+add_umap_space <- function()
+{
+
+}
 
 #' Plot correlation for features by neighbourhoods
 #' Therefore create UMAP space first to then plot neighbourhoods into the same space
