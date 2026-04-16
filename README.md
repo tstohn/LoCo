@@ -41,6 +41,8 @@ remotes::install_github("https://github.com/tstohn/LoCo")
 
 ### b) Run
 
+Input to LoCo is a tsv file of raw single-cell counts with cells in rows and features in columns (see test/data_1.tsv). Optionally, the first column can (but does not have to) contain cell names and the first row should contain feature names (does not have to, but it is highly recommended since we later analyze the correlations between these named features).
+
 Once installed you can load LoCo in R and run it:
 ```R
 library(loco)
