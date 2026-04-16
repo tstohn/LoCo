@@ -27,15 +27,15 @@ global single-cell space.
 # Getting started:
 LoCo can be easily installed as an R-package or be build as a command line tool in cpp.
 
-## __R__
-### install R-package loco
+## 1.) R
+### a) Install R-package loco
 
 You can easily install LoCo from within R:
 ```R
 remotes::install_github("https://github.com/tstohn/LoCo")
 ```
 
-### Run
+### b) Run
 
 Once installed you can load LoCo in R and run it:
 
@@ -44,11 +44,10 @@ library(loco)
 locoResults <- run_loco("/DATA/t.stohn/analyses_loco/1_simulations/data/data_1.tsv", correlationCutoff= 0.5)
 ```
 
-### Output
+### c) Output
 
-## CPP-tool
-
-### install cpp-tool
+## 2.) CPP-tool
+### a) Install cpp-tool
 The C++ command-line tool depends on Boost.Program_options and zlib, which must be installed on your system before building. These dependencies are required for parsing command-line arguments and handling compressed data streams.
 You can easily install boost/ zlib and build loco with following command:
 
@@ -58,7 +57,7 @@ You can easily install boost/ zlib and build loco with following command:
   make loco
 ```
 
-### Run
+### b) Run
 
 You will then find LoCo as an executable in the folder 'bin'. 
 To see a description of the input parameters and how to use LoCo run 'bin/loco --help' from 'bin'. 
@@ -66,8 +65,9 @@ The only one compulsary parameter of LoCo is the input file:
   - the input file as a tsv file of features counts with cells in the rows and features in the columns (tab-seperated)
 Nevertheless, it might make sense to set additional parameters like number of neighbourhoods, number of cells within a neighbourhood, etc.
 For some examples you can have a look into the Makefile under 'make test' to see some examples of using loco.
+The cpp package provides the same functionality as the R-package plus it can run LoCo with various granularities. Instead of one parameter for <neighborhoodSize> (-s / the number of cells within one neighbourhood) you can run LoCo with an array of <neighborhoodSize>, each of them generating one output to analyze correlations on many granularities (different scales from small to bigger neighbourhoods)
 
-### Output:
+### c) Output:
 
 LoCo will create several files that can be used to analyze/ plot local correlation patterns in the data. Those files will state neighborhood-ids (aas the id of the anchor cell) and cell-ids for cells in the neighborhoods. All indices start from zero and index the row of the origional input file.
 Among those the most important ones are:
