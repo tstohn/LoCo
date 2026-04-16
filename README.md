@@ -88,16 +88,6 @@ Describes the sampled neighbourhoods. Neighbourhoods are created by first sampli
 * **AnchorCellID**: The ID of the "center" cell sampled to seed the neighborhood.
 * **AllCellIDs**: A comma-separated list of all neighboring cells included in that specific local group (selected via KNN).
 
----
-
-### Usage Example
-You can access individual components in R using the `$` operator:
-
-```r
-results <- run_loco(my_data)
-# View significant pairs
-head(results$LaplacianScores)
-```
 
 ## 2.) CPP-tool
 ### a) Install cpp-tool
