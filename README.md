@@ -44,7 +44,19 @@ You can easily install boost/ zlib and build loco with following command:
 
 ## R-package
 
+You can easily install LoCo from within R:
+```R
+remotes::install_github("https://github.com/tstohn/LoCo")
+```
+
 ### Run
+
+Once installed you can load LoCo in R and run it:
+
+```R
+library(loco)
+locoResults <- run_loco("/DATA/t.stohn/analyses_loco/1_simulations/data/data_1.tsv", correlationCutoff= 0.5)
+```
 
 ### Output
 
