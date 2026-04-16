@@ -184,23 +184,23 @@ run_loco <- function(
 add_umap_coords <- function()
 {
   #run UMAP
-  feature_cols <- colnames(data[ , grepl("^[GME][0-9]+$", names(data)) ])
-  Xmat <- as.matrix(data[, feature_cols])
-  set.seed(7)
-  emb <- uwot::umap(
-    Xmat,
-    metric = "euclidean",
-    scale = TRUE
-  )
-  umap_data <- data.frame(
-    UMAP1 = emb[,1],
-    UMAP2 = emb[,2],
-    pseudotime = data$pseudotime,
-    middle_alpha = data$middle_alpha,
-    branch1_alpha = data$ALPHA_BRANCH_1,
-    branch2_alpha = data$ALPHA_BRANCH_2,
-    branch_id = factor(data$branch_id)
-  ) 
+#  feature_cols <- colnames(data[ , grepl("^[GME][0-9]+$", names(data)) ])
+#  Xmat <- as.matrix(data[, feature_cols])
+#  set.seed(7)
+#  emb <- uwot::umap(
+#    Xmat,
+#    metric = "euclidean",
+#    scale = TRUE
+#  )
+#  umap_data <- data.frame(
+#    UMAP1 = emb[,1],
+#    UMAP2 = emb[,2],
+#    pseudotime = data$pseudotime,
+#    middle_alpha = data$middle_alpha,
+#    branch1_alpha = data$ALPHA_BRANCH_1,
+#    branch2_alpha = data$ALPHA_BRANCH_2,
+#    branch_id = factor(data$branch_id)
+#  ) 
   
   #add UMAP
 }
@@ -219,9 +219,9 @@ plot_local_correlation_map <- function(correlations, space)
 {
 
 
-  p +
-    ggplot2::geom_point(alpha = 0.7) +
-    ggplot2::theme_minimal()
+  #p +
+  #  ggplot2::geom_point(alpha = 0.7) +
+  #  ggplot2::theme_minimal()
 }
 
 #' Plot correlation between featureA and featureB as a scatter plot using all cells contained in neighbourhoods that are within given space boundaries
@@ -240,7 +240,7 @@ plot_local_correlation_map <- function(correlations, space)
 #' @param y_max The maximum y-coordinate to filter neighbourhoods that are used for plotting. Cells in neighbouhoods are inlcuded if the anchor cell
 #'              of this neighbourhood has an y-coordinate <= y_max.
 #' @export
-plot_cell_level_correlation <- function(featureA, featureB, space, x_min. x_max, y_min, y_max)
+plot_cell_level_correlation <- function(featureA, featureB, space, x_min, x_max, y_min, y_max)
 {
 
 }
