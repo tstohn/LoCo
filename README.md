@@ -27,22 +27,8 @@ global single-cell space.
 # Getting started:
 LoCo can be easily installed as an R-package or be build as a command line tool in cpp.
 
-## install R-package loco
-
-## install cpp-tool
-The C++ command-line tool depends on Boost.Program_options and zlib, which must be installed on your system before building. These dependencies are required for parsing command-line arguments and handling compressed data streams.
-You can easily install boost/ zlib and build loco with following command:
-
-```bash
-  git clone https://github.com/tstohn/LoCo
-  make install
-  make loco
-```
-
-# Run LoCo:
-
-
-## R-package
+## __R__
+### install R-package loco
 
 You can easily install LoCo from within R:
 ```R
@@ -62,6 +48,16 @@ locoResults <- run_loco("/DATA/t.stohn/analyses_loco/1_simulations/data/data_1.t
 
 ## CPP-tool
 
+### install cpp-tool
+The C++ command-line tool depends on Boost.Program_options and zlib, which must be installed on your system before building. These dependencies are required for parsing command-line arguments and handling compressed data streams.
+You can easily install boost/ zlib and build loco with following command:
+
+```bash
+  git clone https://github.com/tstohn/LoCo
+  make install
+  make loco
+```
+
 ### Run
 
 You will then find LoCo as an executable in the folder 'bin'. 
@@ -79,5 +75,3 @@ Among those the most important ones are:
   - LoCo_laplacian.tsv: This file contains all the laplacian scores/ p-values for found correlations.
   - LoCo_coord.tsv: This file contains the coordinates of all the enighborhoods. The coordinates are defined by the used features and are the counts for all the features of the anchor cells that were used to construct those neighborhoods.
   - LoCo_cells.tsv: The first row contains all neighborhood indices, then all rows below this one contains the cell indices of the cells that are part of this neighborhood (including the anchor cell).
-
-# R
