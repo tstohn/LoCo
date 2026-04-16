@@ -28,6 +28,10 @@ global single-cell space.
 LoCo can be easily installed as an R-package or be build as a command line tool in cpp.
 
 ## 1.) R
+
+Below you find a quickstart how to install and run LoCo and how the output format looks like. For details about the function parameters and how to plot the correlations on the UMAP after running LoCo please have a look into the manual:
+[LoCo Manual (PDF)](https://github.com/tstohn/LoCo/raw/master/docs/loco-manual.pdf)
+
 ### a) Install R-package loco
 
 You can easily install LoCo from within R:
@@ -70,7 +74,7 @@ Stores the processed input expression matrix in a **long-format** structure.
 * **Structure**: Each row represents a single cell, and columns represent the measured protein or gene features.
 
 ### 2. `LaplacianScores`
-The primary results table summarizing feature pairs that show statistically significant local correlation patterns.
+The primary results table summarizing feature pairs that show statistically significant local correlation patterns. LoCo firstly filters all correlations that are above a certain threshold (see parameter for correlation threshold). Additionally LoCo filters correlations that must be present in a minimum percentage of all neighbourhoods (default is 0.01 = 1%, you can change it by setting corrSetAbundance between 0 and 1), and LoCo only considers correlations that were found in sets of co-correlated features. These sets can be defined by minSetSize and correlatedSetMode.  minSetSize is the minimum size of the set of features, which is 2 by default (but you can set it to sth. bigger if you only want to retain co-correlated sets of features of, e.g., at least size 5, when you want to study bigger networks/ biological programs of co-correlated features. The correlatedSetMode is the mode of how these features in the set should co-correlate (default 1) - 0: all features must correlated with each other above the correlation threshold, a value x >= 1 means that within a set of co-correlated features every feature must correlate with at least x other features above the correlation threshold.
 * **FeaturePair**: The names of the two features being compared (e.g., `feature1_feature2`).
 * **LaplacianScore**: The calculated score used to rank the strength of the local relationship.
 * **p_value**: A permutation-based significance value.
