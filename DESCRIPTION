@@ -8,6 +8,6 @@ Description: Quickly detect local correlation patterns between features in point
              LoCo creates neighbourhoods of points, detects correlations within those neighbourhoods and filters correlations that change smoothly through the point cloud. 
 License: GPL-3 + file LICENSE
 LinkingTo: Rcpp
-Imports: Rcpp,ggplot2,uwot
+Imports: Rcpp,ggplot2,uwot,stats
 SystemRequirements: C++17
 RoxygenNote: 7.1.2

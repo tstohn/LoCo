@@ -19,7 +19,7 @@ using namespace Rcpp;
 // create a List of several dataframes
 // 1.) raw data table
 // 2.) laplacian scores
-// 3.) correlations
+// 3.) correlations: tibble with 3 columns "CorrelationPair", "NeighbourhoodID", "Correlation"
 // 4,) neighbourhoods: anchor cell + contained cells
 Rcpp::List build_loco_object(const SingleCellData& rawData,
                              Neighborhood& neighborhood,
@@ -106,42 +106,50 @@ Rcpp::List build_loco_object(const SingleCellData& rawData,
     );
 
     // =========================
-    // 3. neighbourhoodIDs - correlations
+    // 3. neighbourhoodIDs - correlations (LONG FORMAT)
     // =========================
 
     // Size checks
     int nIDsize = nIDs.size();
-    int nPairs = correlation_pairs.size();
-    if (corrMat.size() != nIDsize) 
-    {
+    int nPairs  = correlation_pairs.size();
+
+    if (corrMat.size() != nIDsize) {
         Rcpp::stop("corrMat must have same length as nIDs");
     }
-    for (int i = 0; i < nIDsize; i++) 
-    {
-        if (corrMat[i].size() != nPairs) 
-        {
+
+    for (int i = 0; i < nIDsize; i++) {
+        if (corrMat[i].size() != nPairs) {
             Rcpp::stop("Each corrMat row must match number of correlation pairs");
         }
     }
 
-    //  Build correlation per neighbourhood list
-    Rcpp::List df_corr;
-    // First column: pair names
-    df_corr["CorrelationPair"] = correlation_pairs;
-    // Each column = one neighborhood
+    // Output columns
+    int total = nIDsize * nPairs;
+    Rcpp::CharacterVector out_pair;
+    Rcpp::CharacterVector out_neigh;
+    Rcpp::NumericVector    out_corr;
+
+    // Build LONG table
     for (int i = 0; i < nIDsize; i++) {
-        std::vector<double> col(nPairs);
-        for (int p = 0; p < nPairs; p++) 
-        {
-            col[p] = corrMat[i][p];  // row=i (neigh), col=p (pair)
+
+        const std::string& neigh_id = nIDs[i];
+
+        for (int p = 0; p < nPairs; p++) {
+
+            out_pair.push_back(correlation_pairs[p]);
+            out_neigh.push_back(neigh_id);
+            out_corr.push_back(corrMat[i][p]);
         }
-        df_corr[nIDs[i]] = col;
     }
 
-    // Convert to DataFrame
-    Rcpp::DataFrame corr_df(df_corr);
-    corr_df.attr("stringsAsFactors") = false;
+    // Build DataFrame
+    Rcpp::DataFrame corr_df = Rcpp::DataFrame::create(
+        Rcpp::Named("CorrelationPair")   = out_pair,
+        Rcpp::Named("NeighbourhoodID")   = out_neigh,
+        Rcpp::Named("Correlation")       = out_corr
+    );
 
+    corr_df.attr("stringsAsFactors") = false;
 
     // =========================
     // 4. safe neighbourhoodIDs - anchorCell - allCells
@@ -177,7 +185,7 @@ Rcpp::List build_loco_object(const SingleCellData& rawData,
 
     // build DataFrame 
     Rcpp::DataFrame n_df = Rcpp::DataFrame::create(
-        Rcpp::Named("NeighborhoodID") = nIDs,
+        Rcpp::Named("NeighbourhoodID") = nIDs,
         Rcpp::Named("AnchorCellID")   = nID_anchorCellID,
         Rcpp::Named("AllCellIDs")     = allCellsCollapsed,
         Rcpp::_["stringsAsFactors"] = false
@@ -189,7 +197,7 @@ Rcpp::List build_loco_object(const SingleCellData& rawData,
     Rcpp::List loco_result = Rcpp::List::create(
         Rcpp::Named("RawData") = raw_df,
         Rcpp::Named("LaplacianScores") = laplacian_scores,
-        Rcpp::Named("CorrelationMatrix") = corr_df,
+        Rcpp::Named("Correlations") = corr_df,
         Rcpp::Named("Neighbourhoods") = n_df
     );
 

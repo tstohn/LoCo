@@ -1,3 +1,6 @@
 useDynLib(loco, .registration = TRUE)
 import(Rcpp)
-export(run_loco)
+export(run_loco, 
+add_umap_coords,
+plot_local_correlation_map,
+plot_cell_level_correlation)

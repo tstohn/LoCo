@@ -38,11 +38,11 @@
 #'     }
 #'   }
 #'
-#'   \item{CorrelationMatrix}{
-#'     A data.frame of correlation values per neighbourhood.
+#'   \item{Correlations}{
+#'     A data.frame of correlation values per neighbourhood with 3 columns "CorrelationPair", "NeighbourhoodID", "Correlation".
 #'     The first column \code{CorrelationPair} contains feature pairs (same name as in LaplacianScore),
-#'     and each additional column corresponds to a neighbourhood ID,
-#'     containing correlation values for that neighbourhood.
+#'     the second column \code{NeighbourhoodID} contains all neighbourhoodIDs (like N_<number>),
+#'     and the third column \code{Correlation} contains the correlation of the pair in this neighbourhood.
 #'   }
 #'
 #'   \item{Neighbourhoods}{
@@ -61,16 +61,21 @@
 #'                       package = "loco")
 #'
 #' # Run LoCo on a small example dataset: find all local correlations with a correlation above 0.4
-#' res <- run_loco(
-#'   inFile = infile,
-#'   correlationCutoff = 0.4)
-#'
-#' # Inspect results
-#' head(res$LaplacianScores)
+#' L1 <- run_loco("/DATA/t.stohn/analyses_loco/1_simulations/data/data_1.tsv", correlationCutoff= 0.4, neighborhoodSize = 25)
+#' # Inspect the correlations with the lowest laplacian score/ p_value - 
+#' # these correlations change the most across the whole single-cell dataset but change only very little in their local neighbourhood
+#' head(L1$Laplacian)
+#' L2 <- add_umap_coords(L1)
+#' plot <- plot_local_correlation_map(L2, L2$Laplacian$FeaturePair[1])
+#' ggplot2::ggsave(filename = "local_correlation_map.png",
+#' plot = plot,
+#' width = 8,
+#' height = 6,
+#' dpi = 300)
 #' @details
 #' The result is a list of data.frame containing: 1.) the RawData, 
 #' 2.) LaplacianScores: scored correlation pairs that vary across single-cell sapce, 
-#' 3.) CorrelationMatrix: all correlations in all neighbourhoods,
+#' 3.) Correlations: all correlations in all neighbourhoods,
 #' 4.) Neighbourhoods: the definition of neighbourhoods by their anchor cell and all contained cells
 #' @export
 run_loco <- function(
@@ -174,63 +179,262 @@ run_loco <- function(
   return(res)
 }
 
+#' Creates UMAP space for raw data and adds the UMAP-coordinates UMAP1/UMAP2 to RawData, Neighbourhoods and Correlations.
+#' run: umapAddedLocoResult <- add_umap_coords(locoResult) to add the UMAP coords to the loco result.
+#' umapAddedLocoResult can be used to plot the correlations in neighbourhoods on a UMAP.
+#' Details:
 #' To plot local correlations across neighbourhoods LoCo needs a space to plot those correlations in.
 #' One possibility is to create the UMAP space of the raw data. Within this UMAP space you can inspect
 #' origional raw features and additionally assign UMAP coordiantes to neighbourhoods by taking the central
 #' cell of all neighbourhoods (the anchor cell) and assigning the UMAP coordinates of this cell to their
 #' neighbourhood. After running add_umap_coords() you can run plot_local_correlation_map() to plot local correlations
-#' within this UMAP space.
+#' within this UMAP space. You do not have to use these umap coordiantes but this function makes it easy
+#' to create the UMAP space for the raw data and the neighbourhoods. However, you can create your own
+#' embedding (PCA, ...) and plot neighbourhoods (by assigning neighbourhood coordinates to the coordiantes of their anchor cells).
+#' add_umap_coords() adds the UMAP coordiantes to the RawData data.frame, the Neighbourhoods data.frame and also to the Correlations data.frame
+#' @param locoResult the result of run_loco
+#' @param n_pcs the number of components for PCA (default 0 = skip PCA embedding). If n_pcs > 0 the function firstly decomposes the input matrix into PCs and runs umap on the PCs. 
+#'              In this case scale is set to FALSE, as the PCA already scales the data.
+#' @param scale z-score normalize feature counts before calculating UMAP coords (TRUE). This is ONLY considered when n_pcs is 0. If n_pcs > 0 the functions uses the
+#'              first <n_pcs> PCs to run the UMAP embedding and does not z-score normalize in between!
+#' @param metric distance-metric for UMAP (euclidean)
+#' @param seed seed for UMAP (7)
 #' @export
-add_umap_coords <- function()
+add_umap_coords <- function(locoResult,
+                            n_pcs = 0,
+                            scale = TRUE,
+                            metric = "euclidean",
+                            seed = 7)
 {
-  #run UMAP
-#  feature_cols <- colnames(data[ , grepl("^[GME][0-9]+$", names(data)) ])
-#  Xmat <- as.matrix(data[, feature_cols])
-#  set.seed(7)
-#  emb <- uwot::umap(
-#    Xmat,
-#    metric = "euclidean",
-#    scale = TRUE
-#  )
-#  umap_data <- data.frame(
-#    UMAP1 = emb[,1],
-#    UMAP2 = emb[,2],
-#    pseudotime = data$pseudotime,
-#    middle_alpha = data$middle_alpha,
-#    branch1_alpha = data$ALPHA_BRANCH_1,
-#    branch2_alpha = data$ALPHA_BRANCH_2,
-#    branch_id = factor(data$branch_id)
-#  ) 
+  set.seed(seed)
+
+  # -----------------------------
+  # 1. sanity checks
+  # -----------------------------
+  if (!is.list(locoResult)) {
+    stop("locoResult must be a list: the result of run_loco().")
+  }
+
+  if (is.null(locoResult$RawData)) {
+    stop("locoResult has no RawData element. Please run run_loco and use add_umap_coords with this result.")
+  }
+  if (!is.data.frame(locoResult$RawData)) {
+    stop("RawData (part of the result of run_loco) must be a data.frame or tibble. Please run run_loco and use add_umap_coords with this result.")
+  }
+  if (is.null(locoResult$Correlations)) {
+    stop("locoResult has no Correlations element. Please run run_loco and use add_umap_coords with this result.")
+  }
+  if (!is.data.frame(locoResult$Correlations)) {
+    stop("Correlations (part of the result of run_loco) must be a data.frame or tibble. Please run run_loco and use add_umap_coords with this result.")
+  }
+
+  rawData <- locoResult$RawData
+  if (!"cellID" %in% colnames(rawData)) 
+  {
+    stop("RawData must contain a 'cellID' column. Please run run_loco and use add_umap_coords with this result.")
+  }
+
+  # -----------------------------
+  # 2. split metadata vs matrix
+  # -----------------------------
+
+  cell_ids <- rawData$cellID
+  feature_cols <- setdiff(colnames(rawData), "cellID")
+  if (length(feature_cols) < 2) 
+  {
+    stop("Not enough feature columns for UMAP. There is only a single feature.")
+  }
+  X_mat <- as.matrix(rawData[, feature_cols])
+  # ensure numeric
+  mode(X_mat) <- "numeric"
+
+  # -----------------------------
+  # 3. PCA (optional)
+  # -----------------------------
+  if (n_pcs > 0) 
+  {
+
+    # center + scale is important
+    pca <- prcomp(X_mat, center = TRUE, scale. = scale)
+
+    n_use <- min(n_pcs, ncol(pca$x))
+
+    emb_input <- pca$x[, 1:n_use, drop = FALSE]
+    scale <- FALSE
+
+  } else {
+    emb_input <- X_mat
+  }
+
+  # -----------------------------
+  # 3. run UMAP
+  # -----------------------------
+
+  # run UMAP on PCA data
+  emb <- uwot::umap(
+    emb_input,
+    metric = metric,
+    scale = scale
+  )
   
-  #add UMAP
+
+  # -----------------------------
+  # 4. add UMAP coords to rawData
+  # -----------------------------
+  rawData$UMAP1 <- emb[, 1]
+  rawData$UMAP2 <- emb[, 2]
+  locoResult$RawData <- rawData
+
+  # -----------------------------
+  # 4. add UMAP coords to Neighbourhoods
+  # -----------------------------
+  if ("Neighbourhoods" %in% names(locoResult)) 
+  {
+
+    neigh <- locoResult$Neighbourhoods
+
+    if (!("AnchorCellID" %in% colnames(neigh))) 
+    {
+      stop("Neighbourhoods must contain 'AnchorCellID'")
+    }
+
+    # match AnchorCellID -> RawData$cellID
+    idx <- match(neigh$AnchorCellID, rawData$cellID)
+
+    # warn if something doesn't match
+    if (any(is.na(idx))) 
+    {
+      warning("Some AnchorCellIDs not found in RawData.")
+    }
+
+    neigh$UMAP1 <- rawData$UMAP1[idx]
+    neigh$UMAP2 <- rawData$UMAP2[idx]
+
+    locoResult$Neighbourhoods <- neigh
+  }
+
+  # -----------------------------
+  # 5. add UMAP coords to Correlations
+  # -----------------------------
+  if ("Correlations" %in% names(locoResult)) 
+  {
+    corr <- locoResult$Correlations
+
+    if (!("NeighbourhoodID" %in% colnames(corr))) 
+    {
+      stop("Correlations must contain 'NeighbourhoodID'")
+    }
+
+    if (!("NeighbourhoodID" %in% colnames(neigh))) 
+    {
+      stop("Neighbourhoods must contain 'NeighbourhoodID'")
+    }
+
+    # match Correlations$NeighbourhoodID -> Neighbourhoods$NeighbourhoodID
+    idx_corr <- match(corr$NeighbourhoodID, neigh$NeighbourhoodID)
+
+    # warn if missing
+    if (any(is.na(idx_corr))) 
+    {
+      warning("Some NeighbourhoodIDs in Correlations not found in Neighbourhoods.")
+    }
+
+    # assign coords (this automatically repeats correctly)
+    corr$UMAP1 <- neigh$UMAP1[idx_corr]
+    corr$UMAP2 <- neigh$UMAP2[idx_corr]
+
+    locoResult$Correlations <- corr
+  }
+
+  return(locoResult)
 }
 
-
-#' Plot correlation for features by neighbourhoods
-#' Therefore create a plotting space first (like UMAP coordinates) to then plot neighbourhoods into this space
+#' Plot correlations for a correlationPair in all neighbourhoods.
+#' Therefore create a plotting space first (like UMAP coordinates) to then plot neighbourhoods into this space by, e.g., running 
+#' newLocoResult <- add_umap_coords(locoResult)
+#' plot_local_correlation_map(newLocoResult, "GENE1_GENE2")
 #' @import ggplot2
-#' @param correlations the CorrelationMatrix rreturned by run_loco: the matrix storing correlations for all neighbourhoods
-#' @param space a data.frame the describes that space in which to plot the local correlations. This data.frame MUST have 
-#'              following columns: N_ids, x, y. The first column 'N_ids' contains all neighbourhood IDs as in 'correlations', 
-#'              and the following columns describe the x and a y coordinates for plotting. These coordinates can be for example UMAP, PCA
-#'              coordinates. To generate UMAP coordinates just run add_umap_coords().
+#' @param locoResult the result of run_loco after adding an embedding space to the data.frame Correlations in the loco-result
+#'                   this can be generated by, e.g., running locoResult2 <- add_umap_coords(locoResult1) and then feeding locoResult2 into this function.
+#' @param correlationPair the name of the correlation that should be plotted. You can see all possible names in the column <FeaturePair> in <locoResult1$LaplacianScores>.
+#' @param dim1 the x-axis dimension for the plot: per default the UMAP1 coordinate from add_umap_coords
+#' @param dim2 the y-axis dimension for the plot: per default the UMAP2 coordinate from add_umap_coords
 #' @export
-plot_local_correlation_map <- function(correlations, space) 
+plot_local_correlation_map <- function(locoResult, correlationPair, dim1 = "UMAP1", dim2 = "UMAP2") 
 {
+  # -----------------------------
+  # checks
+  # -----------------------------
+  if (!is.list(locoResult)) {
+    stop("locoResult must be a list")
+  }
 
+  if (is.null(locoResult$Correlations)) {
+    stop("locoResult has no Correlations element")
+  }
 
-  #p +
-  #  ggplot2::geom_point(alpha = 0.7) +
-  #  ggplot2::theme_minimal()
+  # subset the Correlation pair
+  correlation_col <- as.character(locoResult$Correlations$CorrelationPair)
+  idx <- which(trimws(correlation_col) == trimws(correlationPair))
+  if (length(idx) == 0) {
+    stop("CorrelationPair not found: ", correlationPair)
+  }
+  corr <- locoResult$Correlations[idx, , drop = FALSE]
+
+  # required columns: Correlation and the space dimensions
+  req_cols <- c("Correlation", dim1, dim2)
+
+  missing <- setdiff(req_cols, colnames(corr))
+  if (length(missing) > 0) {
+    stop("Missing required columns in Correlations: ",
+         paste(missing, collapse = ", "))
+  }
+
+  # -----------------------------
+  # plot
+  # -----------------------------
+  p <- ggplot2::ggplot(
+    corr,
+    ggplot2::aes(
+      x = .data[[dim1]],
+      y = .data[[dim2]],
+      color = Correlation
+    )
+  ) +
+    ggplot2::geom_point(
+      size = 4,
+      alpha = 0.75
+    ) +
+    ggplot2::theme_minimal(base_size = 14) +
+    ggplot2::labs(
+      x = dim1,
+      y = dim2,
+      color = "Correlation"
+    ) +
+    ggplot2::theme(
+      panel.grid.minor = ggplot2::element_blank(),
+      panel.grid.major = ggplot2::element_line(color = "grey90"),
+      axis.title = ggplot2::element_text(face = "bold"),
+      legend.title = ggplot2::element_text(face = "bold")
+    )+
+    ggplot2::scale_color_gradient2(
+      low = "#0000FF",
+      mid = "white",
+      high = "firebrick",
+      midpoint = 0,
+      limits = c(-1, 1),
+      oob = scales::squish
+    )
+
+  return(p)
 }
 
 #' Plot correlation between featureA and featureB as a scatter plot using all cells contained in neighbourhoods that are within given space boundaries
 #' [x_min ... x_max] and [y_min ... y_max].
 #' @param featureA first feature (x-coordinate) of the plotted correlation
 #' @param featureB second feature (y-coordinate) of the plotted correlation
-#' @param space the data.frame that describes the space that should be used to select neighbourhoods. All cells within those neighbourhoods
-#'              are then used for plotting. This data.frame must be in the same format as the data.frame created by add_umap_coords():
-#'              N_ids = neighbourhood IDs, x = x coordinates, y = y coordinates
+#' @param dim1 the x-axis dimension for the plot: per default the UMAP1 coordinate from add_umap_coords
+#' @param dim2 the y-axis dimension for the plot: per default the UMAP2 coordinate from add_umap_coords
 #' @param x_min The minimum x-coordinate to filter neighbourhoods that are used for plotting. Cells in neighbouhoods are inlcuded if the anchor cell
 #'              of this neighbourhood has an x-coordinate >= x_min.
 #' @param x_max The maximum x-coordinate to filter neighbourhoods that are used for plotting. Cells in neighbouhoods are inlcuded if the anchor cell
@@ -240,7 +444,79 @@ plot_local_correlation_map <- function(correlations, space)
 #' @param y_max The maximum y-coordinate to filter neighbourhoods that are used for plotting. Cells in neighbouhoods are inlcuded if the anchor cell
 #'              of this neighbourhood has an y-coordinate <= y_max.
 #' @export
-plot_cell_level_correlation <- function(featureA, featureB, space, x_min, x_max, y_min, y_max)
+plot_cell_level_correlation <- function(locoResult, featureA, featureB, dim1 = "UMAP1", dim2 = "UMAP2", x_min, x_max, y_min, y_max)
 {
 
+  # -----------------------------
+  # checks
+  # -----------------------------
+  if (!is.list(locoResult)) {
+    stop("locoResult must be a list")
+  }
+
+  if (is.null(locoResult$RawData) || is.null(locoResult$Neighbourhoods)) {
+    stop("locoResult must contain RawData and Neighbourhoods")
+  }
+
+  raw <- locoResult$RawData
+  neigh <- locoResult$Neighbourhoods
+
+  if (!all(c(featureA, featureB) %in% colnames(raw))) {
+    stop("featureA / featureB not found in RawData")
+  }
+
+  if (!all(c(dim1, dim2) %in% colnames(neigh))) {
+    stop("dim1/dim2 not found in Neighbourhoods")
+  }
+
+  # -----------------------------
+  # 1. filter neighbourhoods by spatial window
+  # -----------------------------
+  neigh_filt <- neigh[
+    neigh[[dim1]] >= x_min &
+    neigh[[dim1]] <= x_max &
+    neigh[[dim2]] >= y_min &
+    neigh[[dim2]] <= y_max,
+  , drop = FALSE]
+
+  if (nrow(neigh_filt) == 0) {
+    stop("No neighbourhoods in selected region")
+  }
+
+  # -----------------------------
+  # 2. collect all cell IDs (comma-separated expansion)
+  # -----------------------------
+  cell_list <- unlist(strsplit(as.character(neigh_filt$AllCellIDs), ","))
+
+  # clean whitespace
+  cell_list <- trimws(cell_list)
+
+  # unique cells
+  cell_list <- unique(cell_list)
+
+  # -----------------------------
+  # 3. subset raw data
+  # -----------------------------
+  raw_filt <- raw[raw$cellID %in% cell_list, , drop = FALSE]
+
+  if (nrow(raw_filt) == 0) {
+    stop("No matching cells found in RawData")
+  }
+
+  # -----------------------------
+  # 4. plot
+  # -----------------------------
+  p <- ggplot2::ggplot(
+    raw_filt,
+    ggplot2::aes(x = .data[[featureA]], y = .data[[featureB]])
+  ) +
+    ggplot2::geom_point(alpha = 0.6, size = 1) +
+    ggplot2::theme_minimal() +
+    ggplot2::labs(
+      title = paste0(featureA, " vs ", featureB),
+      x = featureA,
+      y = featureB
+    )
+
+  return(p)
 }
