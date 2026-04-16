@@ -3,7 +3,7 @@
 #include <algorithm> 
 #include <limits>
 #include <set>
-#include <execution> // C++17 SOTA for parallel sorting/looping
+//#include <execution> // C++17 can improve runtime of std::sort with std::sort(std::execution::par, begin, end, ...), but we disabled it for R weaknesses to handle tbb
 #include <atomic>
 
 #include "Neighborhood.hpp"

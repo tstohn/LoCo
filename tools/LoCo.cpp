@@ -67,7 +67,7 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
             Loco then does a BFS from every node and tests which pairs of this set span a region in the Neighborhoodgraph that covers at least 5% of neighborhoods. \
             Imagine correlations between A,B,C are present in 10% but any correlation with D only in a single neighborhood: Lco will use only the set A,B,C.")
 
-            ("correlatedSetMode,q", value<unsigned int>(&correlatedSetMode)->default_value(2), "Mode to detect correlated sets. LoCo create a graph of features\
+            ("correlatedSetMode,q", value<unsigned int>(&correlatedSetMode)->default_value(1), "Mode to detect correlated sets. LoCo create a graph of features\
             where features represent nodes and feature-nodes are connected if their correlation between them is >= correlationCutoff(-x flag). LoCo creates these \
             graphs for every neighbourhood, filters subgraphs based on different graph-connectivity and finally only retains features of these graphs for local \
             correlation detection. Grpahs can be detected as follows: 0= fully connected components (cliques)1 = connected components (nodes with at least one edge), etc.")

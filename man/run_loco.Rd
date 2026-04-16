@@ -11,12 +11,13 @@ run_loco(
   row = FALSE,
   zscore = TRUE,
   thread = 1,
-  correlatedSetMode = 2,
+  correlatedSetMode = 1,
   numberCorrelations = 0,
   cellStateGeneFile = "",
   correlationStateGeneFile = "",
-  neighborhoodSize = 50,
-  neighborhoodKNN = 5,
+  numberNeighbourhoods = 0,
+  neighbourhoodSize = 100,
+  neighbourhoodKNN = 5,
   correlationCutoff = 0.7,
   permutations = 100,
   minSetSize = 2,
@@ -30,7 +31,7 @@ run_loco(
 
 \item{col}{Whether feature names are in columns.}
 
-\item{row}{Whether cell anmes are in rows.}
+\item{row}{Whether cell names are in rows.}
 
 \item{zscore}{Apply z-score normalization.}
 
@@ -44,9 +45,11 @@ run_loco(
 
 \item{correlationStateGeneFile}{Path to correlation state gene file: only these features are used to calculate pairwise correlations.}
 
-\item{neighborhoodSize}{Size of neighbourhoods.}
+\item{numberNeighbourhoods}{number of neighbourhoods to create. Per default (0), LoCo creates x = (totalCellNumber/ neighbourhoodSize) neighbourhoods.}
 
-\item{neighborhoodKNN}{Number of nearest neighbours.}
+\item{neighbourhoodSize}{Size of neighbourhoods.}
+
+\item{neighbourhoodKNN}{Number of nearest neighbours.}
 
 \item{correlationCutoff}{Correlation threshold (minimum correlation between pairs to consider this correlation)}
 
@@ -78,11 +81,11 @@ A named list containing LoCo results with four elements:
     }
   }
 
-  \item{CorrelationMatrix}{
-    A data.frame of correlation values per neighbourhood.
+  \item{Correlations}{
+    A data.frame of correlation values per neighbourhood with 3 columns "CorrelationPair", "NeighbourhoodID", "Correlation".
     The first column \code{CorrelationPair} contains feature pairs (same name as in LaplacianScore),
-    and each additional column corresponds to a neighbourhood ID,
-    containing correlation values for that neighbourhood.
+    the second column \code{NeighbourhoodID} contains all neighbourhoodIDs (like N_<number>),
+    and the third column \code{Correlation} contains the correlation of the pair in this neighbourhood.
   }
 
   \item{Neighbourhoods}{
@@ -101,7 +104,7 @@ Run LoCo analysis
 \details{
 The result is a list of data.frame containing: 1.) the RawData, 
 2.) LaplacianScores: scored correlation pairs that vary across single-cell sapce, 
-3.) CorrelationMatrix: all correlations in all neighbourhoods,
+3.) Correlations: all correlations in all neighbourhoods,
 4.) Neighbourhoods: the definition of neighbourhoods by their anchor cell and all contained cells
 }
 \examples{
@@ -110,10 +113,15 @@ infile <- system.file("example", "data_1.tsv",
                       package = "loco")
 
 # Run LoCo on a small example dataset: find all local correlations with a correlation above 0.4
-res <- run_loco(
-  inFile = infile,
-  correlationCutoff = 0.4)
-
-# Inspect results
-head(res$LaplacianScores)
+L1 <- run_loco("test/data_1.tsv", correlationCutoff= 0.4, neighbourhoodSize = 25)
+# Inspect the correlations with the lowest laplacian score/ p_value - 
+# these correlations change the most across the whole single-cell dataset but change only very little in their local neighbourhood
+head(L1$LaplacianScores)
+L2 <- add_umap_coords(L1)
+plot <- plot_local_correlation_map(L2, L2$LaplacianScores$FeaturePair[1])
+ggplot2::ggsave(filename = "local_correlation_map.png",
+plot = plot,
+width = 8,
+height = 6,
+dpi = 300)
 }

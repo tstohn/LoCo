@@ -10,9 +10,9 @@
 #' @param numberCorrelations Number of correlations to compute.
 #' @param cellStateGeneFile Path to cell state gene file. Only these features are used to create cell neighbourhoods.
 #' @param correlationStateGeneFile Path to correlation state gene file: only these features are used to calculate pairwise correlations.
-#' @param numberNeighbourhoods number of neighbourhoods to create. Per default (0), LoCo creates x = (totalCellNumber/ neighborhoodSize) neighbourhoods.
-#' @param neighborhoodSize Size of neighbourhoods.
-#' @param neighborhoodKNN Number of nearest neighbours.
+#' @param numberNeighbourhoods number of neighbourhoods to create. Per default (0), LoCo creates x = (totalCellNumber/ neighbourhoodSize) neighbourhoods.
+#' @param neighbourhoodSize Size of neighbourhoods.
+#' @param neighbourhoodKNN Number of nearest neighbours.
 #' @param correlationCutoff Correlation threshold (minimum correlation between pairs to consider this correlation)
 #' @param permutations Number of permutations for p-value calculation.
 #' @param minSetSize Minimum set size.
@@ -61,12 +61,12 @@
 #'                       package = "loco")
 #'
 #' # Run LoCo on a small example dataset: find all local correlations with a correlation above 0.4
-#' L1 <- run_loco("/DATA/t.stohn/analyses_loco/1_simulations/data/data_1.tsv", correlationCutoff= 0.4, neighborhoodSize = 25)
+#' L1 <- run_loco("inst/example/data_1.tsv", correlationCutoff= 0.4, neighbourhoodSize = 25)
 #' # Inspect the correlations with the lowest laplacian score/ p_value - 
 #' # these correlations change the most across the whole single-cell dataset but change only very little in their local neighbourhood
-#' head(L1$Laplacian)
+#' head(L1$LaplacianScores)
 #' L2 <- add_umap_coords(L1)
-#' plot <- plot_local_correlation_map(L2, L2$Laplacian$FeaturePair[1])
+#' plot <- plot_local_correlation_map(L2, L2$LaplacianScores$FeaturePair[1])
 #' ggplot2::ggsave(filename = "local_correlation_map.png",
 #' plot = plot,
 #' width = 8,
@@ -85,13 +85,13 @@ run_loco <- function(
   row = FALSE,
   zscore = TRUE,
   thread = 1,
-  correlatedSetMode = 2,
+  correlatedSetMode = 1,
   numberCorrelations = 0,
   cellStateGeneFile = "",
   correlationStateGeneFile = "",
   numberNeighbourhoods = 0,
-  neighborhoodSize = 100,
-  neighborhoodKNN = 5,
+  neighbourhoodSize = 100,
+  neighbourhoodKNN = 5,
   correlationCutoff = 0.7,
   permutations = 100,
   minSetSize = 2,
@@ -120,8 +120,8 @@ run_loco <- function(
   if (!is.logical(row)) {
     stop("`row` must be TRUE or FALSE")
   }
-  if (!is.numeric(correlatedSetMode) || correlatedSetMode < 1) {
-    stop("`correlatedSetMode` must be >= 1")
+  if (!is.numeric(correlatedSetMode) || correlatedSetMode < 0) {
+    stop("`correlatedSetMode` must be >= 0")
   }
   if (!is.numeric(numberCorrelations) || numberCorrelations < 0) {
     stop("`numberCorrelations` must be >= 0")
@@ -135,11 +135,11 @@ run_loco <- function(
   if (!is.numeric(numberNeighbourhoods) || numberNeighbourhoods < 0) {
     stop("`numberNeighbourhoods` must be >= 0")
   }
-  if (!is.numeric(neighborhoodSize) || neighborhoodSize < 0) {
-    stop("`neighborhoodSize` must be >= 0")
+  if (!is.numeric(neighbourhoodSize) || neighbourhoodSize < 0) {
+    stop("`neighbourhoodSize` must be >= 0")
   }
-  if (!is.numeric(neighborhoodKNN) || neighborhoodKNN < 0) {
-    stop("`neighborhoodKNN` must be >= 0")
+  if (!is.numeric(neighbourhoodKNN) || neighbourhoodKNN < 0) {
+    stop("`neighbourhoodKNN` must be >= 0")
   }
   if (!is.numeric(correlationCutoff) || correlationCutoff < 0 || correlationCutoff > 1) {
     stop("`correlationCutoff` must be between 0 and 1")
@@ -150,8 +150,8 @@ run_loco <- function(
   if (!is.numeric(minSetSize) || minSetSize < 0) {
     stop("`minSetSize` must be >= 0")
   }
-  if (!is.numeric(corrSetAbundance) || corrSetAbundance < 0) {
-    stop("`corrSetAbundance` must be >= 0")
+  if (!is.numeric(corrSetAbundance) || corrSetAbundance < 0 || corrSetAbundance > 1) {
+    stop("`corrSetAbundance` must be >= 0 and <= 1")
   }
 
 
@@ -168,8 +168,8 @@ run_loco <- function(
     cellStateGeneFile,
     correlationStateGeneFile,
     as.integer(numberNeighbourhoods),
-    as.integer(neighborhoodSize),
-    as.integer(neighborhoodKNN),
+    as.integer(neighbourhoodSize),
+    as.integer(neighbourhoodKNN),
     correlationCutoff,
     as.integer(permutations),
     as.integer(minSetSize),
@@ -431,10 +431,9 @@ plot_local_correlation_map <- function(locoResult, correlationPair, dim1 = "UMAP
 
 #' Plot correlation between featureA and featureB as a scatter plot using all cells contained in neighbourhoods that are within given space boundaries
 #' [x_min ... x_max] and [y_min ... y_max].
+#' @param locoResult The UMAP-annotated result of run_loco
 #' @param featureA first feature (x-coordinate) of the plotted correlation
 #' @param featureB second feature (y-coordinate) of the plotted correlation
-#' @param dim1 the x-axis dimension for the plot: per default the UMAP1 coordinate from add_umap_coords
-#' @param dim2 the y-axis dimension for the plot: per default the UMAP2 coordinate from add_umap_coords
 #' @param x_min The minimum x-coordinate to filter neighbourhoods that are used for plotting. Cells in neighbouhoods are inlcuded if the anchor cell
 #'              of this neighbourhood has an x-coordinate >= x_min.
 #' @param x_max The maximum x-coordinate to filter neighbourhoods that are used for plotting. Cells in neighbouhoods are inlcuded if the anchor cell
@@ -443,8 +442,10 @@ plot_local_correlation_map <- function(locoResult, correlationPair, dim1 = "UMAP
 #'              of this neighbourhood has an y-coordinate >= y_min.
 #' @param y_max The maximum y-coordinate to filter neighbourhoods that are used for plotting. Cells in neighbouhoods are inlcuded if the anchor cell
 #'              of this neighbourhood has an y-coordinate <= y_max.
+#' @param dim1 the x-axis dimension for the plot: per default the UMAP1 coordinate from add_umap_coords
+#' @param dim2 the y-axis dimension for the plot: per default the UMAP2 coordinate from add_umap_coords
 #' @export
-plot_cell_level_correlation <- function(locoResult, featureA, featureB, dim1 = "UMAP1", dim2 = "UMAP2", x_min, x_max, y_min, y_max)
+plot_cell_level_correlation <- function(locoResult, featureA, featureB, x_min, x_max, y_min, y_max, dim1 = "UMAP1", dim2 = "UMAP2")
 {
 
   # -----------------------------
