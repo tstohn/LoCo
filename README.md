@@ -53,10 +53,10 @@ After running it you can find the detected 'local' correlations in:
 locoResults$LaplacianScores
 ```
 
-To the plot how these correlations change across the single-cell space you can plot the correlations per neighbourhood across any low dimensional representation of the data. We recommend to plot the correlations on the UMAP-space generated with the origional `RawData`. This way you can analyze the single-cell data with standard single-cell methods (clustering of data/ cell-tyep identification, etc.) and then plot in the same representation the distribution of correlations in neighbourhoods. Therefore, we simply plot neihgbourhoods at the coordinates of their anchor cells. You can do so by:
+To plot how these correlations change across the single-cell space you can plot the correlations per neighbourhood into any low dimensional representation of the data. LoCo provides a function to plot the correlations on the UMAP-space generated with the origional `RawData`. This way you can analyze the raw single-cell data with standard single-cell methods (clustering of data/ cell-type identification, etc.), plot the UMAP of the raw data and then also plot in the same representation the distribution of correlations in neighbourhoods. Therefore, we simply plot neighbourhoods at the coordinates of their anchor cells. You can do so by:
 
 ```r
-# assign UMAP coordiantes to the results of loco
+# assign UMAP coordinates to the results of loco
 locoResults <- add_umap_coords(locoResults)
 # plot the neighbourhoods into the UMAP of the RawData and
 # color by the correlations of the correlation pair with the lowest laplacian score
