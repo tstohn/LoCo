@@ -40,7 +40,7 @@ remotes::install_github("https://github.com/tstohn/LoCo")
 Once installed you can load LoCo in R and run it:
 ```R
 library(loco)
-locoResults <- run_loco("/DATA/t.stohn/analyses_loco/1_simulations/data/data_1.tsv", correlationCutoff= 0.5)
+locoResults <- run_loco("src/test/data_1.tsv", correlationCutoff= 0.5)
 ```
 
 For the exact output format see below or in the manual.
