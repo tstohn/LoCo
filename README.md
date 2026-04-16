@@ -38,13 +38,66 @@ remotes::install_github("https://github.com/tstohn/LoCo")
 ### b) Run
 
 Once installed you can load LoCo in R and run it:
-
 ```R
 library(loco)
 locoResults <- run_loco("/DATA/t.stohn/analyses_loco/1_simulations/data/data_1.tsv", correlationCutoff= 0.5)
 ```
 
+For the exact output format see below or in the manual.
+After running it you can find the detected 'local' correlations in:
+```r
+locoResults$LaplacianScores
+```
+
+To the plot how these correlations change across the single-cell space you can plot the correlations per neighbourhood across any low dimensional representation of the data. We recommend to plot the correlations on the UMAP-space generated with the origional `RawData`. This way you can analyze the single-cell data with standard single-cell methods (clustering of data/ cell-tyep identification, etc.) and then plot in the same representation the distribution of correlations in neighbourhoods. Therefore, we simply plot neihgbourhoods at the coordinates of their anchor cells. You can do so by:
+
+```r
+# assign UMAP coordiantes to the results of loco
+locoResults <- add_umap_coords(locoResults)
+# plot the neighbourhoods into the UMAP of the RawData and
+# color by the correlations of the correlation pair with the lowest laplacian score
+# ( locoResults$Laplacian is ordered in increasing order by the laplacian score (lower score = more local correlations with strong global variation)
+plot_local_correlation_map(locoResults, locoResults$Laplacian$FeaturePair[1])
+```
+
 ### c) Output
+
+LoCo returns a named list containing four distinct `data.frame` objects that desribe the neighbourhoods and the found local correlations.
+
+### 1. `RawData`
+Stores the processed input expression matrix in a **long-format** structure.
+* **Cell Identification**: Includes a `cellID` column. If your input lacked IDs, LoCo automatically generates them in the format `C_<index>` (e.g., `C_0`, `C_1`).
+* **Structure**: Each row represents a single cell, and columns represent the measured protein or gene features.
+
+### 2. `LaplacianScores`
+The primary results table summarizing feature pairs that show statistically significant local correlation patterns.
+* **FeaturePair**: The names of the two features being compared (e.g., `feature1_feature2`).
+* **LaplacianScore**: The calculated score used to rank the strength of the local relationship.
+* **p_value**: A permutation-based significance value.
+* **FeatureSet**: A comma-separated list of features that form larger "co-correlated" clusters.
+
+### 3. `Correlations`
+Provides all correlations between the filtered feature-pairs in all neighbourhoods.
+* **CorrelationPair**: Matches the pairs found in the `LaplacianScores` table.
+* **NeighbourhoodID**: The specific local group (e.g., `N_42`) where the correlation was calculated.
+* **Correlation**: The actual correlation coefficient for that pair within that specific neighborhood.
+
+### 4. `Neighbourhoods`
+Describes the sampled neighbourhoods. Neighbourhoods are created by first sampling anchor cells (AnchorCellID) around which LoCo creates local neighbourhoods (AllCellIDs). The CellIDs are the same ones as used in `RawData` and NeighbourhoodIDs are the same as in `Correlations`.
+* **NeighborhoodID**: Unique identifier for each local group in the form `N_<index>`.
+* **AnchorCellID**: The ID of the "center" cell sampled to seed the neighborhood.
+* **AllCellIDs**: A comma-separated list of all neighboring cells included in that specific local group (selected via KNN).
+
+---
+
+### Usage Example
+You can access individual components in R using the `$` operator:
+
+```r
+results <- run_loco(my_data)
+# View significant pairs
+head(results$LaplacianScores)
+```
 
 ## 2.) CPP-tool
 ### a) Install cpp-tool
