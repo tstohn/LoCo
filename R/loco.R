@@ -3,7 +3,7 @@
 #' @param inFile Input file path.
 #' @param del Delimiter used in input file.
 #' @param col Whether feature names are in columns.
-#' @param row Whether cell anmes are in rows.
+#' @param row Whether cell names are in rows.
 #' @param zscore Apply z-score normalization.
 #' @param thread Number of threads.
 #' @param correlatedSetMode Mode for correlated sets (connected components, fully connected, connected by min x edges)
@@ -85,7 +85,7 @@ run_loco <- function(
   cellStateGeneFile = "",
   correlationStateGeneFile = "",
   numberNeighbourhoods = 0,
-  neighborhoodSize = 50,
+  neighborhoodSize = 100,
   neighborhoodKNN = 5,
   correlationCutoff = 0.7,
   permutations = 100,
@@ -105,6 +105,50 @@ run_loco <- function(
   if (!is.numeric(thread) || thread < 1) {
     stop("`thread` must be >= 1")
   }
+
+  if (!is.logical(zscore)) {
+    stop("`zscore` must be TRUE or FALSE")
+  }
+  if (!is.logical(col)) {
+    stop("`col` must be TRUE or FALSE")
+  }
+  if (!is.logical(row)) {
+    stop("`row` must be TRUE or FALSE")
+  }
+  if (!is.numeric(correlatedSetMode) || correlatedSetMode < 1) {
+    stop("`correlatedSetMode` must be >= 1")
+  }
+  if (!is.numeric(numberCorrelations) || numberCorrelations < 0) {
+    stop("`numberCorrelations` must be >= 0")
+  }
+  if (!is.character(cellStateGeneFile)) {
+    stop("`cellStateGeneFile` must be a character string")
+  }
+  if (!is.character(correlationStateGeneFile)) {
+    stop("`correlationStateGeneFile` must be a character string")
+  }
+  if (!is.numeric(numberNeighbourhoods) || numberNeighbourhoods < 0) {
+    stop("`numberNeighbourhoods` must be >= 0")
+  }
+  if (!is.numeric(neighborhoodSize) || neighborhoodSize < 0) {
+    stop("`neighborhoodSize` must be >= 0")
+  }
+  if (!is.numeric(neighborhoodKNN) || neighborhoodKNN < 0) {
+    stop("`neighborhoodKNN` must be >= 0")
+  }
+  if (!is.numeric(correlationCutoff) || correlationCutoff < 0 || correlationCutoff > 1) {
+    stop("`correlationCutoff` must be between 0 and 1")
+  }
+  if (!is.numeric(permutations) || permutations < 0) {
+    stop("`permutations` must be >= 0")
+  }
+  if (!is.numeric(minSetSize) || minSetSize < 0) {
+    stop("`minSetSize` must be >= 0")
+  }
+  if (!is.numeric(corrSetAbundance) || corrSetAbundance < 0) {
+    stop("`corrSetAbundance` must be >= 0")
+  }
+
 
   # ---- call C++ ----
   res <- run_loco_cpp(
@@ -130,22 +174,73 @@ run_loco <- function(
   return(res)
 }
 
-# TODO: add umap coords to res, when plot_n is called the first time these umap coords are filled
-
-add_umap_space <- function()
+#' To plot local correlations across neighbourhoods LoCo needs a space to plot those correlations in.
+#' One possibility is to create the UMAP space of the raw data. Within this UMAP space you can inspect
+#' origional raw features and additionally assign UMAP coordiantes to neighbourhoods by taking the central
+#' cell of all neighbourhoods (the anchor cell) and assigning the UMAP coordinates of this cell to their
+#' neighbourhood. After running add_umap_coords() you can run plot_local_correlation_map() to plot local correlations
+#' within this UMAP space.
+#' @export
+add_umap_coords <- function()
 {
-
+  #run UMAP
+  feature_cols <- colnames(data[ , grepl("^[GME][0-9]+$", names(data)) ])
+  Xmat <- as.matrix(data[, feature_cols])
+  set.seed(7)
+  emb <- uwot::umap(
+    Xmat,
+    metric = "euclidean",
+    scale = TRUE
+  )
+  umap_data <- data.frame(
+    UMAP1 = emb[,1],
+    UMAP2 = emb[,2],
+    pseudotime = data$pseudotime,
+    middle_alpha = data$middle_alpha,
+    branch1_alpha = data$ALPHA_BRANCH_1,
+    branch2_alpha = data$ALPHA_BRANCH_2,
+    branch_id = factor(data$branch_id)
+  ) 
+  
+  #add UMAP
 }
 
+
 #' Plot correlation for features by neighbourhoods
-#' Therefore create UMAP space first to then plot neighbourhoods into the same space
+#' Therefore create a plotting space first (like UMAP coordinates) to then plot neighbourhoods into this space
 #' @import ggplot2
+#' @param correlations the CorrelationMatrix rreturned by run_loco: the matrix storing correlations for all neighbourhoods
+#' @param space a data.frame the describes that space in which to plot the local correlations. This data.frame MUST have 
+#'              following columns: N_ids, x, y. The first column 'N_ids' contains all neighbourhood IDs as in 'correlations', 
+#'              and the following columns describe the x and a y coordinates for plotting. These coordinates can be for example UMAP, PCA
+#'              coordinates. To generate UMAP coordinates just run add_umap_coords().
 #' @export
-plot_neighbourhood <- function(res, featureA = "x", featureB = "y") 
+plot_local_correlation_map <- function(correlations, space) 
 {
 
 
   p +
     ggplot2::geom_point(alpha = 0.7) +
     ggplot2::theme_minimal()
+}
+
+#' Plot correlation between featureA and featureB as a scatter plot using all cells contained in neighbourhoods that are within given space boundaries
+#' [x_min ... x_max] and [y_min ... y_max].
+#' @param featureA first feature (x-coordinate) of the plotted correlation
+#' @param featureB second feature (y-coordinate) of the plotted correlation
+#' @param space the data.frame that describes the space that should be used to select neighbourhoods. All cells within those neighbourhoods
+#'              are then used for plotting. This data.frame must be in the same format as the data.frame created by add_umap_coords():
+#'              N_ids = neighbourhood IDs, x = x coordinates, y = y coordinates
+#' @param x_min The minimum x-coordinate to filter neighbourhoods that are used for plotting. Cells in neighbouhoods are inlcuded if the anchor cell
+#'              of this neighbourhood has an x-coordinate >= x_min.
+#' @param x_max The maximum x-coordinate to filter neighbourhoods that are used for plotting. Cells in neighbouhoods are inlcuded if the anchor cell
+#'              of this neighbourhood has an x-coordinate <= x_max.
+#' @param y_min The minimum y-coordinate to filter neighbourhoods that are used for plotting. Cells in neighbouhoods are inlcuded if the anchor cell
+#'              of this neighbourhood has an y-coordinate >= y_min.
+#' @param y_max The maximum y-coordinate to filter neighbourhoods that are used for plotting. Cells in neighbouhoods are inlcuded if the anchor cell
+#'              of this neighbourhood has an y-coordinate <= y_max.
+#' @export
+plot_cell_level_correlation <- function(featureA, featureB, space, x_min. x_max, y_min, y_max)
+{
+
 }

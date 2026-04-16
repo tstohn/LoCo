@@ -14,7 +14,7 @@ namespace neighborhoodCalculations
     std::vector<int> get_random_elements(unsigned int numbers, unsigned int maxNum) 
     {
         if (numbers > maxNum)
-            throw std::invalid_argument("numbers > maxNum");
+            throw std::invalid_argument("Creating more neighbourhoods that cells is not allowed!");
 
         std::vector<int> pool(maxNum);
         std::iota(pool.begin(), pool.end(), 0);

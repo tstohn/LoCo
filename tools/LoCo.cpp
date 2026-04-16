@@ -48,8 +48,8 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
             ("numNeighborhoods,n", value<unsigned int>(&numNeighborhoods)->default_value(0), "number of neighborhoods. By default this is the total number of cells divided by 50 \
                 (the default number of cells per neighborhood). You can easily choose more neighborhoods/ cells per neighborhood but be aware that by doing so \
                 neighborhoods will start to overlap, which artificially smoothes correlations between neighborhoods leading to an overestimation of p-values.")
-            ("neighborhoodSize,s", value<std::string>(&neighborhoodSizeStr)->default_value("50"),
-                "number of cells per neighborhood. Can be a single value (e.g. 50) or a range [size1, size2,...] to detect correlation patterns at different scales/ with different granularities.")
+            ("neighborhoodSize,s", value<std::string>(&neighborhoodSizeStr)->default_value("100"),
+                "number of cells per neighborhood. Can be a single value (e.g. 100) or a range [size1, size2,...] to detect correlation patterns at different scales/ with different granularities.")
             ("correlationCutoff,x", value<double>(&correlationCutoff)->default_value(0.7), "threshold for minimum correlation strength between features")
             ("StateSpaceGenes,v", value<std::string>(&cellStateGeneFile)->default_value(""), "File with list of genes for state space (defines neighborhoods)")
             ("CorrSpaceGenes,w", value<std::string>(&correlationStateGeneFile)->default_value(""), "File with list of genes for correlations space (defines correlations that change through state space)")
