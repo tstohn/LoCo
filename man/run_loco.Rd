@@ -113,7 +113,7 @@ infile <- system.file("example", "data_1.tsv",
                       package = "loco")
 
 # Run LoCo on a small example dataset: find all local correlations with a correlation above 0.4
-L1 <- run_loco("test/data_1.tsv", correlationCutoff= 0.4, neighbourhoodSize = 25)
+L1 <- run_loco("inst/example/data_1.tsv", correlationCutoff= 0.4, neighbourhoodSize = 25)
 # Inspect the correlations with the lowest laplacian score/ p_value - 
 # these correlations change the most across the whole single-cell dataset but change only very little in their local neighbourhood
 head(L1$LaplacianScores)
