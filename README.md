@@ -91,8 +91,8 @@ Provides all correlations between the filtered feature-pairs in all neighbourhoo
 ### 4. `Neighbourhoods`
 Describes the sampled neighbourhoods. Neighbourhoods are created by first sampling anchor cells (AnchorCellID) around which LoCo creates local neighbourhoods (AllCellIDs). The CellIDs are the same ones as used in `RawData` and NeighbourhoodIDs are the same as in `Correlations`.
 * **NeighborhoodID**: Unique identifier for each local group in the form `N_<index>`.
-* **AnchorCellID**: The ID of the "center" cell sampled to seed the neighborhood.
-* **AllCellIDs**: A comma-separated list of all neighboring cells included in that specific local group (selected via KNN).
+* **AnchorCellID**: The ID of the "center" cell sampled to seed the neighbourhood.
+* **AllCellIDs**: A comma-separated list of all neighbouring cells included in that specific local group.
 
 
 ## 2.) CPP-tool
