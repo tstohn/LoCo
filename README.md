@@ -71,7 +71,7 @@ plot_local_correlation_map(locoResults, locoResults$Laplacian$FeaturePair[1])
 LoCo returns a named list containing four distinct `data.frame` objects that desribe the neighbourhoods and the found local correlations.
 
 ### 1. `RawData`
-Stores the processed input expression matrix in a **long-format** structure.
+Stores the processed input expression matrix in a **long-format** structure. This data is z-scored unless z-scoring was turned off.
 * **Cell Identification**: Includes a `cellID` column. If your input lacked IDs, LoCo automatically generates them in the format `C_<index>` (e.g., `C_0`, `C_1`).
 * **Structure**: Each row represents a single cell, and columns represent the measured protein or gene features.
 
