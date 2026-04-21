@@ -21,7 +21,7 @@ single-cell space and employs a Laplacian-based scoring approach that prioritize
 vary smoothly with respect to the neighborhood graph while exhibiting substantial variation across the
 global single-cell space.
 
-<img src="https://github.com/tstohn/LoCo/raw/master/docs/Overview.png" />
+<img src="https://github.com/tstohn/LoCo/raw/master/docs/Overview.png" width="500"/>
 
 
 # Getting started:
