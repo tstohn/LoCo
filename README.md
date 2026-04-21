@@ -4,7 +4,7 @@
 
 <img src="https://github.com/tstohn/LoCo/raw/master/docs/LoCo5.png" width="200" />
 
-LoCo (Local Correlation Analysis) detects locally structured correlation patterns from the continuous single-cell state space.
+LoCo (Local Correlation Analysis) detects locally structured correlation patterns from the continuous single-cell state space (spearman correlations by default).
 Input to LoCo is a single-cell features matrix and output are correlations between feature pairs. The reported correlations
 change a lot across regions of the single-cell space (within the single-cell dataset) but vary only slighlty between close regions.
 LoCo calcualtes p-values for the reported ranking scores of local correlations, reports sets of features that seemn to co-correlate 
@@ -83,7 +83,7 @@ The primary results table summarizing feature pairs that show statistically sign
 * **FeatureSet**: A comma-separated list of features that form larger "co-correlated" clusters.
 
 ### 3. `Correlations`
-Provides all correlations between the filtered feature-pairs in all neighbourhoods.
+Provides all spearman correlations between the filtered feature-pairs in all neighbourhoods.
 * **CorrelationPair**: Matches the pairs found in the `LaplacianScores` table.
 * **NeighbourhoodID**: The specific local group (e.g., `N_42`) where the correlation was calculated.
 * **Correlation**: The actual correlation coefficient for that pair within that specific neighborhood.
