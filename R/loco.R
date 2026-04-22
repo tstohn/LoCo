@@ -92,7 +92,7 @@ run_loco <- function(
   numberNeighbourhoods = 0,
   neighbourhoodSize = 100,
   neighbourhoodKNN = 5,
-  correlationCutoff = 0.7,
+  correlationCutoff = 0.5,
   permutations = 100,
   minSetSize = 2,
   corrSetAbundance = 0.01
