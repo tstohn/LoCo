@@ -903,6 +903,10 @@ void Neighborhood::extract_pairs_from_correlation_sets(std::unordered_map<nodePt
             //re-calcualte correlations (before we had absolute values)
             //const double corr = tmpData->get_distance_between_nodes(featureNodeA, featureNodeB);
             const double corr = calcualte_correlation_coefficient(featureNodeA->all_values(), featureNodeB->all_values());
+            if (std::isnan(corr)) 
+            {
+                std::cout << "WARNING: Correlation value is NaN" << " between features: " << featureNodeA->get_name() << " and " << featureNodeB->get_name() << "\n";    
+            }    
             tmpResult.correlationResult.insert(std::pair< std::pair<int, int>, double >(pair, corr));
 
             //store all SLOPES for those pairs (have to calculate new)

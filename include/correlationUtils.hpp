@@ -4,6 +4,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <limits>
 
 namespace
 {
@@ -117,7 +118,7 @@ inline void remove_subsets_sota(std::vector<std::vector<int>>& vectors) {
 
 // function that returns Pearson correlation coefficient.
 // for ranked correlations se raking to TRUE
-inline double calcualte_correlation_coefficient(const std::vector<double>& A, const std::vector<double>& B, bool ranking = false)
+inline double OLD_calcualte_correlation_coefficient(const std::vector<double>& A, const std::vector<double>& B, bool ranking = false)
 {
     std::vector<double> X = A;
     std::vector<double> Y = B;
@@ -146,8 +147,69 @@ inline double calcualte_correlation_coefficient(const std::vector<double>& A, co
     }
 
     // use formula for calculating correlation coefficient.
+    double denom_part1 = n * squareSum_X - sum_X * sum_X;
+    double denom_part2 = n * squareSum_Y - sum_Y * sum_Y;
+
+    if (denom_part1 <= 0 || denom_part2 <= 0)
+        return 0.0;  // or NaN depending on your preference
+
+
     double corr = (double)(n * sum_XY -  sum_X * sum_Y) / 
-                    sqrt((n * squareSum_X - sum_X * sum_X) * (n * squareSum_Y - sum_Y * sum_Y));
+                    sqrt(denom_part1 * denom_part2);
+    return corr;
+}
+
+// ranking is now done before calling this function to not re-rank counts several times
+inline double calcualte_correlation_coefficient(const std::vector<double>& A,
+                          const std::vector<double>& B,
+                          bool ranking = false)
+{
+    const size_t n = A.size();
+    if (n == 0 || n != B.size())
+        return std::numeric_limits<double>::quiet_NaN();
+
+    std::vector<double> X = A;
+    std::vector<double> Y = B;
+
+    if (ranking) {
+        rankify(X);
+        rankify(Y);
+    }
+
+    // ---- Compute means ----
+    double mean_X = 0.0, mean_Y = 0.0;
+    for (size_t i = 0; i < n; ++i) {
+        mean_X += X[i];
+        mean_Y += Y[i];
+    }
+    mean_X /= static_cast<double>(n);
+    mean_Y /= static_cast<double>(n);
+
+    // ---- Compute covariance and variances (stable) ----
+    double num = 0.0;
+    double denom_X = 0.0;
+    double denom_Y = 0.0;
+
+    for (size_t i = 0; i < n; ++i) {
+        double dx = X[i] - mean_X;
+        double dy = Y[i] - mean_Y;
+
+        num     += dx * dy;
+        denom_X += dx * dx;
+        denom_Y += dy * dy;
+    }
+
+    // ---- Guard against zero variance ----
+    const double eps = 1e-12;
+    if (denom_X < eps || denom_Y < eps)
+        return 0.0;  // or NaN if you prefer
+
+    double corr = num / std::sqrt(denom_X * denom_Y);
+
+    // ---- Clamp for numerical safety ----
+    if (corr > 1.0) corr = 1.0;
+    if (corr < -1.0) corr = -1.0;
+
     return corr;
 }
 

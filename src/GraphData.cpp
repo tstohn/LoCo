@@ -318,7 +318,7 @@ void GraphIni::protein_correlation_graph(GraphData* graphData, const SingleCellD
     size_t geneSize = inputData.geneNames.size();
 
     //was before: now we selesct the features in setNode
-if(!corrStateGenes.empty()){geneSize = corrStateGenes.size();}
+    if(!corrStateGenes.empty()){geneSize = corrStateGenes.size();}
     std::vector<std::vector<double>> proteinVector(geneSize, std::vector<double>(pointNumber));
 
     //without subsetting we just keep all proteins and simply transpose the matrix
@@ -376,6 +376,7 @@ if(!corrStateGenes.empty()){geneSize = corrStateGenes.size();}
 
     //calculate correlations between all features (across cells): adjacencyList
     //BE CAREFUL: proteinVector MUST STILL BE IN THE SAME ORDER AS NODES IN GRAPHDATA
+    std::string nan_feature_a, nan_feature_b; //potential features between which correlation is nan - causing a warning
     for(size_t i=0; i < (graphData->number_of_nodes()-1); ++i)
     {
         for(size_t j=i+1; j < graphData->number_of_nodes(); ++j)
@@ -383,7 +384,21 @@ if(!corrStateGenes.empty()){geneSize = corrStateGenes.size();}
             std::vector<double> proteinA = proteinVector.at(i);
             std::vector<double> proteinB = proteinVector.at(j);
             double dist = std::abs(calcualte_correlation_coefficient(proteinA, proteinB));
-            
+            if (std::isnan(dist)) 
+            {
+                if(!corrStateGenes.empty())
+                {
+                    nan_feature_a = corrStateGenes.at(i);
+                    nan_feature_b = corrStateGenes.at(j);
+                }
+                else
+                {
+                    nan_feature_a = inputData.geneNames.at(i);
+                    nan_feature_b = inputData.geneNames.at(j);
+                }
+                std::cout << "WARNING: Correlation value is NaN" << " between features: " << nan_feature_a << " and " << nan_feature_b<< "\n";    
+            }         
+
             //insert this distance into adjacency matrix of both nodes
             graphData->add_distance(i, j, dist);
         }
