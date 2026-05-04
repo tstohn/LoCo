@@ -5,6 +5,8 @@
 #include <string>
 #include <vector>
 #include <limits>
+#include <numeric>
+#include <algorithm>
 
 namespace
 {
@@ -32,7 +34,7 @@ inline std::vector<std::vector<double>> filterVector(const std::vector<std::vect
 }
 
 // Function returns the rank vector of the set of observations: used from geeksforgeeks: https://www.geeksforgeeks.org/program-spearmans-rank-correlation/
-static void rankify(std::vector<double>& X) 
+static void old_rankify(std::vector<double>& X) 
 {
     int N = X.size();
 
@@ -65,6 +67,39 @@ static void rankify(std::vector<double>& X)
     
     // Return Rank Vector
     X = Rank_X;
+}
+
+static void rankify(std::vector<double>& X) {
+    size_t n = X.size();
+    if (n <= 1) return;
+
+    // Create a vector of indices [0, 1, 2, ... n-1]
+    std::vector<size_t> idx(n);
+    std::iota(idx.begin(), idx.end(), 0);
+
+    // Sort indices based on the values in X
+    std::sort(idx.begin(), idx.end(), [&](size_t i, size_t j) {
+        return X[i] < X[j];
+    });
+
+    std::vector<double> ranks(n);
+    for (size_t i = 0; i < n; ) {
+        size_t j = i + 1;
+        // Find the range of identical values (ties)
+        while (j < n && X[idx[j]] == X[idx[i]]) {
+            j++;
+        }
+
+        // Calculate fractional rank: (start_rank + end_rank) / 2
+        // We use i+1 and j because ranks are 1-based
+        double fractional_rank = (i + 1 + j) / 2.0;
+        
+        for (size_t k = i; k < j; k++) {
+            ranks[idx[k]] = fractional_rank;
+        }
+        i = j;
+    }
+    X = std::move(ranks);
 }
 
 }
@@ -159,58 +194,51 @@ inline double OLD_calcualte_correlation_coefficient(const std::vector<double>& A
     return corr;
 }
 
-// ranking is now done before calling this function to not re-rank counts several times
-inline double calcualte_correlation_coefficient(const std::vector<double>& A,
-                          const std::vector<double>& B,
-                          bool ranking = false)
-{
-    const size_t n = A.size();
-    if (n == 0 || n != B.size())
+inline double calculate_correlation_coefficient(const std::vector<double>& X,
+                                               const std::vector<double>& Y) {
+    const size_t n = X.size();
+    
+    // Basic requirement for correlation
+    if (n < 2 || n != Y.size()) {
         return std::numeric_limits<double>::quiet_NaN();
-
-    std::vector<double> X = A;
-    std::vector<double> Y = B;
-
-    if (ranking) {
-        rankify(X);
-        rankify(Y);
     }
 
-    // ---- Compute means ----
-    double mean_X = 0.0, mean_Y = 0.0;
+    // 1. Calculate Means
+    double sum_x = 0.0, sum_y = 0.0;
     for (size_t i = 0; i < n; ++i) {
-        mean_X += X[i];
-        mean_Y += Y[i];
+        sum_x += X[i];
+        sum_y += Y[i];
     }
-    mean_X /= static_cast<double>(n);
-    mean_Y /= static_cast<double>(n);
+    double mu_x = sum_x / n;
+    double mu_y = sum_y / n;
 
-    // ---- Compute covariance and variances (stable) ----
-    double num = 0.0;
-    double denom_X = 0.0;
-    double denom_Y = 0.0;
+    // 2. Calculate Covariance and Variances
+    double ss_xy = 0.0; // Sum of squares xy (numerator)
+    double ss_xx = 0.0; // Sum of squares x
+    double ss_yy = 0.0; // Sum of squares y
 
     for (size_t i = 0; i < n; ++i) {
-        double dx = X[i] - mean_X;
-        double dy = Y[i] - mean_Y;
-
-        num     += dx * dy;
-        denom_X += dx * dx;
-        denom_Y += dy * dy;
+        double dx = X[i] - mu_x;
+        double dy = Y[i] - mu_y;
+        ss_xy += dx * dy;
+        ss_xx += dx * dx;
+        ss_yy += dy * dy;
     }
 
-    // ---- Guard against zero variance ----
-    const double eps = 1e-12;
-    if (denom_X < eps || denom_Y < eps)
-        return 0.0;  // or NaN if you prefer
+    // 3. Robust Zero-Variance Guard
+    // We check if the variance is effectively zero. 
+    // Using a very small epsilon to allow for floating point noise in ranks.
+    if (ss_xx < 1e-18 || ss_yy < 1e-18) {
+        //return std::numeric_limits<double>::quiet_NaN();
+        return 0.0;
+    }
 
-    double corr = num / std::sqrt(denom_X * denom_Y);
+    // 4. Final Calculation
+    double denom = std::sqrt(ss_xx) * std::sqrt(ss_yy);
+    double r = ss_xy / denom;
 
-    // ---- Clamp for numerical safety ----
-    if (corr > 1.0) corr = 1.0;
-    if (corr < -1.0) corr = -1.0;
-
-    return corr;
+    // Numerical clamping to ensure results stay within [-1, 1]
+    return std::max(-1.0, std::min(1.0, r));
 }
 
 //fit a linear function through points and return slope

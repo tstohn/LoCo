@@ -885,6 +885,15 @@ void Neighborhood::extract_pairs_from_correlation_sets(std::unordered_map<nodePt
         }
     }
 
+    //pre-compute ranks for spearman correlation
+    for(auto const& [center, tmpData] : neighborhoodCorrelations) 
+    {
+        for(int i = 0; i < tmpData->number_of_nodes(); ++i) 
+        {
+            tmpData->get_node_at(i)->compute_ranks(); 
+        }
+    }
+
     //PROCESS ALL THOSE PAIRS
     for(const nodePtr& neighborhoodCenter : centralNeighborhoodPtrs)
     {
@@ -902,7 +911,7 @@ void Neighborhood::extract_pairs_from_correlation_sets(std::unordered_map<nodePt
             nodePtr featureNodeB = tmpData->get_node_at(pair.second);
             //re-calcualte correlations (before we had absolute values)
             //const double corr = tmpData->get_distance_between_nodes(featureNodeA, featureNodeB);
-            const double corr = calcualte_correlation_coefficient(featureNodeA->all_values(), featureNodeB->all_values());
+            const double corr = calculate_correlation_coefficient(featureNodeA->all_values(), featureNodeB->all_values());
             if (std::isnan(corr)) 
             {
                 std::cout << "WARNING: Correlation value is NaN" << " between features: " << featureNodeA->get_name() << " and " << featureNodeB->get_name() << "\n";    

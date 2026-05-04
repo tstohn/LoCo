@@ -9,6 +9,7 @@
 #include <numeric>
 #include <vector>
 #include <cmath>
+#include "correlationUtils.hpp"
 
 class node;
 typedef std::shared_ptr<node> nodePtr;
@@ -35,6 +36,10 @@ class node
         std::vector<double> all_values()
         {
             return(values);
+        }
+        const std::vector<double>& all_ranked_values() const 
+        {
+            return rankedValues;
         }
         double distance_to(const nodePtr& n, std::string method = "manhattan")
         {
@@ -76,9 +81,15 @@ class node
             }
             return(dist);
         }
+        void compute_ranks() 
+        {
+            rankedValues = values; 
+            rankify(rankedValues);  
+        }
 
     private:
         std::vector<double> values;
+        std::vector<double> rankedValues; //values for spearman corr
         std::string name;
 };
 

@@ -383,7 +383,7 @@ void GraphIni::protein_correlation_graph(GraphData* graphData, const SingleCellD
         {
             std::vector<double> proteinA = proteinVector.at(i);
             std::vector<double> proteinB = proteinVector.at(j);
-            double dist = std::abs(calcualte_correlation_coefficient(proteinA, proteinB));
+            double dist = std::abs(calculate_correlation_coefficient(proteinA, proteinB));
             if (std::isnan(dist)) 
             {
                 if(!corrStateGenes.empty())
