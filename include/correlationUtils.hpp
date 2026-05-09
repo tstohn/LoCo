@@ -228,9 +228,11 @@ inline double calculate_correlation_coefficient(const std::vector<double>& X,
     // 3. Robust Zero-Variance Guard
     // We check if the variance is effectively zero. 
     // Using a very small epsilon to allow for floating point noise in ranks.
-    if (ss_xx < 1e-18 || ss_yy < 1e-18) {
-        //return std::numeric_limits<double>::quiet_NaN();
-        return 0.0;
+    if (ss_xx < 1e-18 || ss_yy < 1e-18) 
+    {
+        return std::numeric_limits<double>::quiet_NaN();
+        // return zero for correlations with no variance
+        //return 0.0;
     }
 
     // 4. Final Calculation
