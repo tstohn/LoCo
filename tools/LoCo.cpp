@@ -26,7 +26,8 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
                      unsigned int & numNeighborhoods, std::string& neighborhoodSizeStr, int& neighborhoodKNN, double& correlationCutoff,
                      int& numberCorrelations,
                      std::string& cellStateGeneFile, std::string& correlationStateGeneFile,
-                     bool& zscore, int& permutations, int&minSetSize, double& corrSetAbundance, unsigned int& correlatedSetMode)
+                     bool& zscore, int& permutations, int&minSetSize, double& corrSetAbundance, unsigned int& correlatedSetMode,
+                     std::string& correlationType)
 {
     try
     {
@@ -71,6 +72,7 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
             where features represent nodes and feature-nodes are connected if their correlation between them is >= correlationCutoff(-x flag). LoCo creates these \
             graphs for every neighbourhood, filters subgraphs based on different graph-connectivity and finally only retains features of these graphs for local \
             correlation detection. Grpahs can be detected as follows: 0= fully connected components (cliques)1 = connected components (nodes with at least one edge), etc.")
+            ("CorrelationType,b", value<std::string>(&correlationType)->default_value("spearman"), "spearman or pearson for the type of correlation to calculate")
 
             //GENERAL
             ("zScore,z", value<bool>(&zscore)->default_value(1), "z-score normalize data, default is true (1) (1=true, 0=false)")
@@ -150,7 +152,7 @@ void run_correlation_propagation_across_graph(const SingleCellData& inFile, cons
                                               int& numberCorrelations, const std::vector<std::string>& cellStateGenes,
                                               const std::vector<std::string>& corrStateGenes, 
                                               const int permutations, const int minSetSize, const double corrSetAbundance, 
-                                              const unsigned int correlatedSetMode)
+                                              const unsigned int correlatedSetMode, const std::string& correlationType)
 {
     //generate cell-cell neighborhood graph
     std::vector<int> cellStateIdxs = get_indexlist_from_genenames(inFile, cellStateGenes);
@@ -173,7 +175,7 @@ void run_correlation_propagation_across_graph(const SingleCellData& inFile, cons
         //create Neighborhoods
         Neighborhood neighborhood(scNormData, numNeighborhoodsCalculated, neighborhoodSize, neighborhoodKNN, 
                                 inFile, cellStateIdxs, corrIdxs, permutations, corrSetAbundance,
-                                correlatedSetMode);
+                                correlatedSetMode, correlationType);
         neighborhood.calculate_correlation_propagation(correlationCutoff, minSetSize, thread);
 
         //write results to file:
@@ -233,15 +235,22 @@ int main(int argc, char** argv)
     int permutations;
     int minSetSize;
     double corrSetAbundance;
+    std::string correlationType;
 
     if(!parse_arguments(argv, argc, inFile, outFile, prefix,
                         thread, del, col, row, 
                         numNeighborhoods, neighborhoodSizeString, neighborhoodKNN, correlationCutoff,
                         numberCorrelations, cellStateGeneFile, correlationStateGeneFile, 
-                        zscore, permutations, minSetSize, corrSetAbundance, correlatedSetMode))
+                        zscore, permutations, minSetSize, corrSetAbundance, correlatedSetMode, correlationType))
     {
         exit(EXIT_FAILURE);
     }
+
+    if (!(correlationType == "spearman" || correlationType == "pearson")) 
+    {
+        std::cout << "Method '" << correlationType << "' is not a valid method for correlations (spearman|pearson)." << std::endl;
+        exit(EXIT_FAILURE);
+    } 
 
     neighborhoodSizes = parseNeighborhoodSizes(neighborhoodSizeString);
 
@@ -274,7 +283,8 @@ int main(int argc, char** argv)
                                               numNeighborhoods, neighborhoodSizes, 
                                               neighborhoodKNN, correlationCutoff,
                                               numberCorrelations, cellStateGenes, corrStateGenes, 
-                                              permutations, minSetSize, corrSetAbundance, correlatedSetMode);
+                                              permutations, minSetSize, corrSetAbundance, correlatedSetMode,
+                                              correlationType);
 
     return(EXIT_SUCCESS);
 }

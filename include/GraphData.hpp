@@ -31,7 +31,9 @@ namespace GraphIni
     void cell_similarity_graph_manhattan_nodes(GraphData* graphData, std::vector< nodePtr> inputNodes, const std::vector<int>& cellStateGenes, int threads, bool statusUpdate);
 
     // protein correlation graph
-    void protein_correlation_graph(GraphData* graphData, const SingleCellData& inputData, const std::vector<int>& cellStateGenes, int threads, bool statusUpdate);    
+    void protein_correlation_graph(GraphData* graphData, const SingleCellData& inputData, const std::vector<int>& cellStateGenes, int threads, bool statusUpdate, const std::string& correlationType);    
+    void protein_correlation_graph_pearson(GraphData* graphData, const SingleCellData& inputData, const std::vector<int>& cellStateGenes, int threads, bool statusUpdate);    
+    void protein_correlation_graph_spearman(GraphData* graphData, const SingleCellData& inputData, const std::vector<int>& cellStateGenes, int threads, bool statusUpdate);    
 }
 
 // a map of neighbors to the actual distance, where neighbors are ordered according to insertion

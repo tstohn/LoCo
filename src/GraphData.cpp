@@ -301,12 +301,28 @@ void GraphIni::cell_similarity_graph_euclidean(GraphData* graphData, std::vector
     InitializationHelper::cell_similarity_graph(graphData, inputNodes, cellStateGenes, "euclidean", threads,  statusUpdate);
 }
 
+// we have two caller functions for protein graphs with pearson/ spearman correlations because the base-graphdata constructors normally do not need the correlationType
+//parameter
+void GraphIni::protein_correlation_graph_spearman(GraphData* graphData, const SingleCellData& inputData, const std::vector<int>& corrStateGenes, 
+                                          int threads, bool statusUpdate)
+{
+    std::string correlationType = "spearman";
+    GraphIni::protein_correlation_graph(graphData, inputData, corrStateGenes, threads, statusUpdate, correlationType);
+}
+void GraphIni::protein_correlation_graph_pearson(GraphData* graphData, const SingleCellData& inputData, const std::vector<int>& corrStateGenes, 
+                                          int threads, bool statusUpdate)
+{
+    std::string correlationType = "pearson";
+    GraphIni::protein_correlation_graph(graphData, inputData, corrStateGenes, threads, statusUpdate, correlationType);
+}
+
 // protein correlation graph: BE AWARE: EIGHBORS ARE ORDER HERE IN DESCENDING ORDER (big edges first)
 //when we look in this graph for, e.g., cliques of connected nodes we want to have ALL THE HIGHLY correlated ones
 //CAREFUL: inserted correlations are NOT ABSOLUTES: since we anywayswant only the HIGHLY correlated ones (not negatively correlated)
 // UPDATE: We change correlations to ABSOLUTES: cliqyes can be of many pos and a neg vcorrealated gene, USER has to double check
 //what this means!!!!
-void GraphIni::protein_correlation_graph(GraphData* graphData, const SingleCellData& inputData, const std::vector<int>& corrStateGenes, int threads, bool statusUpdate)
+void GraphIni::protein_correlation_graph(GraphData* graphData, const SingleCellData& inputData, const std::vector<int>& corrStateGenes, 
+                                          int threads, bool statusUpdate, const std::string& correlationType)
 {
     //set that the order of nodes is descending (default false for, e.g., cell-cell similarity graphs build with cell_similarity functions)
     graphData->set_neighbors_descending();
@@ -369,9 +385,12 @@ void GraphIni::protein_correlation_graph(GraphData* graphData, const SingleCellD
 
     //calcualte rank of all feature for spearman rank (do here only once, instead of everytime we calc a corr)
     // proteinVector is no longer in use, keep it to calcualte rankedList of cell-values per protein
-    for(std::vector<double>& values : proteinVector)
+    if(correlationType == "spearman")
     {
-        rankify(values);
+        for(std::vector<double>& values : proteinVector)
+        {
+            rankify(values);
+        }
     }
 
     //calculate correlations between all features (across cells): adjacencyList

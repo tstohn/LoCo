@@ -62,7 +62,8 @@ class Neighborhood
         Neighborhood(const std::shared_ptr<const GraphData> data, unsigned int neighborhoodNumber, unsigned int neighborhoodSize, int neighborhoodKNN,
                      const SingleCellData& inputData,
                      const std::vector<int>& cellStateGenes, const std::vector<int>& corrStateGenes, int permutations,
-                     const double& corrSetAbundance, const unsigned int correlatedSetMode);
+                     const double& corrSetAbundance, const unsigned int correlatedSetMode,
+                    const std::string& correlationType);
 
         //calculate how correlation cliques of proteins change smoothly along the
         //cell-cell neighborhood graph (from neighborhood to neighborhood)
@@ -172,6 +173,9 @@ class Neighborhood
         unsigned int correlatedSetMode; //0 for finding a connected component (any path - even sparsly connected)
         //  / 1 for a whole clique (all connected)
         // 2 for a conected compoennt with min edges (threshold set to 2 at the moment)
+
+        //spearman or pearson for the correlations to detect
+        std::string correlationType;
 
         //thread variables
         std::mutex threadLock;

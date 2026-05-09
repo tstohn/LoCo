@@ -886,11 +886,14 @@ void Neighborhood::extract_pairs_from_correlation_sets(std::unordered_map<nodePt
     }
 
     //pre-compute ranks for spearman correlation
-    for(auto const& [center, tmpData] : neighborhoodCorrelations) 
+    if(correlationType == "spearman")
     {
-        for(int i = 0; i < tmpData->number_of_nodes(); ++i) 
+        for(auto const& [center, tmpData] : neighborhoodCorrelations) 
         {
-            tmpData->get_node_at(i)->compute_ranks(); 
+            for(int i = 0; i < tmpData->number_of_nodes(); ++i) 
+            {
+                tmpData->get_node_at(i)->compute_ranks(); 
+            }
         }
     }
 
@@ -911,7 +914,17 @@ void Neighborhood::extract_pairs_from_correlation_sets(std::unordered_map<nodePt
             nodePtr featureNodeB = tmpData->get_node_at(pair.second);
             //re-calcualte correlations (before we had absolute values)
             //const double corr = tmpData->get_distance_between_nodes(featureNodeA, featureNodeB);
-            const double corr = calculate_correlation_coefficient(featureNodeA->all_values(), featureNodeB->all_values());
+
+            double corr;
+            if(correlationType == "spearman")
+            {
+                corr = calculate_correlation_coefficient(featureNodeA->all_ranked_values(), featureNodeB->all_ranked_values());
+            }
+            else if(correlationType == "pearson")
+            {
+                corr = calculate_correlation_coefficient(featureNodeA->all_values(), featureNodeB->all_values());
+            }
+
             if (std::isnan(corr)) 
             {
                 std::cout << "WARNING: Correlation value is NaN" << " between features: " << featureNodeA->get_name() << " and " << featureNodeB->get_name() << "\n";    
@@ -939,7 +952,16 @@ void Neighborhood::detect_cliques_in_neighborhood(nodePtr neighborhoodCenter, co
         //for the protein graph calculate brute force all distances instead of reading form a KD-tree
         // this way we can filter correlations based on value
         unsigned int proteinGraphKnn = 0;
-        std::shared_ptr<GraphData> correlationData = std::make_shared<GraphData>(inputDataTmp, corrStateGenes, proteinGraphKnn, &GraphIni::protein_correlation_graph);
+        std::shared_ptr<GraphData> correlationData;
+        if(correlationType == "spearman")
+        {
+            correlationData = std::make_shared<GraphData>(inputDataTmp, corrStateGenes, proteinGraphKnn, &GraphIni::protein_correlation_graph_spearman);
+        }
+        else if(correlationType == "pearson")
+        {
+            correlationData = std::make_shared<GraphData>(inputDataTmp, corrStateGenes, proteinGraphKnn, &GraphIni::protein_correlation_graph_pearson);
+        }
+        
         GraphHandler corrGraphBuilder = GraphHandler(correlationData, 0, correlationStrengthCutoff, -1);
         corrGraphBuilder.create_graph();
 
@@ -1190,10 +1212,10 @@ Neighborhood::Neighborhood(const std::shared_ptr<const GraphData> scData, unsign
                            unsigned int neighborhoodSize, int neighborhoodKNN,
                            const SingleCellData& inputData,
                            const std::vector<int>& cellStateGenes, const std::vector<int>& corrStateGenes, int permutations,
-                           const double& corrSetAbundance, const unsigned int correlatedSetMode) : 
+                           const double& corrSetAbundance, const unsigned int correlatedSetMode, const std::string& correlationType) : 
                            neighborhoodSize(neighborhoodSize), inputDataOrigional(inputData),
                            cellStateGenes(cellStateGenes), corrStateGenes(corrStateGenes), permutations(permutations),
-                           minimumCorrSetAbundance(corrSetAbundance), correlatedSetMode(correlatedSetMode)
+                           minimumCorrSetAbundance(corrSetAbundance), correlatedSetMode(correlatedSetMode), correlationType(correlationType)
 {
     int cellIDRange = scData->number_of_nodes();
     //save all neighborhood IDs & node IDs making up neighborhoods

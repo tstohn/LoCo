@@ -84,7 +84,7 @@ class node
         void compute_ranks() 
         {
             rankedValues = values; 
-            rankify(rankedValues);  
+            rankify(rankedValues); 
         }
 
     private:
