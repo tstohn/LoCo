@@ -403,7 +403,7 @@ void GraphIni::protein_correlation_graph(GraphData* graphData, const SingleCellD
             std::vector<double> proteinA = proteinVector.at(i);
             std::vector<double> proteinB = proteinVector.at(j);
             double dist = std::abs(calculate_correlation_coefficient(proteinA, proteinB));
-            if (std::isnan(dist)) 
+            /*if (std::isnan(dist)) 
             {
                 if(!corrStateGenes.empty())
                 {
@@ -416,7 +416,7 @@ void GraphIni::protein_correlation_graph(GraphData* graphData, const SingleCellD
                     nan_feature_b = inputData.geneNames.at(j);
                 }
                 std::cout << "WARNING: Correlation value is NaN" << " between features: " << nan_feature_a << " and " << nan_feature_b<< "\n";    
-            }         
+            } */      
 
             //insert this distance into adjacency matrix of both nodes
             graphData->add_distance(i, j, dist);
