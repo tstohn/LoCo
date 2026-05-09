@@ -17,6 +17,7 @@
 #' @param permutations Number of permutations for p-value calculation.
 #' @param minSetSize Minimum set size.
 #' @param corrSetAbundance Minimum abundance threshold (percentage of neighbourhoods that must contain a correlated pair to consider this pair).
+#' @param correlationType spearman or pearson for the correlations to calculate. 
 #' @return A named list containing LoCo results with four elements:
 #'
 #' \describe{
@@ -95,7 +96,8 @@ run_loco <- function(
   correlationCutoff = 0.5,
   permutations = 100,
   minSetSize = 2,
-  corrSetAbundance = 0.01
+  corrSetAbundance = 0.01,
+  correlationType = "spearman"
 ) {
 
   # ---- checks ----
@@ -154,6 +156,11 @@ run_loco <- function(
     stop("`corrSetAbundance` must be >= 0 and <= 1")
   }
 
+  if( (correlationType != "spearman") && (correlationType != "pearson") )
+  {
+        stop("`correlationType` must be 'spearman' or 'pearson'.")
+  }
+
 
   # ---- call C++ ----
   res <- run_loco_cpp(
@@ -173,7 +180,8 @@ run_loco <- function(
     correlationCutoff,
     as.integer(permutations),
     as.integer(minSetSize),
-    corrSetAbundance
+    corrSetAbundance,
+    correlationType
   )
 
   return(res)

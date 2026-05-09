@@ -18,10 +18,11 @@ run_loco(
   numberNeighbourhoods = 0,
   neighbourhoodSize = 100,
   neighbourhoodKNN = 5,
-  correlationCutoff = 0.7,
+  correlationCutoff = 0.5,
   permutations = 100,
   minSetSize = 2,
-  corrSetAbundance = 0.01
+  corrSetAbundance = 0.01,
+  correlationType = "spearman"
 )
 }
 \arguments{
@@ -58,6 +59,8 @@ run_loco(
 \item{minSetSize}{Minimum set size.}
 
 \item{corrSetAbundance}{Minimum abundance threshold (percentage of neighbourhoods that must contain a correlated pair to consider this pair).}
+
+\item{correlationType}{spearman or pearson for the correlations to calculate.}
 }
 \value{
 A named list containing LoCo results with four elements:

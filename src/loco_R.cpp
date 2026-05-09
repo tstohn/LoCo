@@ -210,7 +210,7 @@ Rcpp::List run_correlation_propagation_across_graph(const SingleCellData& inFile
                                               int& numberCorrelations, const std::vector<std::string>& cellStateGenes,
                                               const std::vector<std::string>& corrStateGenes, 
                                               const int permutations, const int minSetSize, const double corrSetAbundance, 
-                                              const unsigned int correlatedSetMode)
+                                              const unsigned int correlatedSetMode, const std::string& correlationType)
 {
     //we can store results for many Neighbourhood-size simultaneously
     Rcpp::List all_results;
@@ -234,7 +234,7 @@ Rcpp::List run_correlation_propagation_across_graph(const SingleCellData& inFile
     //create Neighborhoods
     Neighborhood neighborhood(scNormData, numberNeighbourhoodsCalculated, neighborhoodSize, neighborhoodKNN, 
                             inFile, cellStateIdxs, corrIdxs, permutations, corrSetAbundance,
-                            correlatedSetMode);
+                            correlatedSetMode, correlationType);
     neighborhood.calculate_correlation_propagation(correlationCutoff, minSetSize, thread);
 
     //return the RCPP data structure for loco
@@ -261,7 +261,8 @@ Rcpp::List run_loco_cpp(
     double correlationCutoff,
     int permutations,
     int minSetSize,
-    double corrSetAbundance
+    double corrSetAbundance,
+    std::string correlationType
 ){
 
     //READ IN DATA
@@ -297,7 +298,8 @@ Rcpp::List run_loco_cpp(
         permutations,
         minSetSize,
         corrSetAbundance,
-        correlatedSetMode
+        correlatedSetMode,
+        correlationType
     );
 
     return(result);
