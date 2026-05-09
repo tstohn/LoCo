@@ -83,7 +83,7 @@ The primary results table summarizing feature pairs that show statistically sign
 * **FeatureSet**: A comma-separated list of features that form larger "co-correlated" clusters.
 
 ### 3. `Correlations`
-Provides all spearman correlations between the filtered feature-pairs in all neighbourhoods.
+Provides all (spearman) correlations between the filtered feature-pairs in all neighbourhoods. Pairs with zero variance in one feature will get nan assigned to their correlation.
 * **CorrelationPair**: Matches the pairs found in the `LaplacianScores` table.
 * **NeighbourhoodID**: The specific local group (e.g., `N_42`) where the correlation was calculated.
 * **Correlation**: The actual correlation coefficient for that pair within that specific neighborhood.
