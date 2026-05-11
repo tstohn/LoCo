@@ -32,8 +32,8 @@ namespace InitializationHelper
             else if(distance == "euclidean")
             {
                 //if there r no specific state genes we can skip searching for relevant gene idxs
-                if(cellStateGenes.empty()){dist = graphData->get_node_at(i)->distance_to(graphData->get_node_at(j), "manhattan");}
-                else{dist = graphData->get_node_at(i)->distance_to(graphData->get_node_at(j), cellStateGenes, "manhattan");}
+                if(cellStateGenes.empty()){dist = graphData->get_node_at(i)->distance_to(graphData->get_node_at(j), "euclidean");}
+                else{dist = graphData->get_node_at(i)->distance_to(graphData->get_node_at(j), cellStateGenes, "euclidean");}
             }
             else
             {
