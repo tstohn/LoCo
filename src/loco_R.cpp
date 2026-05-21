@@ -52,21 +52,33 @@ Rcpp::List build_loco_object(const SingleCellData& rawData,
     int nrow = rawData.pointCloud.size();
     int ncol = rawData.pointCloud[0].size();
 
-    Rcpp::NumericMatrix mat(nrow, ncol);
-    for (int i = 0; i < nrow; i++) 
-    {
-        for (int j = 0; j < ncol; j++) 
-        {
-            mat(i, j) = rawData.pointCloud[i][j];
-        }
-    }
-    mat.attr("dimnames") = Rcpp::List::create(
-    Rcpp::wrap(rawData.cellIDs),  // row names
-    Rcpp::wrap(rawData.geneNames)   // column names
-    );
-    Rcpp::DataFrame raw_df = Rcpp::as<Rcpp::DataFrame>(mat);
-    raw_df.push_front(Rcpp::wrap(rawData.cellIDs), "cellID");
+    // 1. Create a List with space for the cellID column + all gene columns
+    Rcpp::List df_columns(ncol + 1);
+    Rcpp::CharacterVector df_names(ncol + 1);
 
+    // 2. Set up the first column as cellID
+    df_columns[0] = Rcpp::wrap(rawData.cellIDs);
+    df_names[0] = "cellID";
+
+    // 3. Extract columns efficiently from your pointCloud matrix
+    for (int j = 0; j < ncol; j++) 
+    {
+        Rcpp::NumericVector col_data(nrow);
+        for (int i = 0; i < nrow; i++) 
+        {
+            col_data[i] = rawData.pointCloud[i][j];
+        }
+        df_columns[j + 1] = col_data;
+        df_names[j + 1] = rawData.geneNames[j];
+    }
+
+    // 4. Finalize the list attributes to make R treat it exactly as a DataFrame
+    df_columns.attr("names") = df_names;
+    df_columns.attr("class") = "data.frame";
+    df_columns.attr("row.names") = Rcpp::wrap(rawData.cellIDs); // Uses cellIDs as row names too
+
+    Rcpp::DataFrame raw_df = df_columns;
+    
     // =========================
     // 2.) Laplacian scores/ p-values/ cliques for all interesting pairs
     // =========================
@@ -112,33 +124,33 @@ Rcpp::List build_loco_object(const SingleCellData& rawData,
     // Size checks
     int nIDsize = nIDs.size();
     int nPairs  = correlation_pairs.size();
+    int total   = nIDsize * nPairs; // Calculate exact final size
 
     if (corrMat.size() != nIDsize) {
         Rcpp::stop("corrMat must have same length as nIDs");
     }
-
     for (int i = 0; i < nIDsize; i++) {
         if (corrMat[i].size() != nPairs) {
             Rcpp::stop("Each corrMat row must match number of correlation pairs");
         }
     }
 
-    // Output columns
-    int total = nIDsize * nPairs;
-    Rcpp::CharacterVector out_pair;
-    Rcpp::CharacterVector out_neigh;
-    Rcpp::NumericVector    out_corr;
+    // Pre-allocate the exact memory size UP FRONT
+    Rcpp::CharacterVector out_pair(total);
+    Rcpp::CharacterVector out_neigh(total);
+    Rcpp::NumericVector    out_corr(total);
 
-    // Build LONG table
+    int idx = 0; // Track the current flat index
+
+    // Build LONG table efficiently using indices
     for (int i = 0; i < nIDsize; i++) {
-
         const std::string& neigh_id = nIDs[i];
 
         for (int p = 0; p < nPairs; p++) {
-
-            out_pair.push_back(correlation_pairs[p]);
-            out_neigh.push_back(neigh_id);
-            out_corr.push_back(corrMat[i][p]);
+            out_pair[idx]  = correlation_pairs[p];
+            out_neigh[idx] = neigh_id;
+            out_corr[idx]  = corrMat[i][p];
+            idx++; // Advance flat index
         }
     }
 
@@ -146,10 +158,9 @@ Rcpp::List build_loco_object(const SingleCellData& rawData,
     Rcpp::DataFrame corr_df = Rcpp::DataFrame::create(
         Rcpp::Named("CorrelationPair")   = out_pair,
         Rcpp::Named("NeighbourhoodID")   = out_neigh,
-        Rcpp::Named("Correlation")       = out_corr
+        Rcpp::Named("Correlation")       = out_corr,
+        Rcpp::_["stringsAsFactors"]      = false
     );
-
-    corr_df.attr("stringsAsFactors") = false;
 
     // =========================
     // 4. safe neighbourhoodIDs - anchorCell - allCells
