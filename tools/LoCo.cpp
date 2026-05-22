@@ -166,7 +166,8 @@ void run_correlation_propagation_across_graph(const SingleCellData& inFile, cons
         {
             numNeighborhoodsCalculated = inFile.pointCloud.size() / neighborhoodSize;
         }
-        std::cout << "Creating " << numNeighborhoodsCalculated << " neighbourhoods with " << neighborhoodSize << " cells\n";
+        std::cout << "STEP 1\n";
+        std::cout << "\tCreating " << numNeighborhoodsCalculated << " neighbourhoods with " << neighborhoodSize << " cells\n";
         bool printStatusUpdateCellDistCalc = true;
         unsigned int scGraphKnn = neighborhoodSize; //the KNN value is the number of cells in a neighborhood, we ONLY have to calcualte the knn closest neighbors, no need for more
         bool precalculateAllDistances = false;

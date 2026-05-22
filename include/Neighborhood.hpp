@@ -45,6 +45,134 @@ struct pair_hash
     }
 };
 
+// flat vector of vector for blazing fast access and copying
+// default entries are -2 (as corrs are between -1 and 1)
+struct FlatMatrix {
+    size_t rows = 0;
+    size_t cols = 0;
+    std::vector<double> data;
+
+    // Default Constructor (Starts empty for late-initialization)
+    FlatMatrix() = default;
+
+    // Size Constructor
+    FlatMatrix(size_t r, size_t c) : rows(r), cols(c), data(r * c, -2.0) {}
+
+    // Late Initialization Method
+    void init(size_t r, size_t c) {
+        rows = r;
+        cols = c;
+        data.assign(r * c, -2.0); // Allocates and sets everything to -2.0
+    }
+
+    // Overload () for ultra-fast writing/modifying data (Uses [] to avoid bound-check overhead)
+    inline double& operator()(size_t row, size_t col) {
+        return data[row * cols + col];
+    }
+
+    // Overload () for ultra-fast read-only access
+    inline const double& operator()(size_t row, size_t col) const {
+        return data[row * cols + col];
+    }
+
+    // C++17 Row Access: Returns a direct pointer to the start of the row (Zero copy!)
+    inline const double* get_row(size_t row_idx) const {
+        return &data[row_idx * cols];
+    }
+};
+
+//HOW TO ITERATE THROUGH THE NIEGHBOURHHODS FOR A CORR-PAIR
+/*
+size_t num_subsets = 0;
+
+// Call the function. It populates 'num_subsets' with the correct column count
+const double* corrs = results.get_correlations_across_N_for_pair(4, num_subsets);
+
+// The caller now uses 'num_subsets' to know when to stop!
+for (size_t s = 0; s < num_subsets; ++s) {
+    double c = corrs[s];
+    // Process correlation...
+}
+*/
+
+struct CorrelationResults
+{
+    // --- Data Storage ---
+    std::vector<std::pair<int, int>> pairList;   // Global list of unique feature pairs
+    std::vector<nodePtr> nodePtrList;           // Master ordered list of subsets (N)
+    std::vector<std::string> featureNames;      // Maps a feature integer ID to its string name
+
+    // Downstream Layout: Rows = Feature Pairs, Cols = Subsets (N)
+    FlatMatrix pairToListOfAllNCorrs;
+
+    // --- 1. Get Correlations Across N for a specific pair index ---
+    // Returns a raw pointer to the start of the contiguous block of subset correlations.
+    // Out parameter 'out_count' will tell the downstream loop how many elements exist.
+    const double* get_correlations_across_N_for_pair(size_t pair_idx, size_t& out_count) const 
+    {
+        if (pair_idx >= pairList.size()) {
+            throw std::out_of_range("Pair index out of bounds in CorrelationResults.");
+        }
+        
+        out_count = pairToListOfAllNCorrs.cols; // The number of subsets (N)
+        return pairToListOfAllNCorrs.get_row(pair_idx);
+    }
+
+    // --- 2. Feature Name Lookup Utilities ---
+    // Gets the string names for a given feature pair
+    std::pair<std::string, std::string> get_feature_names_for_pair(size_t pair_idx) const 
+    {
+        if (pair_idx >= pairList.size()) {
+            throw std::out_of_range("Pair index out of bounds.");
+        }
+        
+        int feat_a = pairList[pair_idx].first;
+        int feat_b = pairList[pair_idx].second;
+        
+        return { featureNames.at(feat_a), featureNames.at(feat_b) };
+    }
+
+    // --- 3. Initialization & Blazing-Fast Multithreaded Transpose ---
+    // Takes the raw, multi-threaded calculation matrix (Rows = Subsets, Cols = Pairs)
+    // and transposes it beautifully into the internal downstream matrix layout.
+    void init(const FlatMatrix& calculationMatrix, 
+              const std::vector<std::pair<int, int>>& globalPairs,
+              const std::vector<nodePtr>& globalNodes,
+              const std::vector<std::string>& globalFeatureNames) 
+    {
+        // Copy lists and mappings
+        pairList = globalPairs;
+        nodePtrList = globalNodes;
+        featureNames = globalFeatureNames;
+
+        size_t num_subsets = nodePtrList.size();
+        size_t num_pairs = pairList.size();
+
+        // Safety check to ensure input matches dimensions
+        if (calculationMatrix.rows != num_subsets || calculationMatrix.cols != num_pairs) {
+            throw std::invalid_argument("Input calculation matrix dimensions do not match provided node/pair sizes.");
+        }
+
+        // Initialize our downstream matrix with transposed dimensions (Rows = Pairs, Cols = Subsets)
+        pairToListOfAllNCorrs.init(num_pairs, num_subsets);
+
+        // BLAZING FAST PARALLEL TRANSPOSE
+        // Loop through pairs on the outer loop. If you use OpenMP, uncomment the line below:
+        // #pragma omp parallel for schedule(static)
+        for (size_t p = 0; p < num_pairs; ++p) 
+        {
+            for (size_t s = 0; s < num_subsets; ++s) 
+            {
+                // Read from calculation matrix (s, p) and write to downstream matrix (p, s)
+                // This maximizes cache prefetching during writing!
+                pairToListOfAllNCorrs(p, s) = calculationMatrix(s, p);
+            }
+        }
+    }
+};
+
+
+
 //this is a result for every individual neighborhood
 struct CorrelationPropagationResult
 {
@@ -85,13 +213,21 @@ class Neighborhood
         );
     private:
 
+        // new 4-step functions
+        void step_2_calculate_correlation(const double& corrThreshold, const int threads);
+        void calculate_correlations_for_N(nodePtr neighborhoodCenter, size_t neighborhood_idx, 
+                                                const double& corrThreshold, FlatMatrix& tempCalculationMatrix,
+                                                const std::vector<std::pair<int, int>>& tmpAllPairs , 
+                                                std::vector<std::atomic<int>>& tmpCorrelationCountAboveThreshold, 
+                                                std::atomic<int>& currentCount);
+
         // randomly select x elements from a vector
         std::vector<int> get_random_elements(int numbers, int maxNum);
         void create_neighborhood_graph(int knn);
         void bfs_enumerate_x_closest_neighborhoods(int x, int nodeID, std::vector<int> neighbors);
         std::vector<int> get_neighborhoodIds_by_distance(const int nHoodID);
         void extract_pairs_from_correlation_sets(std::unordered_map<nodePtr, std::shared_ptr<GraphData>>& neighborhoodCorrelations);
-        void calculate_correlations(unsigned int numberNodes, const std::pair<int, int>& correlationpair,
+        void calculate_correlations_variance(unsigned int numberNodes, const std::pair<int, int>& correlationpair,
                                     std::unordered_map<const std::pair<int, int>, double, pair_hash>& corrVariance,
                                     int totalCount, double& currentCount);
         void calculate_slopes(unsigned int numberNodes, const std::pair<int, int>& correlationpair,
@@ -123,6 +259,7 @@ class Neighborhood
         std::vector<std::pair<int, int>> filter_best_pairs(size_t numberGenes);
 
         unsigned int neighborhoodSize;
+        unsigned int neighbourhoodNum;
         /* A NEIGHBORHOOD is essentially a list of NODE IDs, which are the CENTER NODES that define each neighborhood,
         for all those NODE IDS we then aggregate surrounding neighbors to define their neoghborhood (we use GraphData which gets 
         <knn> nodes that r closest to this center point, to get an overlap of those neighborhoods we create another knn graph an get <knn'> surrounding
@@ -145,6 +282,9 @@ class Neighborhood
 
         //RESULTS: dict of neighborhood -> results (correlations etc.)
         std::unordered_map<nodePtr, CorrelationPropagationResult> corrResult;
+
+        CorrelationResults neighbourhoodCorrs;
+
         //Laplacian scores for correlations/ slopes: 
         //it maps: <NodeName, NodeName> -> laplacian score. int is the index of a feature (protein) in the list of nodes of its Data/ Grpahhandler structure
         // (we have to use idx since every neighborhood has its OWN nodePtr due to different single cells in every neighborhood - however, the ID of the feature is the same)
@@ -163,6 +303,7 @@ class Neighborhood
 
         //vector of interesting cliques
         std::vector<std::vector<int>> cliquesVector;
+
         //STORE ALL UNIQUE PAIRS OF FEATURE-CORRELATIONS (FROM ALL EXISTING CLIQUES) - vector of int-pairs (ordered)
         //int is the index of a feature as it was read from raw file, and its order in Neighborhood similarity graph
         //this can also be used to access the laplacians

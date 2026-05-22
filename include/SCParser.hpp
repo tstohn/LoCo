@@ -79,6 +79,9 @@ struct SingleCellData
     std::unordered_map<std::string, int> geneNameToIdx;
 };
 SingleCellData filter_singleCelldata(const SingleCellData& origionalScData, const std::vector<int>& indices);
+std::vector<std::vector<double>> return_filtered_point_cloud(const SingleCellData& originalScData, 
+                                     const std::vector<int>& cellIndices, 
+                                     const std::vector<int>& featureIndices) ;
 void zscore_singleCelldata(SingleCellData& data);
 std::vector<int> get_indexlist_from_genenames(const SingleCellData& scData, const std::vector<std::string>& geneList);
 

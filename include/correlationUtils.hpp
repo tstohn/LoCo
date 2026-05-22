@@ -274,3 +274,31 @@ inline double calculate_slope(const std::vector<double>& pointsA, const std::vec
 
     return(coeff);
 }
+
+inline std::vector<std::vector<double>> transpose_to_feature_major(const std::vector<std::vector<double>>& pointCloud) 
+{
+    if (pointCloud.empty()) return {};
+
+    size_t numCells = pointCloud.size();
+    size_t numFeatures = pointCloud[0].size();
+
+    // 1. Pre-allocate the outer vector (Features)
+    std::vector<std::vector<double>> featureMajorData(numFeatures);
+
+    // 2. Pre-allocate the inner vectors (Cells)
+    for (size_t f = 0; f < numFeatures; ++f) 
+    {
+        featureMajorData[f].reserve(numCells);
+    }
+
+    // 3. Populate (this is cache-friendly for the read step)
+    for (size_t c = 0; c < numCells; ++c) 
+    {
+        for (size_t f = 0; f < numFeatures; ++f) 
+        {
+            featureMajorData[f].push_back(pointCloud[c][f]);
+        }
+    }
+
+    return featureMajorData;
+}

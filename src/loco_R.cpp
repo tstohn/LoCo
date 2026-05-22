@@ -236,7 +236,8 @@ Rcpp::List run_correlation_propagation_across_graph(const SingleCellData& inFile
     {
         numberNeighbourhoodsCalculated = inFile.pointCloud.size() / neighborhoodSize;
     }
-    LOCO_OUT << "Creating " << numberNeighbourhoodsCalculated << " neighbourhoods with " << neighborhoodSize << " cells\n";
+    LOCO_OUT << "STEP 1\n";
+    LOCO_OUT << "\tCreating " << numberNeighbourhoodsCalculated << " neighbourhoods with " << neighborhoodSize << " cells\n";
     bool printStatusUpdateCellDistCalc = true;
     unsigned int scGraphKnn = neighborhoodSize; //the KNN value is the number of cells in a neighborhood, we ONLY have to calcualte the knn closest neighbors, no need for more
     bool precalculateAllDistances = false;

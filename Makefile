@@ -186,8 +186,10 @@ clean:
 
 #test dataset has 4 correlated var that range through grpah from low to high corr, 4 medium constant corr and a bunch of non corr
 #this dataset is a bit smaller and noisy, we do not check results automatically
+# we test it with 1 and with 5 threads
 test_loco_a:
 	./bin/loco -i ./test/simulatedData1.tsv -o bin/ -p test_a -n 20 -x 0.3 -s 25 -t 1 -q 1
+	./bin/loco -i ./test/simulatedData1.tsv -o bin/ -p test_a -n 20 -x 0.3 -s 25 -t 5 -q 1
 
 #simple test where we have 50 non corr variables of two clsuters, then in each cluster diff 3 var correlated
 #you should run it with printing cliques and find in each neighborhood roughly ONLY 1,2,3 or 4,5,6

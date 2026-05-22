@@ -101,13 +101,13 @@ void zscore_singleCelldata(SingleCellData& data)
     }
 }
 
-//filters a singleCellData object with a vector of filter indices and returns the result
-SingleCellData filter_singleCelldata(const SingleCellData& origionalScData, const std::vector<int>& indices) 
+//filters a singleCellData object with a vector of filter indices for cells and returns the result
+SingleCellData filter_singleCelldata(const SingleCellData& origionalScData, const std::vector<int>& cellIndices) 
 {
     SingleCellData resultData;
     int scDataEntries = origionalScData.cellIDs.size();
 
-    for (int index : indices) 
+    for (int index : cellIndices) 
     {
         // Check if the index is within bounds
         if (index < scDataEntries) 
@@ -126,6 +126,67 @@ SingleCellData filter_singleCelldata(const SingleCellData& origionalScData, cons
     }
 
     return(resultData);
+}
+
+//filters a singleCellData object with a vector of filter indices for cells and a list for features
+std::vector<std::vector<double>> return_filtered_point_cloud(const SingleCellData& originalScData, 
+                                     const std::vector<int>& cellIndices, 
+                                     const std::vector<int>& featureIndices) 
+{
+    std::vector<std::vector<double>> pointCloud;
+    
+    int numOriginalCells = originalScData.cellIDs.size();
+    int numOriginalFeatures = originalScData.geneNames.size();
+
+    // --- 1. PRE-ALLOCATE MEMORY ---
+    // Prevent heap fragmentation by reserving exact sizes upfront
+    pointCloud.reserve(cellIndices.size());
+    //check if we have features to filter (for correlated features only mode)
+    bool returnAllFeatures = featureIndices.empty();
+
+    // --- 2. FILTER CELLS AND THEIR CORRESPONDING POINT CLOUD DATA ---
+    for (int cellIdx : cellIndices) 
+    {
+        if (cellIdx < numOriginalCells) 
+        {
+
+            if (returnAllFeatures) 
+            {
+                // SCENARIO A: No features specified -> Copy the entire row directly.
+                // This is blazing fast because C++ copies the underlying memory block at once.
+                pointCloud.push_back(originalScData.pointCloud[cellIdx]);
+            }
+            else
+            {
+                // Create a new row for this cell's filtered features
+                std::vector<double> filteredRow;
+                filteredRow.reserve(featureIndices.size()); // Pre-allocate row size
+                
+                // Grab a fast reference to the original cell's data
+                const auto& originalRow = originalScData.pointCloud[cellIdx];
+                
+                // Extract only the requested features
+                for (int featIdx : featureIndices) 
+                {
+                    if (featIdx < numOriginalFeatures) 
+                    {
+                        filteredRow.push_back(originalRow[featIdx]);
+                    }
+                }
+                
+                // std::move transfers the memory directly into the pointCloud. Blazing fast!
+                pointCloud.push_back(std::move(filteredRow));
+            }
+        } 
+        else 
+        {
+            LOCO_ERR << "Warning: Cell Index " << cellIdx << " is out of bounds.\n";
+        }
+    }
+
+    // C++ automatically applies Return Value Optimization (RVO) here, 
+    // meaning resultData is returned with zero copying overhead.
+    return pointCloud; 
 }
 
 namespace

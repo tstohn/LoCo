@@ -123,24 +123,24 @@ void Neighborhood::write_shuffled_laplacians(const std::string& outFile, const s
     std::remove(outputCorr.c_str());
     outputFile.open(outputCorr, std::ofstream::app);
 
-    // collect all pairs
-    std::vector<std::pair<int,int>> pairs;
+    // collect all localPairs
+    std::vector<std::pair<int,int>> localPairs;
     for(const auto& it : shuffledCorrLaplacians)
     {
-        pairs.push_back(it.first);
+        localPairs.push_back(it.first);
     }
 
-    if(pairs.empty())
+    if(localPairs.empty())
     {
         outputFile.close();
         return;
     }
 
-    int permutations = shuffledCorrLaplacians.at(pairs[0]).size();
+    int permutations = shuffledCorrLaplacians.at(localPairs[0]).size();
 
     // HEADER
     outputFile << "Permutation";
-    for(const std::pair<int,int>& pair : pairs)
+    for(const std::pair<int,int>& pair : localPairs)
     {
         int name_a_idx = pair.first;
         int name_b_idx = pair.second;
@@ -161,7 +161,7 @@ void Neighborhood::write_shuffled_laplacians(const std::string& outFile, const s
     {
         outputFile << p;
 
-        for(const std::pair<int,int>& pair : pairs)
+        for(const std::pair<int,int>& pair : localPairs)
         {
             outputFile << "\t" << shuffledCorrLaplacians.at(pair).at(p);
         }
@@ -177,23 +177,23 @@ void Neighborhood::write_shuffled_laplacians(const std::string& outFile, const s
     std::remove(outputSlope.c_str());
     outputFile.open(outputSlope, std::ofstream::app);
 
-    pairs.clear();
+    localPairs.clear();
     for(const auto& it : shuffledSlopeLaplacians)
     {
-        pairs.push_back(it.first);
+        localPairs.push_back(it.first);
     }
 
-    if(pairs.empty())
+    if(localPairs.empty())
     {
         outputFile.close();
         return;
     }
 
-    permutations = shuffledSlopeLaplacians.at(pairs[0]).size();
+    permutations = shuffledSlopeLaplacians.at(localPairs[0]).size();
 
     // HEADER
     outputFile << "Permutation";
-    for(const std::pair<int,int>& pair : pairs)
+    for(const std::pair<int,int>& pair : localPairs)
     {
         int name_a_idx = pair.first;
         int name_b_idx = pair.second;
@@ -214,7 +214,7 @@ void Neighborhood::write_shuffled_laplacians(const std::string& outFile, const s
     {
         outputFile << p;
 
-        for(const std::pair<int,int>& pair : pairs)
+        for(const std::pair<int,int>& pair : localPairs)
         {
             outputFile << "\t" << shuffledSlopeLaplacians.at(pair).at(p);
         }
@@ -374,11 +374,11 @@ void Neighborhood::write_results_to_file(const std::string& outFile, const std::
     std::remove(outputNeighborhoodCells.c_str());
     outputFile.open (outputNeighborhoodCells, std::ofstream::app);
     //write HEADER (all neigborhood names)
-    const std::vector<nodePtr> neighborHoods = neighborhoodGraph->get_all_nodes();
-    for(size_t neiborhoodID = 0; neiborhoodID < neighborHoods.size(); ++neiborhoodID)
+    const std::vector<nodePtr> neighborHoodPtrVector = neighborhoodGraph->get_all_nodes();
+    for(size_t neiborhoodID = 0; neiborhoodID < neighborHoodPtrVector.size(); ++neiborhoodID)
     {
-        outputFile << neighborHoods.at(neiborhoodID)->get_name();
-        if(neiborhoodID < (neighborHoods.size()-1)){outputFile << "\t";}
+        outputFile << neighborHoodPtrVector.at(neiborhoodID)->get_name();
+        if(neiborhoodID < (neighborHoodPtrVector.size()-1)){outputFile << "\t";}
     }  
 
     outputFile << "\n";
@@ -387,10 +387,10 @@ void Neighborhood::write_results_to_file(const std::string& outFile, const std::
     for(size_t cellID = 0; cellID < neighborhoodSize; ++cellID)
     {
         //for every neighborhood (in columns)
-        for(size_t neiborhoodID = 0; neiborhoodID < neighborHoods.size(); ++neiborhoodID)
+        for(size_t neiborhoodID = 0; neiborhoodID < neighborHoodPtrVector.size(); ++neiborhoodID)
         {
-            outputFile << neighborhoods.at(neighborHoods.at(neiborhoodID)).at(cellID);
-            if(neiborhoodID < (neighborHoods.size()-1)){outputFile << "\t";}
+            outputFile << neighborhoods.at(neighborHoodPtrVector.at(neiborhoodID)).at(cellID);
+            if(neiborhoodID < (neighborHoodPtrVector.size()-1)){outputFile << "\t";}
         }
         outputFile << "\n";
     }
@@ -401,7 +401,7 @@ void Neighborhood::write_results_to_file(const std::string& outFile, const std::
 
 }
 
-void Neighborhood::calculate_correlations(unsigned int numberNodes, 
+void Neighborhood::calculate_correlations_variance(unsigned int numberNodes, 
                                           const std::pair<int, int>& correlationpair,
                                           std::unordered_map<const std::pair<int, int>, double, pair_hash>& corrVariance,
                                           int totalCount, double& currentCount)
@@ -697,7 +697,7 @@ void Neighborhood::calculate_laplacian_score(int threads)
     double count = 0;
     for(const std::pair<int, int>& correlationpair : pairs)
     {
-        //boost::asio::post(pool_corr, std::bind(&Neighborhood::calculate_correlations, this, 
+        //boost::asio::post(pool_corr, std::bind(&Neighborhood::calculate_correlations_variance, this, 
         //                  numberNodes, print, std::cref(correlationpair), std::ref(corrVariance), pairs.size(), std::ref(count)));
         pool_corr.enqueue([
             this,                       
@@ -707,7 +707,7 @@ void Neighborhood::calculate_laplacian_score(int threads)
             pairCount = pairs.size(),   
             &count                      
         ]() {
-            calculate_correlations(
+            calculate_correlations_variance(
                 numberNodes,
                 correlationpair,
                 corrVariance,
@@ -873,9 +873,9 @@ void Neighborhood::extract_pairs_from_correlation_sets(std::unordered_map<nodePt
                         }
                         features.push_back(featureName);
                     }
-                    std::vector<std::vector<std::string>> cliquesVector;
-                    cliquesVector.push_back(features);
-                    pairToClique.insert(std::pair<const std::pair<int, int>, std::vector<std::vector<std::string>>>(tmpPair, cliquesVector));
+                    std::vector<std::vector<std::string>> stringCliquesVector;
+                    stringCliquesVector.push_back(features);
+                    pairToClique.insert(std::pair<const std::pair<int, int>, std::vector<std::vector<std::string>>>(tmpPair, stringCliquesVector));
                 }
                 if(std::find(pairs.begin(), pairs.end(), tmpPair) == pairs.end()) //if the pair was not stored yet
                 {
@@ -1113,8 +1113,179 @@ void Neighborhood::filter_consistent_correlation_sets_sota(
     cliquesVector = std::move(result);
 }
 
+//calcualte all apirwise corrs within a N and push it into shared tempCalculationMatrix
+void Neighborhood::calculate_correlations_for_N(nodePtr neighborhoodCenter, size_t neighborhood_idx, 
+                                                const double& corrThreshold, FlatMatrix& tempCalculationMatrix,
+                                                const std::vector<std::pair<int, int>>& tmpAllPairs , 
+                                                std::vector<std::atomic<int>>& tmpCorrelationCountAboveThreshold, 
+                                                std::atomic<int>& currentCount)
+{
+    //1.) subset the data used for this neighbourhood
+
+    // add filtering step to choose only corrGEnes
+    std::vector<std::vector<double>> pointCloud = return_filtered_point_cloud(inputDataOrigional, neighborhoods.at(neighborhoodCenter), corrStateGenes);
+    
+    // make rank computation independent of nodes: do it on the transpose of raw data to get all features quickly
+    //2.) compute ranks of values for spearman correlation
+    std::vector<std::vector<double>> featureMajorData = transpose_to_feature_major(pointCloud);
+    if(correlationType == "spearman")
+    {
+        for (size_t f = 0; f < featureMajorData.size(); ++f) 
+        {
+            rankify(featureMajorData[f]); 
+        }
+    }
+
+    // 3.) Calculate correlation coefficients and update FlatMatrix safely!
+    for(size_t p = 0; p < tmpAllPairs.size(); ++p)
+    {
+        int featA = tmpAllPairs[p].first;
+        int featB = tmpAllPairs[p].second;
+
+        // Calculate correlation (assuming your function takes two vectors)
+        double corr = calculate_correlation_coefficient(featureMajorData[featA], featureMajorData[featB]);
+
+        // Write directly to the matrix lock-free! (Using the neighborhood_idx as the row)
+        tempCalculationMatrix(neighborhood_idx, p) = corr;
+
+        // If above threshold, safely increment the global counter without a lock
+        if (std::abs(corr) >= corrThreshold) 
+        {
+            // std::atomic safely handles multiple threads incrementing this at once
+            tmpCorrelationCountAboveThreshold[p].fetch_add(1, std::memory_order_relaxed);
+        }
+    }
+
+    //update all pairwise corrs for this N: add it to FlatMatrix
+    currentCount++;
+}
+
+// neighbourhoods have order as in centralNeighborhoodPtrs
+// corr-pairs as in tmpAllPairs which is then written to Flatmatrix
+void Neighborhood::step_2_calculate_correlation(const double& corrThreshold, const int threads)
+{
+
+    //1.) INITIALIZE DATA STRUCTURES
+
+    // a) Determine your feature size
+    size_t geneSize = inputDataOrigional.geneNames.size();
+    if (!corrStateGenes.empty()) 
+    {
+        geneSize = corrStateGenes.size();
+    }
+    size_t totalPairs = (geneSize * (geneSize - 1)) / 2;
+
+    //b) temporary TRANSPOSE matrix to quickly iterae over N and calc corrs for every pair
+    //(later transpose: neighbourhoodCorrs has outer vector for corr-pairs to quickly calc laplacian for corr-pairs across N)
+    std::vector<std::pair<int, int>> tmpAllPairs; //later keep only the pairs with x% above corr-threshold
+    tmpAllPairs.reserve(totalPairs);
+    for (int i = 0; i < static_cast<int>(geneSize); ++i) 
+    {
+    for (int j = i + 1; j < static_cast<int>(geneSize); ++j) 
+        {
+            // emplace_back constructs the pair directly in place, 
+            // which is slightly faster than push_back({i, j})
+            tmpAllPairs.emplace_back(i, j); 
+        }
+    }
+    FlatMatrix tempCalculationMatrix(neighbourhoodNum, totalPairs);
+
+    //c) create structures
+    // temporary structures to count correlation-pair with >threshold correlations
+    //count in which feature-pair correlation is above threshold
+    std::vector<std::atomic<int>> tmpCorrelationCountAboveThreshold(totalPairs); 
+
+    //3.) calcualte all correlations in threads
+    std::atomic<int> completedNCount{0};
+    size_t neighborhood_idx = 0;
+    {
+        ThreadPool pool_correlations(threads);
+        for( nodePtr neighborhoodCenter : centralNeighborhoodPtrs)
+        {
+            pool_correlations.enqueue([
+                this,                              
+                neighborhoodCenter,
+                neighborhood_idx,                        
+                &corrThreshold, 
+                &tempCalculationMatrix,  
+                &tmpAllPairs,                                                
+                &tmpCorrelationCountAboveThreshold,    
+                &completedNCount                        
+            ]() {
+                calculate_correlations_for_N(
+                    neighborhoodCenter,      
+                    neighborhood_idx,                  
+                    corrThreshold,                              
+                    tempCalculationMatrix,
+                    tmpAllPairs,     
+                    tmpCorrelationCountAboveThreshold,               
+                    completedNCount  
+                );
+            });
+
+            neighborhood_idx++; // Increment for the next loop iteration
+        }
+
+        // 2. The Main R Thread prints the progress while workers work!
+        int total_N = centralNeighborhoodPtrs.size();
+        int last_val = -1;
+
+        while (completedNCount < total_N) 
+        {
+            double percentage = (double)completedNCount.load() / total_N;
+            int val = (int)(percentage * 100);
+
+            // Only call the print function if the integer percentage actually changed
+            if (val != last_val) 
+            {
+                printProgressMainThread(percentage);
+                last_val = val;
+            }
+
+            // Sleep briefly so the main thread doesn't hog the CPU while waiting
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        }
+
+        // 3. Guarantee it prints 100% and a newline at the very end
+        pool_correlations.wait_for_tasks();
+    }
+    printProgressMainThread(1.0);
+    LOCO_OUT << "\n";
+
+    LOCO_OUT << "RUNNING UNTIL COORELATIONS\n";
+    exit(0);
+
+    //4.) count from tmpCorrelationCountAboveThreshold which corrs are above threshold
+    // do this inside the init function of the neighbourhoodCorrelations and instead of the matrix transpose do a 
+    // in-place writing into the new amtrix (transposed) only for coors > threshold
+
+    //5.) write final pairs into  neighbourhoodCorrs
+
+
+
+}
+
+//centralneighbourhoodPtrs: all the neighbourhoodsPTrs, sotring all cells in enighbourhoods etc.
 void Neighborhood::calculate_correlation_propagation(double correlationStrengthCutoff, int minCliqueSize, int threads)
 {
+
+    LOCO_OUT << "STEP 2";
+    LOCO_OUT << "\tCalculate correlations in all neighbourhoods\n";
+    step_2_calculate_correlation(correlationStrengthCutoff, threads);
+
+    LOCO_OUT << "STEP 3";
+    LOCO_OUT << "\tCalculate Laplacian score\n";
+    //calculate_laplacian_score(threads);
+
+
+
+
+    LOCO_OUT << "STEP 4";
+    LOCO_OUT << "\tCalcualte correlated feature sets (biological programs)";
+
+
+
+///////////
 
     //calculate all CLIQUES in all neighborhoods: TODO: maybe add storing slope/correlation
     LOCO_OUT << "STEP[1/6]:\tCalculate Cliques in all neighborhoods\n";
@@ -1188,12 +1359,18 @@ void Neighborhood::calculate_correlation_propagation(double correlationStrengthC
     }
     remove_subsets_sota(cliquesVector);
 
+
+
+
     LOCO_OUT << "STEP[5/6]:\tExtract pairwise correlations from correlated sets\n";
     //extract pairwise correlations from all found cliques.
     //pairwise correlations r extracted for cliquesVector data structure
     //results are correlations/ slopes for all pairs of features from cliques
     extract_pairs_from_correlation_sets(neighborhoodCorrelations);
 
+
+
+    
     LOCO_OUT << "STEP[6/6]:\tCalculate Laplacian score\n";
     //make calculate_laplacian_score for all those slopes/ correlations
     calculate_laplacian_score(threads);
@@ -1214,7 +1391,7 @@ Neighborhood::Neighborhood(const std::shared_ptr<const GraphData> scData, unsign
                            const SingleCellData& inputData,
                            const std::vector<int>& cellStateGenes, const std::vector<int>& corrStateGenes, int permutations,
                            const double& corrSetAbundance, const unsigned int correlatedSetMode, const std::string& correlationType) : 
-                           neighborhoodSize(neighborhoodSize), inputDataOrigional(inputData),
+                           neighborhoodSize(neighborhoodSize), neighbourhoodNum(neighborhoodNumber), inputDataOrigional(inputData),
                            cellStateGenes(cellStateGenes), corrStateGenes(corrStateGenes), permutations(permutations),
                            minimumCorrSetAbundance(corrSetAbundance), correlatedSetMode(correlatedSetMode), correlationType(correlationType)
 {
