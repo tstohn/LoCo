@@ -24,7 +24,7 @@
 #'   \item{RawData}{
 #'     A data.frame containing the input expression matrix in long form,
 #'     with an additional column \code{cellID}. If the raw data did not contain named cellIDs the new
-#'     cellIDs are enumerated in the form 'C_<index>', where the first index starts from 0.
+#'     cellIDs are enumerated in the form \code{C_<index>}, where the first index starts from 0.
 #'     Rows correspond to cells and columns correspond to features.
 #'   }
 #'
@@ -32,7 +32,7 @@
 #'     A data.frame summarising statistically significant feature pairs
 #'     based on Laplacian scoring. Contains:
 #'     \itemize{
-#'       \item \code{FeaturePair}: names of feature pairs as 'feature1_feature2'
+#'       \item \code{FeaturePair}: names of feature pairs as \code{feature1_feature2}
 #'       \item \code{LaplacianScore}: computed laplacian score
 #'       \item \code{p_value}: permutation-based p-value
 #'       \item \code{FeatureSet}: comma-separated list of features forming sets of co-correlated features
@@ -42,14 +42,14 @@
 #'   \item{Correlations}{
 #'     A data.frame of correlation values per neighbourhood with 3 columns "CorrelationPair", "NeighbourhoodID", "Correlation".
 #'     The first column \code{CorrelationPair} contains feature pairs (same name as in LaplacianScore),
-#'     the second column \code{NeighbourhoodID} contains all neighbourhoodIDs (like N_<number>),
+#'     the second column \code{NeighbourhoodID} contains all neighbourhoodIDs (like \code{N_<number>}),
 #'     and the third column \code{Correlation} contains the correlation of the pair in this neighbourhood.
 #'   }
 #'
 #'   \item{Neighbourhoods}{
 #'     A data.frame describing all constructed neighbourhoods:
 #'     \itemize{
-#'       \item \code{NeighborhoodID}: unique ID of each neighbourhood in the form 'N_<index>' where the index starts from 0.
+#'       \item \code{NeighborhoodID}: unique ID of each neighbourhood in the form \code{N_<index>} where the index starts from 0.
 #'       \item \code{AnchorCellID}: central cell of the neighbourhood. LoCo starts by sampling random cells (anchor cells) and builds local neighbourhoods around them.
 #'       \item \code{AllCellIDs}: comma-separated list of all cells in this neighbourhood. These were the closest cells to the anchor cell.
 #'     }
@@ -58,12 +58,12 @@
 #'
 #' @examples
 #' # Load example dataset shipped with the package
-#' infile <- system.file("example", "data_1.tsv",
-#'                       package = "loco")
+#' infile <- system.file("example", "data_1.tsv", package = "loco")
 #'
 #' # Run LoCo on a small example dataset: find all local correlations with a correlation above 0.4
-#' L1 <- run_loco("inst/example/data_1.tsv", correlationCutoff= 0.4, neighbourhoodSize = 25)
-#' # Inspect the correlations with the lowest laplacian score/ p_value - 
+#' L1 <- run_loco(infile, correlationCutoff= 0.4, neighbourhoodSize = 25)
+#' 
+#' # Inspect the correlations with the lowest laplacian score / p-value - 
 #' # these correlations change the most across the whole single-cell dataset but change only very little in their local neighbourhood
 #' head(L1$LaplacianScores)
 #' L2 <- add_umap_coords(L1)
@@ -73,11 +73,12 @@
 #' width = 8,
 #' height = 6,
 #' dpi = 300)
+#' 
 #' @details
 #' The result is a list of data.frame containing: 1.) the RawData, 
-#' 2.) LaplacianScores: scored correlation pairs that vary across single-cell sapce, 
+#' 2.) LaplacianScores: scored correlation pairs that vary across single-cell space, 
 #' 3.) Correlations: all correlations in all neighbourhoods,
-#' 4.) Neighbourhoods: the definition of neighbourhoods by their anchor cell and all contained cells
+#' 4.) Neighbourhoods: the definition of neighbourhoods by their anchor cell and all contained cells.
 #' @export
 run_loco <- function(
   inFile,
@@ -187,24 +188,28 @@ run_loco <- function(
   return(res)
 }
 
+
+#' Add UMAP coordinates to LoCo result
+#'
+#' @description
 #' Creates UMAP space for raw data and adds the UMAP-coordinates UMAP1/UMAP2 to RawData, Neighbourhoods and Correlations.
-#' run: umapAddedLocoResult <- add_umap_coords(locoResult) to add the UMAP coords to the loco result.
-#' umapAddedLocoResult can be used to plot the correlations in neighbourhoods on a UMAP.
-#' Details:
+#' Run: \code{umapAddedLocoResult <- add_umap_coords(locoResult)} to add the UMAP coords to the loco result.
+#' \code{umapAddedLocoResult} can be used to plot the correlations in neighbourhoods on a UMAP.
+#' 
+#' @details
 #' To plot local correlations across neighbourhoods LoCo needs a space to plot those correlations in.
 #' One possibility is to create the UMAP space of the raw data. Within this UMAP space you can inspect
-#' origional raw features and additionally assign UMAP coordiantes to neighbourhoods by taking the central
+#' original raw features and additionally assign UMAP coordinates to neighbourhoods by taking the central
 #' cell of all neighbourhoods (the anchor cell) and assigning the UMAP coordinates of this cell to their
-#' neighbourhood. After running add_umap_coords() you can run plot_local_correlation_map() to plot local correlations
-#' within this UMAP space. You do not have to use these umap coordiantes but this function makes it easy
+#' neighbourhood. After running \code{add_umap_coords()} you can run \code{plot_local_correlation_map()} to plot local correlations
+#' within this UMAP space. You do not have to use these UMAP coordinates but this function makes it easy
 #' to create the UMAP space for the raw data and the neighbourhoods. However, you can create your own
-#' embedding (PCA, ...) and plot neighbourhoods (by assigning neighbourhood coordinates to the coordiantes of their anchor cells).
-#' add_umap_coords() adds the UMAP coordiantes to the RawData data.frame, the Neighbourhoods data.frame and also to the Correlations data.frame
+#' embedding (PCA, ...) and plot neighbourhoods (by assigning neighbourhood coordinates to the coordinates of their anchor cells).
+#' \code{add_umap_coords()} adds the UMAP coordinates to the RawData data.frame, the Neighbourhoods data.frame and also to the Correlations data.frame.
+#' 
 #' @param locoResult the result of run_loco
-#' @param n_pcs the number of components for PCA (default 0 = skip PCA embedding). If n_pcs > 0 the function firstly decomposes the input matrix into PCs and runs umap on the PCs. 
-#'              In this case scale is set to FALSE, as the PCA already scales the data.
-#' @param scale z-score normalize feature counts before calculating UMAP coords (TRUE). This is ONLY considered when n_pcs is 0. If n_pcs > 0 the functions uses the
-#'              first <n_pcs> PCs to run the UMAP embedding and does not z-score normalize in between!
+#' @param n_pcs the number of components for PCA (default 0 = skip PCA embedding). If n_pcs > 0 the function firstly decomposes the input matrix into PCs and runs umap on the PCs. In this case scale is set to FALSE, as the PCA already scales the data.
+#' @param scale z-score normalize feature counts before calculating UMAP coords (TRUE). This is ONLY considered when n_pcs is 0. If n_pcs > 0 the functions uses the first \code{n_pcs} PCs to run the UMAP embedding and does not z-score normalize in between!
 #' @param metric distance-metric for UMAP (euclidean)
 #' @param seed seed for UMAP (7)
 #' @export
@@ -357,14 +362,16 @@ add_umap_coords <- function(locoResult,
   return(locoResult)
 }
 
-#' Plot correlations for a correlationPair in all neighbourhoods.
-#' Therefore create a plotting space first (like UMAP coordinates) to then plot neighbourhoods into this space by, e.g., running 
-#' newLocoResult <- add_umap_coords(locoResult)
-#' plot_local_correlation_map(newLocoResult, "GENE1_GENE2")
+#' Plot correlations for a correlationPair in all neighbourhoods
+#' 
+#' @description
+#' Create a plotting space first (like UMAP coordinates) to then plot neighbourhoods into this space by, e.g., running 
+#' \code{newLocoResult <- add_umap_coords(locoResult)} followed by
+#' \code{plot_local_correlation_map(newLocoResult, "GENE1_GENE2")}
+#' 
 #' @import ggplot2
-#' @param locoResult the result of run_loco after adding an embedding space to the data.frame Correlations in the loco-result
-#'                   this can be generated by, e.g., running locoResult2 <- add_umap_coords(locoResult1) and then feeding locoResult2 into this function.
-#' @param correlationPair the name of the correlation that should be plotted. You can see all possible names in the column <FeaturePair> in <locoResult1$LaplacianScores>.
+#' @param locoResult the result of run_loco after adding an embedding space to the data.frame Correlations in the loco-result. This can be generated by, e.g., running \code{locoResult2 <- add_umap_coords(locoResult1)} and then feeding \code{locoResult2} into this function.
+#' @param correlationPair the name of the correlation that should be plotted. You can see all possible names in the column \code{FeaturePair} in \code{locoResult1$LaplacianScores}.
 #' @param dim1 the x-axis dimension for the plot: per default the UMAP1 coordinate from add_umap_coords
 #' @param dim2 the y-axis dimension for the plot: per default the UMAP2 coordinate from add_umap_coords
 #' @export
@@ -437,19 +444,20 @@ plot_local_correlation_map <- function(locoResult, correlationPair, dim1 = "UMAP
   return(p)
 }
 
+
+#' Plot cell-level correlation within a spatial window
+#' 
+#' @description
 #' Plot correlation between featureA and featureB as a scatter plot using all cells contained in neighbourhoods that are within given space boundaries
-#' [x_min ... x_max] and [y_min ... y_max].
+#' [\code{x_min} ... \code{x_max}] and [\code{y_min} ... \code{y_max}].
+#' 
 #' @param locoResult The UMAP-annotated result of run_loco
 #' @param featureA first feature (x-coordinate) of the plotted correlation
 #' @param featureB second feature (y-coordinate) of the plotted correlation
-#' @param x_min The minimum x-coordinate to filter neighbourhoods that are used for plotting. Cells in neighbouhoods are inlcuded if the anchor cell
-#'              of this neighbourhood has an x-coordinate >= x_min.
-#' @param x_max The maximum x-coordinate to filter neighbourhoods that are used for plotting. Cells in neighbouhoods are inlcuded if the anchor cell
-#'              of this neighbourhood has an x-coordinate <= x_max.
-#' @param y_min The minimum y-coordinate to filter neighbourhoods that are used for plotting. Cells in neighbouhoods are inlcuded if the anchor cell
-#'              of this neighbourhood has an y-coordinate >= y_min.
-#' @param y_max The maximum y-coordinate to filter neighbourhoods that are used for plotting. Cells in neighbouhoods are inlcuded if the anchor cell
-#'              of this neighbourhood has an y-coordinate <= y_max.
+#' @param x_min The minimum x-coordinate to filter neighbourhoods that are used for plotting. Cells in neighbourhoods are included if the anchor cell of this neighbourhood has an x-coordinate >= \code{x_min}.
+#' @param x_max The maximum x-coordinate to filter neighbourhoods that are used for plotting. Cells in neighbourhoods are included if the anchor cell of this neighbourhood has an x-coordinate <= \code{x_max}.
+#' @param y_min The minimum y-coordinate to filter neighbourhoods that are used for plotting. Cells in neighbourhoods are included if the anchor cell of this neighbourhood has a y-coordinate >= \code{y_min}.
+#' @param y_max The maximum y-coordinate to filter neighbourhoods that are used for plotting. Cells in neighbourhoods are included if the anchor cell of this neighbourhood has a y-coordinate <= \code{y_max}.
 #' @param dim1 the x-axis dimension for the plot: per default the UMAP1 coordinate from add_umap_coords
 #' @param dim2 the y-axis dimension for the plot: per default the UMAP2 coordinate from add_umap_coords
 #' @export

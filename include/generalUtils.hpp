@@ -32,7 +32,7 @@ inline void printProgressMainThread(double percentage)
     int val = (int) (percentage * 100);
     
     // Print every 2 percent points
-    if (val % 2 == 0) 
+    if (val % 5 == 0) 
     {
         int loadLength = (int) (percentage * PBWIDTH);
         int emptyLength = PBWIDTH - loadLength;

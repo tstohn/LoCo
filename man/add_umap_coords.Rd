@@ -2,19 +2,7 @@
 % Please edit documentation in R/loco.R
 \name{add_umap_coords}
 \alias{add_umap_coords}
-\title{Creates UMAP space for raw data and adds the UMAP-coordinates UMAP1/UMAP2 to RawData, Neighbourhoods and Correlations.
-run: umapAddedLocoResult <- add_umap_coords(locoResult) to add the UMAP coords to the loco result.
-umapAddedLocoResult can be used to plot the correlations in neighbourhoods on a UMAP.
-Details:
-To plot local correlations across neighbourhoods LoCo needs a space to plot those correlations in.
-One possibility is to create the UMAP space of the raw data. Within this UMAP space you can inspect
-origional raw features and additionally assign UMAP coordiantes to neighbourhoods by taking the central
-cell of all neighbourhoods (the anchor cell) and assigning the UMAP coordinates of this cell to their
-neighbourhood. After running add_umap_coords() you can run plot_local_correlation_map() to plot local correlations
-within this UMAP space. You do not have to use these umap coordiantes but this function makes it easy
-to create the UMAP space for the raw data and the neighbourhoods. However, you can create your own
-embedding (PCA, ...) and plot neighbourhoods (by assigning neighbourhood coordinates to the coordiantes of their anchor cells).
-add_umap_coords() adds the UMAP coordiantes to the RawData data.frame, the Neighbourhoods data.frame and also to the Correlations data.frame}
+\title{Add UMAP coordinates to LoCo result}
 \usage{
 add_umap_coords(
   locoResult,
@@ -27,11 +15,9 @@ add_umap_coords(
 \arguments{
 \item{locoResult}{the result of run_loco}
 
-\item{n_pcs}{the number of components for PCA (default 0 = skip PCA embedding). If n_pcs > 0 the function firstly decomposes the input matrix into PCs and runs umap on the PCs. 
-In this case scale is set to FALSE, as the PCA already scales the data.}
+\item{n_pcs}{the number of components for PCA (default 0 = skip PCA embedding). If n_pcs > 0 the function firstly decomposes the input matrix into PCs and runs umap on the PCs. In this case scale is set to FALSE, as the PCA already scales the data.}
 
-\item{scale}{z-score normalize feature counts before calculating UMAP coords (TRUE). This is ONLY considered when n_pcs is 0. If n_pcs > 0 the functions uses the
-first <n_pcs> PCs to run the UMAP embedding and does not z-score normalize in between!}
+\item{scale}{z-score normalize feature counts before calculating UMAP coords (TRUE). This is ONLY considered when n_pcs is 0. If n_pcs > 0 the functions uses the first \code{n_pcs} PCs to run the UMAP embedding and does not z-score normalize in between!}
 
 \item{metric}{distance-metric for UMAP (euclidean)}
 
@@ -39,16 +25,17 @@ first <n_pcs> PCs to run the UMAP embedding and does not z-score normalize in be
 }
 \description{
 Creates UMAP space for raw data and adds the UMAP-coordinates UMAP1/UMAP2 to RawData, Neighbourhoods and Correlations.
-run: umapAddedLocoResult <- add_umap_coords(locoResult) to add the UMAP coords to the loco result.
-umapAddedLocoResult can be used to plot the correlations in neighbourhoods on a UMAP.
-Details:
+Run: \code{umapAddedLocoResult <- add_umap_coords(locoResult)} to add the UMAP coords to the loco result.
+\code{umapAddedLocoResult} can be used to plot the correlations in neighbourhoods on a UMAP.
+}
+\details{
 To plot local correlations across neighbourhoods LoCo needs a space to plot those correlations in.
 One possibility is to create the UMAP space of the raw data. Within this UMAP space you can inspect
-origional raw features and additionally assign UMAP coordiantes to neighbourhoods by taking the central
+original raw features and additionally assign UMAP coordinates to neighbourhoods by taking the central
 cell of all neighbourhoods (the anchor cell) and assigning the UMAP coordinates of this cell to their
-neighbourhood. After running add_umap_coords() you can run plot_local_correlation_map() to plot local correlations
-within this UMAP space. You do not have to use these umap coordiantes but this function makes it easy
+neighbourhood. After running \code{add_umap_coords()} you can run \code{plot_local_correlation_map()} to plot local correlations
+within this UMAP space. You do not have to use these UMAP coordinates but this function makes it easy
 to create the UMAP space for the raw data and the neighbourhoods. However, you can create your own
-embedding (PCA, ...) and plot neighbourhoods (by assigning neighbourhood coordinates to the coordiantes of their anchor cells).
-add_umap_coords() adds the UMAP coordiantes to the RawData data.frame, the Neighbourhoods data.frame and also to the Correlations data.frame
+embedding (PCA, ...) and plot neighbourhoods (by assigning neighbourhood coordinates to the coordinates of their anchor cells).
+\code{add_umap_coords()} adds the UMAP coordinates to the RawData data.frame, the Neighbourhoods data.frame and also to the Correlations data.frame.
 }

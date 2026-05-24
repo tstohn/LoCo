@@ -12,6 +12,14 @@ double GraphHandler::get_edge_weight_between_nodes(const nodePtr& nodeA, const n
     return(edgeweight);
 }
 
+double GraphHandler::get_edge_weight_between_nodes(const int nodeAIdx, const int nodeBIdx) const
+{
+    double edgeweight = 0;
+    edgeweight = weightedAdjacencyMatrix[nodeAIdx][nodeBIdx];
+
+    return(edgeweight);
+}
+
 double GraphHandler::clique_similarity(const std::vector<int>& cliqueA, const std::vector<int>& cliqueB)
 {
     size_t cliqueAIdx = 0;

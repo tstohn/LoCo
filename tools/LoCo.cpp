@@ -24,10 +24,9 @@ output: path/file.tsv (program adds content specific string between file and .ts
 bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& outFile, std::string& prefix,
                      int& threats, char& del, bool& col, bool& row,
                      unsigned int & numNeighborhoods, std::string& neighborhoodSizeStr, int& neighborhoodKNN, double& correlationCutoff,
-                     int& numberCorrelations,
                      std::string& cellStateGeneFile, std::string& correlationStateGeneFile,
                      bool& zscore, int& permutations, int&minSetSize, double& corrSetAbundance, unsigned int& correlatedSetMode,
-                     std::string& correlationType)
+                     std::string& correlationType, bool& calcSets)
 {
     try
     {
@@ -42,8 +41,6 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
             ("delimiter,d", value<char>(&del)->default_value('\t'), "delimiter of input file")
             ("column,c", "explicitely parse column names (otherwise parsed only if string)")
             ("row,r", "explicitely parse column names (otherwise parsed only if string)")
-            ("filterCorrelations,f", value<int>(&numberCorrelations)->default_value(0), "filter the number of correlations to retain. Only write the gene-pairs of lowest laplacian for correlation/ slope. \
-            Since we write the x lowest values for correlation & for slope the total number can be >x.")
 
             //NEIGHBORHOOD VARIABLES
             ("numNeighborhoods,n", value<unsigned int>(&numNeighborhoods)->default_value(0), "number of neighborhoods. By default this is the total number of cells divided by 50 \
@@ -75,6 +72,7 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
             ("CorrelationType,b", value<std::string>(&correlationType)->default_value("spearman"), "spearman or pearson for the type of correlation to calculate")
 
             //GENERAL
+            ("FeatureSets,f", value<bool>(&calcSets)->default_value(0), "calculate feature sets: sets of features that co-correlate,default is false (0) (1=true, 0=false)")
             ("zScore,z", value<bool>(&zscore)->default_value(1), "z-score normalize data, default is true (1) (1=true, 0=false)")
             ("thread,t", value<int>(&threats)->default_value(5), "number of threads")
             ("help,h", "help message");
@@ -149,10 +147,10 @@ std::vector<unsigned int> parseNeighborhoodSizes(const std::string& input)
 void run_correlation_propagation_across_graph(const SingleCellData& inFile, const std::string& outFile, std::string& prefix, int thread,
                                               const unsigned int numNeighborhoods, const std::vector<unsigned int>& neighborhoodSizes, 
                                               const int neighborhoodKNN, const double& correlationCutoff,
-                                              int& numberCorrelations, const std::vector<std::string>& cellStateGenes,
+                                              const std::vector<std::string>& cellStateGenes,
                                               const std::vector<std::string>& corrStateGenes, 
                                               const int permutations, const int minSetSize, const double corrSetAbundance, 
-                                              const unsigned int correlatedSetMode, const std::string& correlationType)
+                                              const unsigned int correlatedSetMode, const std::string& correlationType, bool calcSets)
 {
     //generate cell-cell neighborhood graph
     std::vector<int> cellStateIdxs = get_indexlist_from_genenames(inFile, cellStateGenes);
@@ -187,7 +185,8 @@ void run_correlation_propagation_across_graph(const SingleCellData& inFile, cons
         {
             tmpPrefix = prefix + "_Nsize_" + std::to_string(neighborhoodSize);
         }
-        neighborhood.write_results_to_file(outFile, tmpPrefix, numberCorrelations);
+        
+        neighborhood.write_results_to_file(outFile, tmpPrefix, calcSets);
     }
 }
 
@@ -219,11 +218,11 @@ int main(int argc, char** argv)
     bool col = false;
     bool row = false;
     bool zscore = false;
+    bool calcSets = false;
     int thread;
     unsigned int correlatedSetMode;
 
     //gene lists for states/ correlations
-    int numberCorrelations;
     std::string cellStateGeneFile = "";
     std::string correlationStateGeneFile = "";
 
@@ -241,8 +240,8 @@ int main(int argc, char** argv)
     if(!parse_arguments(argv, argc, inFile, outFile, prefix,
                         thread, del, col, row, 
                         numNeighborhoods, neighborhoodSizeString, neighborhoodKNN, correlationCutoff,
-                        numberCorrelations, cellStateGeneFile, correlationStateGeneFile, 
-                        zscore, permutations, minSetSize, corrSetAbundance, correlatedSetMode, correlationType))
+                        cellStateGeneFile, correlationStateGeneFile, 
+                        zscore, permutations, minSetSize, corrSetAbundance, correlatedSetMode, correlationType, calcSets))
     {
         exit(EXIT_FAILURE);
     }
@@ -283,9 +282,9 @@ int main(int argc, char** argv)
     run_correlation_propagation_across_graph(inputDataRaw, outFile, prefix, thread,
                                               numNeighborhoods, neighborhoodSizes, 
                                               neighborhoodKNN, correlationCutoff,
-                                              numberCorrelations, cellStateGenes, corrStateGenes, 
+                                              cellStateGenes, corrStateGenes, 
                                               permutations, minSetSize, corrSetAbundance, correlatedSetMode,
-                                              correlationType);
+                                              correlationType, calcSets);
 
     return(EXIT_SUCCESS);
 }

@@ -2,8 +2,7 @@
 % Please edit documentation in R/loco.R
 \name{plot_cell_level_correlation}
 \alias{plot_cell_level_correlation}
-\title{Plot correlation between featureA and featureB as a scatter plot using all cells contained in neighbourhoods that are within given space boundaries
-[x_min ... x_max] and [y_min ... y_max].}
+\title{Plot cell-level correlation within a spatial window}
 \usage{
 plot_cell_level_correlation(
   locoResult,
@@ -24,17 +23,13 @@ plot_cell_level_correlation(
 
 \item{featureB}{second feature (y-coordinate) of the plotted correlation}
 
-\item{x_min}{The minimum x-coordinate to filter neighbourhoods that are used for plotting. Cells in neighbouhoods are inlcuded if the anchor cell
-of this neighbourhood has an x-coordinate >= x_min.}
+\item{x_min}{The minimum x-coordinate to filter neighbourhoods that are used for plotting. Cells in neighbourhoods are included if the anchor cell of this neighbourhood has an x-coordinate >= \code{x_min}.}
 
-\item{x_max}{The maximum x-coordinate to filter neighbourhoods that are used for plotting. Cells in neighbouhoods are inlcuded if the anchor cell
-of this neighbourhood has an x-coordinate <= x_max.}
+\item{x_max}{The maximum x-coordinate to filter neighbourhoods that are used for plotting. Cells in neighbourhoods are included if the anchor cell of this neighbourhood has an x-coordinate <= \code{x_max}.}
 
-\item{y_min}{The minimum y-coordinate to filter neighbourhoods that are used for plotting. Cells in neighbouhoods are inlcuded if the anchor cell
-of this neighbourhood has an y-coordinate >= y_min.}
+\item{y_min}{The minimum y-coordinate to filter neighbourhoods that are used for plotting. Cells in neighbourhoods are included if the anchor cell of this neighbourhood has a y-coordinate >= \code{y_min}.}
 
-\item{y_max}{The maximum y-coordinate to filter neighbourhoods that are used for plotting. Cells in neighbouhoods are inlcuded if the anchor cell
-of this neighbourhood has an y-coordinate <= y_max.}
+\item{y_max}{The maximum y-coordinate to filter neighbourhoods that are used for plotting. Cells in neighbourhoods are included if the anchor cell of this neighbourhood has a y-coordinate <= \code{y_max}.}
 
 \item{dim1}{the x-axis dimension for the plot: per default the UMAP1 coordinate from add_umap_coords}
 
@@ -42,5 +37,5 @@ of this neighbourhood has an y-coordinate <= y_max.}
 }
 \description{
 Plot correlation between featureA and featureB as a scatter plot using all cells contained in neighbourhoods that are within given space boundaries
-[x_min ... x_max] and [y_min ... y_max].
+[\code{x_min} ... \code{x_max}] and [\code{y_min} ... \code{y_max}].
 }

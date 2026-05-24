@@ -22,8 +22,7 @@ using namespace Rcpp;
 // 3.) correlations: tibble with 3 columns "CorrelationPair", "NeighbourhoodID", "Correlation"
 // 4,) neighbourhoods: anchor cell + contained cells
 Rcpp::List build_loco_object(const SingleCellData& rawData,
-                             Neighborhood& neighborhood,
-                             const int& numberCorrelations) 
+                             Neighborhood& neighborhood) 
 {
 
     //fill intermittend data that are used to write the R-result object
@@ -40,7 +39,6 @@ Rcpp::List build_loco_object(const SingleCellData& rawData,
     std::vector<double> pCorrL;
     std::vector<std::vector<std::string>> cliquesFlat;
     neighborhood.fill_result_data(
-        numberCorrelations,
         nIDs, nID_anchorCellID,nID_allCellIDs,
         correlation_pairs,corrMat,
         laplacian_correlation_pairs,corrL,pCorrL,cliquesFlat);
@@ -218,7 +216,7 @@ Rcpp::List build_loco_object(const SingleCellData& rawData,
 Rcpp::List run_correlation_propagation_across_graph(const SingleCellData& inFile, int thread,
                                               const unsigned int numberNeighbourhoods, const unsigned int neighborhoodSize, 
                                               const int neighborhoodKNN, const double& correlationCutoff,
-                                              int& numberCorrelations, const std::vector<std::string>& cellStateGenes,
+                                               const std::vector<std::string>& cellStateGenes,
                                               const std::vector<std::string>& corrStateGenes, 
                                               const int permutations, const int minSetSize, const double corrSetAbundance, 
                                               const unsigned int correlatedSetMode, const std::string& correlationType)
@@ -250,7 +248,7 @@ Rcpp::List run_correlation_propagation_across_graph(const SingleCellData& inFile
     neighborhood.calculate_correlation_propagation(correlationCutoff, minSetSize, thread);
 
     //return the RCPP data structure for loco
-    Rcpp::List res = build_loco_object(inFile, neighborhood, numberCorrelations);
+    Rcpp::List res = build_loco_object(inFile, neighborhood);
 
     return(res);
 }
@@ -264,7 +262,6 @@ Rcpp::List run_loco_cpp(
     bool zscore,
     int thread,
     unsigned int correlatedSetMode,
-    int numberCorrelations,
     std::string cellStateGeneFile,
     std::string correlationStateGeneFile,
     unsigned int numberNeighbourhoods,
@@ -304,7 +301,6 @@ Rcpp::List run_loco_cpp(
         neighborhoodSize,
         neighborhoodKNN,
         correlationCutoff,
-        numberCorrelations,
         cellStateGenes,
         corrStateGenes,
         permutations,

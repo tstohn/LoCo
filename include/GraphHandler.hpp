@@ -60,6 +60,8 @@ class GraphHandler
 
         //returns the edge weight between ndoes if they exist, if they r not connected its zero
         double get_edge_weight_between_nodes(const nodePtr& nodeA, const nodePtr& nodeB) const;
+        double get_edge_weight_between_nodes(const int nodeAIdx, const int nodeBIdx) const;
+
         const std::vector<nodePtr> get_all_nodes() const
         {
             return(data->get_all_nodes());

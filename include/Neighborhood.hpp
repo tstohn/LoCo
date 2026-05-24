@@ -64,43 +64,78 @@ struct FlatMatrix {
         cols = c;
         data.assign(r * c, -2.0); // Allocates and sets everything to -2.0
     }
+    // =========================================================================
+    // DEFAULT ACCESS
+    // =========================================================================
 
-    // Overload () for ultra-fast writing/modifying data (Uses [] to avoid bound-check overhead)
-    inline double& operator()(size_t row, size_t col) {
+    // FAST MATRIX-CELL ACCESS
+    // The 'const' version is automatically called by C++ when reading from a const matrix.
+    // row = pair, col = N
+    inline const double& operator()(size_t row, size_t col) const 
+    {
         return data[row * cols + col];
     }
 
-    // Overload () for ultra-fast read-only access
-    inline const double& operator()(size_t row, size_t col) const {
-        return data[row * cols + col];
-    }
-
-    // C++17 Row Access: Returns a direct pointer to the start of the row (Zero copy!)
-    inline const double* get_row(size_t row_idx) const {
+    // FAST ACCESS TO ALL CORRS ACROSS N FOR A PAIR: check the col entry to not go too fart
+    // Returns a raw pointer to the start of the row. 
+    // In C++, pointers can be indexed exactly like vectors (e.g., row_ptr[0], row_ptr[1]).
+    inline const double* get_row(size_t row_idx) const 
+    {
+        if (row_idx >= rows) throw std::out_of_range("Row index out of bounds");
         return &data[row_idx * cols];
+    }
+
+    // =========================================================================
+    // 2. Additional safe methods/ methods returning vectors
+    // =========================================================================
+
+    // FAST ACCESS (Unchecked)
+    // Overloading () allows us to use matrix(row, col) syntax.
+    // It maps 2D coordinates to a 1D index using: index = (row * total_columns) + col.
+    // Returns a reference (&), meaning it acts as BOTH a Getter and a Setter!
+    inline double& operator()(size_t row, size_t col) {
+        return data[row * cols + col]; // Use [] to skip bounds-checking for blazing speed
+    }
+
+    // SAFE ACCESS (Checked - Use this for debugging!)
+    // Will throw a loud error if you accidentally request an index out of bounds.
+    inline double& at(size_t row, size_t col) {
+        if (row >= rows || col >= cols) throw std::out_of_range("Matrix subscript out of bounds");
+        return data[row * cols + col];
+    }
+
+    // OPTION B: DEEP COPY (Standard std::vector)
+    // Extracts the entire row and copies it into a brand new standalone std::vector.
+    // Use this if downstream functions explicitly require a 'std::vector<double>' object.
+    inline std::vector<double> get_row_copy(size_t row_idx) const {
+        if (row_idx >= rows) throw std::out_of_range("Row index out of bounds");
+        
+        auto row_start = data.begin() + (row_idx * cols);
+        auto row_end   = row_start + cols;
+        
+        return std::vector<double>(row_start, row_end);
     }
 };
 
 //HOW TO ITERATE THROUGH THE NIEGHBOURHHODS FOR A CORR-PAIR
 /*
-size_t num_subsets = 0;
+const double* row_view = neighbourhoodCorrs.pairToListOfAllNCorrs.get_row_view(2);
 
-// Call the function. It populates 'num_subsets' with the correct column count
-const double* corrs = results.get_correlations_across_N_for_pair(4, num_subsets);
-
-// The caller now uses 'num_subsets' to know when to stop!
-for (size_t s = 0; s < num_subsets; ++s) {
-    double c = corrs[s];
-    // Process correlation...
+// You can loop over this pointer EXACTLY like a vector!
+for(size_t n = 0; n < myMat.cols; ++n) {
+    double corr_val = row_view[n];
+    // ... do math on corr_val ...
 }
-*/
+*/ 
 
 struct CorrelationResults
 {
     // --- Data Storage ---
-    std::vector<std::pair<int, int>> pairList;   // Global list of unique feature pairs
+    std::vector<std::pair<int, int>> pairList;   // list of unique feature pairs, the indices are alreayd inidces for the SUBSET of feauters uder for correlations
     std::vector<nodePtr> nodePtrList;           // Master ordered list of subsets (N)
-    std::vector<std::string> featureNames;      // Maps a feature integer ID to its string name
+
+    std::vector<std::string> featureNames; //list of single feature names (of the subset of features used for corr analysis)
+    std::vector<std::string> pairNames;      // names of all pairs (e.g., []"A_B", "B_D"]), for quick printing later on
 
     // Downstream Layout: Rows = Feature Pairs, Cols = Subsets (N)
     FlatMatrix pairToListOfAllNCorrs;
@@ -132,45 +167,95 @@ struct CorrelationResults
         return { featureNames.at(feat_a), featureNames.at(feat_b) };
     }
 
-    // --- 3. Initialization & Blazing-Fast Multithreaded Transpose ---
-    // Takes the raw, multi-threaded calculation matrix (Rows = Subsets, Cols = Pairs)
-    // and transposes it beautifully into the internal downstream matrix layout.
-    void init(const FlatMatrix& calculationMatrix, 
-              const std::vector<std::pair<int, int>>& globalPairs,
-              const std::vector<nodePtr>& globalNodes,
-              const std::vector<std::string>& globalFeatureNames) 
+    //get the string for a pair
+    std::string get_pair_name_string(size_t pair_idx) const
     {
-        // Copy lists and mappings
-        pairList = globalPairs;
-        nodePtrList = globalNodes;
-        featureNames = globalFeatureNames;
-
-        size_t num_subsets = nodePtrList.size();
-        size_t num_pairs = pairList.size();
-
-        // Safety check to ensure input matches dimensions
-        if (calculationMatrix.rows != num_subsets || calculationMatrix.cols != num_pairs) {
-            throw std::invalid_argument("Input calculation matrix dimensions do not match provided node/pair sizes.");
+        if (pair_idx >= pairList.size()) {
+            throw std::out_of_range("Pair index out of bounds.");
         }
 
-        // Initialize our downstream matrix with transposed dimensions (Rows = Pairs, Cols = Subsets)
-        pairToListOfAllNCorrs.init(num_pairs, num_subsets);
+        int feat_a = pairList[pair_idx].first;
+        int feat_b = pairList[pair_idx].second;
 
-        // BLAZING FAST PARALLEL TRANSPOSE
-        // Loop through pairs on the outer loop. If you use OpenMP, uncomment the line below:
-        // #pragma omp parallel for schedule(static)
-        for (size_t p = 0; p < num_pairs; ++p) 
+        return featureNames.at(feat_a) + "_" + featureNames.at(feat_b);
+    }
+
+    void init(const FlatMatrix& tempCalculationMatrix, 
+              const std::vector<std::pair<int, int>>& allPairs,
+              const std::vector<std::atomic<int>>& countsAboveThreshold,
+              int minNeighborhoodsRequired,
+              const std::vector<nodePtr>& centralNeighborhoodPtrs,
+              const std::vector<std::string>& globalFeatureNames,
+              const std::vector<int>& corrStateGenes) 
+    {
+        nodePtrList = centralNeighborhoodPtrs;
+        size_t numNeighbourhoods = nodePtrList.size();
+        size_t total_original_pairs = allPairs.size();
+
+        // 1. MAP FEATURE NAMES
+        size_t geneSize = corrStateGenes.empty() ? globalFeatureNames.size() : corrStateGenes.size();
+        featureNames.reserve(geneSize);
+        for (size_t i = 0; i < geneSize; ++i) 
         {
-            for (size_t s = 0; s < num_subsets; ++s) 
+            int original_idx = corrStateGenes.empty() ? i : corrStateGenes[i];
+            featureNames.push_back(globalFeatureNames[original_idx]);
+        }
+
+        // 2. FILTER SURVIVING PAIRS
+        std::vector<size_t> originalPairIndices; 
+        
+        for (size_t p = 0; p < total_original_pairs; ++p) 
+        {
+            if (countsAboveThreshold[p].load() >= minNeighborhoodsRequired) 
             {
-                // Read from calculation matrix (s, p) and write to downstream matrix (p, s)
-                // This maximizes cache prefetching during writing!
-                pairToListOfAllNCorrs(p, s) = calculationMatrix(s, p);
+                pairList.push_back(allPairs[p]);      
+                originalPairIndices.push_back(p);     
+            }
+        }
+
+        size_t num_filtered_pairs = pairList.size();
+        if (num_filtered_pairs == 0) 
+        {
+            LOCO_OUT << "Error: 0 feature-pairs passed the required threshold (minimum correlation in number of neighbourhoods)\n";
+            pairToListOfAllNCorrs.init(0, 0); 
+            LOCO_EXIT(EXIT_FAILURE);
+        }
+
+        // 3. PRE-BUILD THE PAIR NAMES VECTOR
+        pairNames.reserve(num_filtered_pairs);
+        for (const auto& pair : pairList)
+        {
+            pairNames.push_back(featureNames[pair.first] + "_" + featureNames[pair.second]);
+        }
+
+        // 4. TRANSPOSE MATRIX
+        pairToListOfAllNCorrs.init(num_filtered_pairs, numNeighbourhoods);
+
+        for (size_t new_p = 0; new_p < num_filtered_pairs; ++new_p) 
+        {
+            size_t old_p = originalPairIndices[new_p]; 
+            
+            for (size_t s = 0; s < numNeighbourhoods; ++s) 
+            {
+                pairToListOfAllNCorrs(new_p, s) = tempCalculationMatrix(s, old_p);
             }
         }
     }
 };
 
+struct LaplacianResults
+{
+    std::vector<std::string> pairNames;      // names of all pairs (e.g., []"A_B", "B_D"]), for quick printing later on
+
+    //pre-calcualte variances, we need them many times when calculating significance
+    std::vector<double> variances;
+    std::vector<double> L;
+
+    std::vector<double> p_values;
+};
+
+//small edge struct for quick shuffling in permutations for laplacian results
+struct Edge { int i,j; double w; };
 
 
 //this is a result for every individual neighborhood
@@ -197,10 +282,9 @@ class Neighborhood
         //cell-cell neighborhood graph (from neighborhood to neighborhood)
         //fills the corrResult
         void calculate_correlation_propagation(double correlationStrengthCutoff, int minCliqueSize=2, int thread=5);
-        void write_results_to_file(const std::string& output, const std::string& prefix, int& numberCorrelations);
+        void write_results_to_file(const std::string& output, const std::string& prefix, bool calcSets);
         void write_shuffled_laplacians(const std::string& outFile, const std::string& prefix);
         void fill_result_data(
-            const int& numberCorrelations,
             std::vector<std::string>& nIDs, // all neighborhoods IDs
             std::vector<std::string>& nID_anchorCellID, //achnor cell IDs for neighborhoods
             std::vector<std::vector<std::string>>& nID_allCellIDs, //vector off all cellIDs for all neighborhoods (same order as nIDs)
@@ -214,7 +298,12 @@ class Neighborhood
     private:
 
         // new 4-step functions
+        void laplacian_significance_for_pair(size_t pair_idx, const std::vector<Edge>& edges, std::atomic<int>& currentCount);
+        void calculate_laplacian_score_for_pair(const int featurePairIdx);
+        void calculate_pair_variance(size_t pair_idx);
         void step_2_calculate_correlation(const double& corrThreshold, const int threads);
+        void step_3_calculate_laplacian_score(const int threads);
+
         void calculate_correlations_for_N(nodePtr neighborhoodCenter, size_t neighborhood_idx, 
                                                 const double& corrThreshold, FlatMatrix& tempCalculationMatrix,
                                                 const std::vector<std::pair<int, int>>& tmpAllPairs , 
@@ -284,6 +373,7 @@ class Neighborhood
         std::unordered_map<nodePtr, CorrelationPropagationResult> corrResult;
 
         CorrelationResults neighbourhoodCorrs;
+        LaplacianResults laplacianScores;
 
         //Laplacian scores for correlations/ slopes: 
         //it maps: <NodeName, NodeName> -> laplacian score. int is the index of a feature (protein) in the list of nodes of its Data/ Grpahhandler structure

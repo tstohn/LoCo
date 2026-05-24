@@ -69,7 +69,7 @@ A named list containing LoCo results with four elements:
   \item{RawData}{
     A data.frame containing the input expression matrix in long form,
     with an additional column \code{cellID}. If the raw data did not contain named cellIDs the new
-    cellIDs are enumerated in the form 'C_<index>', where the first index starts from 0.
+    cellIDs are enumerated in the form \code{C_<index>}, where the first index starts from 0.
     Rows correspond to cells and columns correspond to features.
   }
 
@@ -77,7 +77,7 @@ A named list containing LoCo results with four elements:
     A data.frame summarising statistically significant feature pairs
     based on Laplacian scoring. Contains:
     \itemize{
-      \item \code{FeaturePair}: names of feature pairs as 'feature1_feature2'
+      \item \code{FeaturePair}: names of feature pairs as \code{feature1_feature2}
       \item \code{LaplacianScore}: computed laplacian score
       \item \code{p_value}: permutation-based p-value
       \item \code{FeatureSet}: comma-separated list of features forming sets of co-correlated features
@@ -87,14 +87,14 @@ A named list containing LoCo results with four elements:
   \item{Correlations}{
     A data.frame of correlation values per neighbourhood with 3 columns "CorrelationPair", "NeighbourhoodID", "Correlation".
     The first column \code{CorrelationPair} contains feature pairs (same name as in LaplacianScore),
-    the second column \code{NeighbourhoodID} contains all neighbourhoodIDs (like N_<number>),
+    the second column \code{NeighbourhoodID} contains all neighbourhoodIDs (like \code{N_<number>}),
     and the third column \code{Correlation} contains the correlation of the pair in this neighbourhood.
   }
 
   \item{Neighbourhoods}{
     A data.frame describing all constructed neighbourhoods:
     \itemize{
-      \item \code{NeighborhoodID}: unique ID of each neighbourhood in the form 'N_<index>' where the index starts from 0.
+      \item \code{NeighborhoodID}: unique ID of each neighbourhood in the form \code{N_<index>} where the index starts from 0.
       \item \code{AnchorCellID}: central cell of the neighbourhood. LoCo starts by sampling random cells (anchor cells) and builds local neighbourhoods around them.
       \item \code{AllCellIDs}: comma-separated list of all cells in this neighbourhood. These were the closest cells to the anchor cell.
     }
@@ -106,18 +106,18 @@ Run LoCo analysis
 }
 \details{
 The result is a list of data.frame containing: 1.) the RawData, 
-2.) LaplacianScores: scored correlation pairs that vary across single-cell sapce, 
+2.) LaplacianScores: scored correlation pairs that vary across single-cell space, 
 3.) Correlations: all correlations in all neighbourhoods,
-4.) Neighbourhoods: the definition of neighbourhoods by their anchor cell and all contained cells
+4.) Neighbourhoods: the definition of neighbourhoods by their anchor cell and all contained cells.
 }
 \examples{
 # Load example dataset shipped with the package
-infile <- system.file("example", "data_1.tsv",
-                      package = "loco")
+infile <- system.file("example", "data_1.tsv", package = "loco")
 
 # Run LoCo on a small example dataset: find all local correlations with a correlation above 0.4
-L1 <- run_loco("inst/example/data_1.tsv", correlationCutoff= 0.4, neighbourhoodSize = 25)
-# Inspect the correlations with the lowest laplacian score/ p_value - 
+L1 <- run_loco(infile, correlationCutoff= 0.4, neighbourhoodSize = 25)
+
+# Inspect the correlations with the lowest laplacian score / p-value - 
 # these correlations change the most across the whole single-cell dataset but change only very little in their local neighbourhood
 head(L1$LaplacianScores)
 L2 <- add_umap_coords(L1)
@@ -127,4 +127,5 @@ plot = plot,
 width = 8,
 height = 6,
 dpi = 300)
+
 }
