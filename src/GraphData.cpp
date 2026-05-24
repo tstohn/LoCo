@@ -88,12 +88,9 @@ namespace InitializationHelper
         else
         {
             if (statusUpdate)
-                LOCO_OUT << "\tSTEP[0a]:\tCreate KD-tree only\n";
+                LOCO_OUT << "\tSTEP[0a]:\tCreate KD-tree (for quick cell-distance lookup)\n";
 
             graphData->create_kd_tree();
-
-            if (statusUpdate)
-                LOCO_OUT << "Skipping distance calculations and do not fill adj. list\n";
 
         }
 
