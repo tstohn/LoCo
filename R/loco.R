@@ -172,7 +172,6 @@ run_loco <- function(
     zscore,
     as.integer(thread),
     as.integer(correlatedSetMode),
-    as.integer(numberCorrelations),
     cellStateGeneFile,
     correlationStateGeneFile,
     as.integer(numberNeighbourhoods),
