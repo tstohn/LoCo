@@ -281,7 +281,7 @@ class Neighborhood
         //calculate how correlation cliques of proteins change smoothly along the
         //cell-cell neighborhood graph (from neighborhood to neighborhood)
         //fills the corrResult
-        void calculate_correlation_propagation(double correlationStrengthCutoff, int minCliqueSize=2, int thread=5);
+        void calculate_correlation_propagation(double correlationStrengthCutoff, int minCliqueSize=2, bool calcSets = false, int thread=5);
         void write_results_to_file(const std::string& output, const std::string& prefix, bool calcSets);
         void write_shuffled_laplacians(const std::string& outFile, const std::string& prefix);
         void fill_result_data(
@@ -290,7 +290,6 @@ class Neighborhood
             std::vector<std::vector<std::string>>& nID_allCellIDs, //vector off all cellIDs for all neighborhoods (same order as nIDs)
             std::vector<std::string>& correlation_pairs, //all names of the correlation pairs
             std::vector<std::vector<double>>& corrMat, //all correlations
-            std::vector<std::string>& laplacian_correlation_pairs, //all names of the correlation pairs for laplacian
             std::vector<double>& corrL, 
             std::vector<double>& pCorrL, 
             std::vector<std::vector<std::string>>& cliquesFlat 

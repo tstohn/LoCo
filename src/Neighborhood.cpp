@@ -1412,8 +1412,17 @@ void Neighborhood::step_3_calculate_laplacian_score(const int threads)
 
 }
 
+void step_4_calculate_feature_sets()
+{
+    // create graph with features as nodes
+
+    // draw edges (weight = 1) into graph if two features interact
+
+    //call subgraph algorithm on this data
+}
+
 //centralneighbourhoodPtrs: all the neighbourhoodsPTrs, sotring all cells in enighbourhoods etc.
-void Neighborhood::calculate_correlation_propagation(double correlationStrengthCutoff, int minCliqueSize, int threads)
+void Neighborhood::calculate_correlation_propagation(double correlationStrengthCutoff, int minCliqueSize, const bool calcSets, int threads)
 {
 
     LOCO_OUT << "STEP 2";
@@ -1425,8 +1434,12 @@ void Neighborhood::calculate_correlation_propagation(double correlationStrengthC
     LOCO_OUT << "\tCalculate Laplacian score\n";
     step_3_calculate_laplacian_score(threads);
 
-    LOCO_OUT << "STEP 4";
-    LOCO_OUT << "\tCalcualte correlated feature sets (biological programs)";
+    if(calcSets)
+    {
+        LOCO_OUT << "STEP 4";
+        LOCO_OUT << "\tCalcualte correlated feature sets (biological programs)";
+        step_4_calculate_feature_sets();
+    }
 
 }
 
@@ -1487,7 +1500,6 @@ void Neighborhood::fill_result_data(
     std::vector<std::string>& correlation_pairs, //all names of the correlation pairs
     std::vector<std::vector<double>>& corrMat, //all correlations
 
-    std::vector<std::string>& laplacian_correlation_pairs, //all names of the correlation pairs for laplacian
     std::vector<double>& corrL, 
     std::vector<double>& pCorrL, 
     std::vector<std::vector<std::string>>& cliquesFlat 
@@ -1508,12 +1520,22 @@ void Neighborhood::fill_result_data(
     // =========================
     // LAPLACIAN RESULTS
     // =========================
-    for(int idx = 0; idx < neighbourhoodCorrs.pairNames.size(); ++idx)
+    size_t numPairs = neighbourhoodCorrs.pairNames.size();
+    std::vector<size_t> indices(numPairs);
+    std::iota(indices.begin(), indices.end(), 0);
+    // Sort the indices based on laplacianScores.L in increasing order
+    std::sort(indices.begin(), indices.end(), 
+        [this](size_t a, size_t b) {
+            return laplacianScores.L[a] < laplacianScores.L[b];
+        }
+    );
+    // Use the sorted indices to populate your lists
+    for(size_t i = 0; i < numPairs; ++i)
     {
+        size_t idx = indices[i]; // Grab the index that belongs in this sorted position
 
         std::string featurePairTmp = neighbourhoodCorrs.pairNames[idx];
         correlation_pairs.push_back(featurePairTmp);
-        laplacian_correlation_pairs.push_back(featurePairTmp);
 
         // values
         corrL.push_back(laplacianScores.L[idx]);
@@ -1521,6 +1543,7 @@ void Neighborhood::fill_result_data(
 
         // flatten cliques: vector of strings as ["A,B,C","B,C,D",...]
         std::vector<std::string> cliqueStrings;
+        // (Populate your cliqueStrings here)
 
         cliquesFlat.push_back(cliqueStrings);
     }
@@ -1529,7 +1552,6 @@ void Neighborhood::fill_result_data(
     // CORRELATION MATRIX
     // =========================
     size_t numNeighborhoods = nIDs.size();
-    size_t numPairs = neighbourhoodCorrs.pairNames.size();
 
     //check order is as expected
     for (size_t i = 0; i < numNeighborhoods; ++i)

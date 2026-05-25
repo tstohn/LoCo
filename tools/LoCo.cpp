@@ -175,7 +175,7 @@ void run_correlation_propagation_across_graph(const SingleCellData& inFile, cons
         Neighborhood neighborhood(scNormData, numNeighborhoodsCalculated, neighborhoodSize, neighborhoodKNN, 
                                 inFile, cellStateIdxs, corrIdxs, permutations, corrSetAbundance,
                                 correlatedSetMode, correlationType);
-        neighborhood.calculate_correlation_propagation(correlationCutoff, minSetSize, thread);
+        neighborhood.calculate_correlation_propagation(correlationCutoff, minSetSize, calcSets, thread);
 
         //write results to file:
         //neighborhood, coordinates, correlation, slope for every protein-pair

@@ -22,7 +22,8 @@ using namespace Rcpp;
 // 3.) correlations: tibble with 3 columns "CorrelationPair", "NeighbourhoodID", "Correlation"
 // 4,) neighbourhoods: anchor cell + contained cells
 Rcpp::List build_loco_object(const SingleCellData& rawData,
-                             Neighborhood& neighborhood) 
+                             Neighborhood& neighborhood,
+                            const bool calcFeatureSets) 
 {
 
     //fill intermittend data that are used to write the R-result object
@@ -33,15 +34,13 @@ Rcpp::List build_loco_object(const SingleCellData& rawData,
     std::vector<std::string> correlation_pairs; //all names of the correlation pairs
     std::vector<std::vector<double>> corrMat; //all correlations: rows = neighborhoods in nIDs, cols = correlationPairs in correlation_pairs
 
-
-    std::vector<std::string> laplacian_correlation_pairs; //all names of the correlation pairs for laplacian
     std::vector<double> corrL;
     std::vector<double> pCorrL;
     std::vector<std::vector<std::string>> cliquesFlat;
     neighborhood.fill_result_data(
         nIDs, nID_anchorCellID,nID_allCellIDs,
         correlation_pairs,corrMat,
-        laplacian_correlation_pairs,corrL,pCorrL,cliquesFlat);
+        corrL,pCorrL,cliquesFlat);
 
     // =========================
     // 1. safe raw data table
@@ -81,7 +80,8 @@ Rcpp::List build_loco_object(const SingleCellData& rawData,
     // 2.) Laplacian scores/ p-values/ cliques for all interesting pairs
     // =========================
 
-    int laplacian_size = laplacian_correlation_pairs.size();
+    //check that the vector of feature_pairs and laplacian-scores is of same length
+    int laplacian_size = correlation_pairs.size();
     // Safety check (important for robustness)
     if (corrL.size() != laplacian_size || pCorrL.size() != laplacian_size || cliquesFlat.size() != laplacian_size) 
     {
@@ -89,31 +89,46 @@ Rcpp::List build_loco_object(const SingleCellData& rawData,
     }
 
     // Flatten cliquesFlat into comma-separated strings
-    std::vector<std::string> cliquesCollapsed(laplacian_size);
+    if(calcFeatureSets)
+    {
+        std::vector<std::string> cliquesCollapsed(laplacian_size);
+        for (int i = 0; i < laplacian_size; i++) {
+            const auto& cliqueVec = cliquesFlat[i];
 
-    for (int i = 0; i < laplacian_size; i++) {
-        const auto& cliqueVec = cliquesFlat[i];
-
-        std::string combined;
-        for (size_t j = 0; j < cliqueVec.size(); j++) 
-        {
-            combined += cliqueVec[j];
-            if (j < cliqueVec.size() - 1) {
-                combined += ";";
+            std::string combined;
+            for (size_t j = 0; j < cliqueVec.size(); j++) 
+            {
+                combined += cliqueVec[j];
+                if (j < cliqueVec.size() - 1) {
+                    combined += ";";
+                }
             }
-        }
 
-        cliquesCollapsed[i] = combined;
+            cliquesCollapsed[i] = combined;
+        }
     }
 
+    Rcpp::DataFrame laplacian_scores;
     // build DataFrame 
-    Rcpp::DataFrame laplacian_scores = Rcpp::DataFrame::create(
-        Rcpp::Named("FeaturePair") = laplacian_correlation_pairs,
-        Rcpp::Named("LaplacianScore") = corrL,
-        Rcpp::Named("p_value") = pCorrL,
-        Rcpp::Named("FeatureSet") = cliquesCollapsed,
-        Rcpp::_["stringsAsFactors"] = false
-    );
+    if(calcFeatureSets)
+    {
+        laplacian_scores = Rcpp::DataFrame::create(
+            Rcpp::Named("FeaturePair") = correlation_pairs,
+            Rcpp::Named("LaplacianScore") = corrL,
+            Rcpp::Named("p_value") = pCorrL,
+            Rcpp::_["stringsAsFactors"] = false
+        );
+    }
+    else
+    {
+        laplacian_scores = Rcpp::DataFrame::create(
+            Rcpp::Named("FeaturePair") = correlation_pairs,
+            Rcpp::Named("LaplacianScore") = corrL,
+            Rcpp::Named("p_value") = pCorrL,
+            Rcpp::Named("FeatureSet") = cliquesCollapsed,
+            Rcpp::_["stringsAsFactors"] = false
+        );
+    }
 
     // =========================
     // 3. neighbourhoodIDs - correlations (LONG FORMAT)
@@ -219,7 +234,8 @@ Rcpp::List run_correlation_propagation_across_graph(const SingleCellData& inFile
                                                const std::vector<std::string>& cellStateGenes,
                                               const std::vector<std::string>& corrStateGenes, 
                                               const int permutations, const int minSetSize, const double corrSetAbundance, 
-                                              const unsigned int correlatedSetMode, const std::string& correlationType)
+                                              const unsigned int correlatedSetMode, const std::string& correlationType,
+                                            const bool calcFeatureSets)
 {
     //we can store results for many Neighbourhood-size simultaneously
     Rcpp::List all_results;
@@ -245,10 +261,10 @@ Rcpp::List run_correlation_propagation_across_graph(const SingleCellData& inFile
     Neighborhood neighborhood(scNormData, numberNeighbourhoodsCalculated, neighborhoodSize, neighborhoodKNN, 
                             inFile, cellStateIdxs, corrIdxs, permutations, corrSetAbundance,
                             correlatedSetMode, correlationType);
-    neighborhood.calculate_correlation_propagation(correlationCutoff, minSetSize, thread);
+    neighborhood.calculate_correlation_propagation(correlationCutoff, minSetSize, calcFeatureSets, thread);
 
     //return the RCPP data structure for loco
-    Rcpp::List res = build_loco_object(inFile, neighborhood);
+    Rcpp::List res = build_loco_object(inFile, neighborhood, calcFeatureSets);
 
     return(res);
 }
@@ -271,7 +287,8 @@ Rcpp::List run_loco_cpp(
     int permutations,
     int minSetSize,
     double corrSetAbundance,
-    std::string correlationType
+    std::string correlationType,
+    bool calcFeatureSets
 ){
 
     //READ IN DATA
@@ -307,7 +324,8 @@ Rcpp::List run_loco_cpp(
         minSetSize,
         corrSetAbundance,
         correlatedSetMode,
-        correlationType
+        correlationType,
+        calcFeatureSets
     );
 
     return(result);
