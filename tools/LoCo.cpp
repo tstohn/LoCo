@@ -185,7 +185,7 @@ void run_correlation_propagation_across_graph(const SingleCellData& inFile, cons
         {
             tmpPrefix = prefix + "_Nsize_" + std::to_string(neighborhoodSize);
         }
-        
+
         neighborhood.write_results_to_file(outFile, tmpPrefix, calcSets);
     }
 }

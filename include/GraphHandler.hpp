@@ -39,9 +39,15 @@ class GraphHandler
 {
 
     public:
+    // GRAPHHANDLER with known nodePtrs and adjacency matrices
+    // for this constructor create_graph has to be called explicitely
+    // E>G>, FOR KNN-GRAPHS// CORRELATION GRAPHS
         // knn = 0 creates NO knn graph but a k-dist graph based on radius threshold, and scales the idstances with gaussian kerbel using bandwidth (if non negative)
         // bandwidth==0: estimate badnwidth, <0: skip gaussian kernel distance scaling, keepHighEdges is set if we keep only edges ABOVE a threshold
         GraphHandler(std::shared_ptr<const GraphData> data, int knn = 5, double inputRadius = 0, double bandwidth = 0);
+    // EMPTY GRAPHBUILDER, building a Graph entirely new from list of list of index-pairs for edges, (nodeNames are merely cosmetic: to already get feature sets etc.)
+    // this constructor already calls create_graph_from_node_edge_list
+        GraphHandler(const std::vector<std::string>& nodeNames, const std::vector<std::pair<int, int>>& edges);
 
         GraphHandler (const  GraphHandler &)  = delete;
 
@@ -75,6 +81,9 @@ class GraphHandler
             return(data->get_all_feature_names());
         }
 
+        std::string return_named_feature_set(std::vector<std::vector<int>> featureSetsRaw);
+        void create_graph_from_node_edge_list(const std::vector<std::string>& nodeNames, 
+                  const std::vector<std::pair<int, int>>& input_edges);
         void create_graph();
 
         void dfs_search(const int start,
@@ -138,6 +147,8 @@ class GraphHandler
 
         //iGraph: nodes and adj matrix in the same order as ndoes in GraphData!!
         Graph graph;
+        std::vector<std::string> graphNodeNames; //e.g., for features when creating the feature-graph
+
         // adjacency matrix: symmetric 
         double** weightedAdjacencyMatrix = nullptr;
 };

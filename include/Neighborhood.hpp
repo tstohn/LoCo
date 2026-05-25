@@ -137,6 +137,9 @@ struct CorrelationResults
     std::vector<std::string> featureNames; //list of single feature names (of the subset of features used for corr analysis)
     std::vector<std::string> pairNames;      // names of all pairs (e.g., []"A_B", "B_D"]), for quick printing later on
 
+    //final string of all the feature sets of the consensus graph for all the feature-pairs (pairList and pairNames)
+    std::vector<std::string> featureSetString;
+
     // Downstream Layout: Rows = Feature Pairs, Cols = Subsets (N)
     FlatMatrix pairToListOfAllNCorrs;
 
@@ -281,7 +284,7 @@ class Neighborhood
         //calculate how correlation cliques of proteins change smoothly along the
         //cell-cell neighborhood graph (from neighborhood to neighborhood)
         //fills the corrResult
-        void calculate_correlation_propagation(double correlationStrengthCutoff, int minCliqueSize=2, bool calcSets = false, int thread=5);
+        void calculate_correlation_propagation(double correlationStrengthCutoff, int minFeatureSetSize=2, bool calcSets = false, int thread=5);
         void write_results_to_file(const std::string& output, const std::string& prefix, bool calcSets);
         void write_shuffled_laplacians(const std::string& outFile, const std::string& prefix);
         void fill_result_data(
@@ -302,6 +305,7 @@ class Neighborhood
         void calculate_pair_variance(size_t pair_idx);
         void step_2_calculate_correlation(const double& corrThreshold, const int threads);
         void step_3_calculate_laplacian_score(const int threads);
+        void step_4_calculate_feature_sets(int minFeatureSetSize);
 
         void calculate_correlations_for_N(nodePtr neighborhoodCenter, size_t neighborhood_idx, 
                                                 const double& corrThreshold, FlatMatrix& tempCalculationMatrix,

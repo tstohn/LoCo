@@ -258,7 +258,7 @@ void Neighborhood::write_results_to_file(const std::string& outFile, const std::
     }
     outputFile << "\n";
     outputFile.close();
-
+    
     /////////////////////////////
     // 3.)  File with annotations: NeighborhoodID - centralNodeDimensions[start ... end]
     /////////////////////////////
@@ -1412,17 +1412,130 @@ void Neighborhood::step_3_calculate_laplacian_score(const int threads)
 
 }
 
-void step_4_calculate_feature_sets()
+
+/*
+OLD CODE AS EXMAPLE
+
+      //calculate all correlations/ slopes of them
+        SingleCellData inputDataTmp = filter_singleCelldata(inputDataOrigional, neighborhoods.at(neighborhoodCenter));
+
+        //for the protein graph calculate brute force all distances instead of reading form a KD-tree
+        // this way we can filter correlations based on value
+        unsigned int proteinGraphKnn = 0;
+        std::shared_ptr<GraphData> correlationData;
+        if(correlationType == "spearman")
+        {
+            correlationData = std::make_shared<GraphData>(inputDataTmp, corrStateGenes, proteinGraphKnn, &GraphIni::protein_correlation_graph_spearman);
+        }
+        else if(correlationType == "pearson")
+        {
+            correlationData = std::make_shared<GraphData>(inputDataTmp, corrStateGenes, proteinGraphKnn, &GraphIni::protein_correlation_graph_pearson);
+        }
+        
+        GraphHandler corrGraphBuilder = GraphHandler(correlationData, 0, correlationStrengthCutoff, -1);
+        corrGraphBuilder.create_graph();
+
+        //results are stored here afterwards
+        std::vector<std::vector<int>> cliqueVectorRaw;
+        if(correlatedSetMode == 1)
+        {
+            corrGraphBuilder.calculate_connected_components(cliqueVectorRaw, minCliqueSize);
+        }
+        else if(correlatedSetMode == 0)
+        {
+            corrGraphBuilder.calculate_fully_connected_components(cliqueVectorRaw, minCliqueSize);
+        }
+        else if(correlatedSetMode >= 2)
+        {
+            corrGraphBuilder.calculate_min_edge_connected_components(cliqueVectorRaw, minCliqueSize, correlatedSetMode);
+        }
+        else
+
+*/
+
+void Neighborhood::step_4_calculate_feature_sets(int minFeatureSetSize)
 {
     // create graph with features as nodes
-
-    // draw edges (weight = 1) into graph if two features interact
+    // use the second GraphHandler initializer: it creates directly a graph from nodes/ edges
+    // input are the feature names and the pairList
+    GraphHandler consensusCorrelationGraph = GraphHandler(neighbourhoodCorrs.featureNames, neighbourhoodCorrs.pairList);
+    std::vector<std::vector<int>> featureSetsRaw;
 
     //call subgraph algorithm on this data
+    if(correlatedSetMode == 1)
+    {
+        consensusCorrelationGraph.calculate_connected_components(featureSetsRaw, minFeatureSetSize);
+    }
+    else if(correlatedSetMode == 0)
+    {
+        consensusCorrelationGraph.calculate_fully_connected_components(featureSetsRaw, minFeatureSetSize);
+    }
+    else if(correlatedSetMode >= 2)
+    {
+        consensusCorrelationGraph.calculate_min_edge_connected_components(featureSetsRaw, minFeatureSetSize, correlatedSetMode);
+    }
+    else
+    {
+        LOCO_OUT << "Invalid mode for detection of correlated sets: fallback to connected component -> mode 0\n";
+        consensusCorrelationGraph.calculate_connected_components(featureSetsRaw, minFeatureSetSize);
+    } 
+
+    //iterate through the list of feature-pairs: for each pair check in which featureSetsRaw they are and create the string for it
+
+    size_t numPairs = neighbourhoodCorrs.pairList.size();
+
+    // 1. Setup fast lookup map (Pair -> Index in pairList)
+    std::unordered_map<std::pair<int, int>, int, pair_hash> pairToIndexMap;
+    pairToIndexMap.reserve(numPairs);    
+    for (size_t i = 0; i < numPairs; ++i) {
+        pairToIndexMap[neighbourhoodCorrs.pairList[i]] = i;
+    }
+
+    // 2. Storage for mapping pair index -> lists of feature sets that contain this pair
+    std::vector<std::vector<std::vector<int>>> pairToSets(numPairs);
+
+    // 3. The Smart Iteration: Loop sets, build pairs, map to index
+    for (const auto& featureSet : featureSetsRaw) {
+        
+        if (featureSet.size() < 2) continue; // Skip sets too small to form a pair
+
+        for (size_t i = 0; i < featureSet.size(); ++i) {
+            for (size_t j = i + 1; j < featureSet.size(); ++j) {
+                
+                int u = featureSet[i];
+                int v = featureSet[j];
+
+                // Ensure the pair is always ordered [smaller, larger] to match pairList
+                if (u > v) {
+                    std::swap(u, v);
+                }
+
+                // Check if this generated pair exists in our main pairList
+                auto it = pairToIndexMap.find({u, v});
+                if (it != pairToIndexMap.end()) {
+                    int pairIndex = it->second;
+                    // Add this entire featureSet to the pair's storage
+                    pairToSets[pairIndex].push_back(featureSet);
+                }
+            }
+        }
+    }
+
+    // 4. Create the final vector of strings aligned exactly with pairList
+    neighbourhoodCorrs.featureSetString.resize(numPairs);
+    
+    for (size_t i = 0; i < numPairs; ++i) {
+        // Call your custom function, passing the collected sets for this specific pair
+        neighbourhoodCorrs.featureSetString[i] = consensusCorrelationGraph.return_named_feature_set(pairToSets[i]);
+    }
+
+    // Now finalFeatureSetStrings[i] contains the correctly formatted string 
+    // for the pair at neighbourhoodCorrs.pairList[i]
+    
 }
 
 //centralneighbourhoodPtrs: all the neighbourhoodsPTrs, sotring all cells in enighbourhoods etc.
-void Neighborhood::calculate_correlation_propagation(double correlationStrengthCutoff, int minCliqueSize, const bool calcSets, int threads)
+void Neighborhood::calculate_correlation_propagation(double correlationStrengthCutoff, int minFeatureSetSize, const bool calcSets, int threads)
 {
 
     LOCO_OUT << "STEP 2";
@@ -1438,9 +1551,9 @@ void Neighborhood::calculate_correlation_propagation(double correlationStrengthC
     {
         LOCO_OUT << "STEP 4";
         LOCO_OUT << "\tCalcualte correlated feature sets (biological programs)";
-        step_4_calculate_feature_sets();
+        std::vector<std::vector<int>> featureSetsRaw;
+        step_4_calculate_feature_sets(minFeatureSetSize);
     }
-
 }
 
 void Neighborhood::create_neighborhood_graph(int knn)

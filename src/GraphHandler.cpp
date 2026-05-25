@@ -298,6 +298,96 @@ GraphHandler::GraphHandler(std::shared_ptr<const GraphData> data, int knn, doubl
 
 }
 
+GraphHandler::GraphHandler(const std::vector<std::string>& nodeNames, const std::vector<std::pair<int, int>>& edges) : knn(0), radius(0.0)
+{
+    create_graph_from_node_edge_list(nodeNames, edges);
+    graphNodeNames = nodeNames;
+}
+
+std::string GraphHandler::return_named_feature_set(std::vector<std::vector<int>> featureSetsRaw)
+{
+    std::string featureSetListString = "";
+    // Translate the integer indices back to your node names
+    for (size_t i = 0; i < featureSetsRaw.size(); ++i) 
+    {        
+        int count = 0;
+        // Iterate through the integer indices in this specific component
+        for (int nodeIndex : featureSetsRaw[i]) 
+        {
+            if(count > 0)
+            {
+                featureSetListString += ",";
+            }
+            // Use the index to look up the actual string name
+            featureSetListString += graphNodeNames[nodeIndex];
+            ++count;
+        }
+
+        if(i < (featureSetsRaw.size()-1))
+        {
+            featureSetListString += ";";
+        }
+    }
+
+    return(featureSetListString);
+}
+
+void GraphHandler::create_graph_from_node_edge_list(const std::vector<std::string>& nodeNames, 
+                  const std::vector<std::pair<int, int>>& input_edges) 
+{
+    
+    int n = nodeNames.size();
+    graph.num_nodes = n;
+    
+    // Resize and initialize offsets array to 0
+    graph.offsets.assign(n + 1, 0);
+
+    // 1. Get the number of edges (degree) for every node
+    std::vector<int> degree(n, 0);
+    for (const auto& edge : input_edges) {
+        int u = edge.first;
+        int v = edge.second;
+        
+        // Safety check to ensure indices are valid
+        if (u >= 0 && u < n && v >= 0 && v < n) {
+            degree[u]++;
+            degree[v]++;
+        }
+    }
+
+    // 2. Set the offset of edges for nodes
+    graph.offsets[0] = 0;
+    for (int i = 0; i < n; i++) {
+        graph.offsets[i + 1] = graph.offsets[i] + degree[i];
+    }
+
+    // 3. Allocate size for edge / weight vectors
+    int total_edges = graph.offsets[n];
+    graph.edges.resize(total_edges);
+    graph.weights.resize(total_edges);
+
+    // 4. Store all edges in BOTH directions
+    // cursor stores the current position in edges/weights where the next neighbor is placed
+    std::vector<int> cursor = graph.offsets;
+
+    for (const auto& edge : input_edges) {
+        int u = edge.first;
+        int v = edge.second;
+
+        if (u >= 0 && u < n && v >= 0 && v < n) {
+            // Direction: u -> v
+            int pos_u = cursor[u]++;
+            graph.edges[pos_u] = v;
+            graph.weights[pos_u] = 1.0; // Default weight
+
+            // Direction: v -> u
+            int pos_v = cursor[v]++;
+            graph.edges[pos_v] = u;
+            graph.weights[pos_v] = 1.0; // Default weight
+        }
+    }
+}
+
 void GraphHandler::create_graph()
 {
     int n = data->number_of_nodes();
