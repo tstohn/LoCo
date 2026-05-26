@@ -11,8 +11,8 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 // run_loco_cpp
-Rcpp::List run_loco_cpp(std::string inFile, char del, bool col, bool row, bool zscore, int thread, unsigned int correlatedSetMode, std::string cellStateGeneFile, std::string correlationStateGeneFile, unsigned int numberNeighbourhoods, unsigned int neighborhoodSize, int neighborhoodKNN, double correlationCutoff, int permutations, int minSetSize, double corrSetAbundance, std::string correlationType);
-RcppExport SEXP _loco_run_loco_cpp(SEXP inFileSEXP, SEXP delSEXP, SEXP colSEXP, SEXP rowSEXP, SEXP zscoreSEXP, SEXP threadSEXP, SEXP correlatedSetModeSEXP, SEXP cellStateGeneFileSEXP, SEXP correlationStateGeneFileSEXP, SEXP numberNeighbourhoodsSEXP, SEXP neighborhoodSizeSEXP, SEXP neighborhoodKNNSEXP, SEXP correlationCutoffSEXP, SEXP permutationsSEXP, SEXP minSetSizeSEXP, SEXP corrSetAbundanceSEXP, SEXP correlationTypeSEXP) {
+Rcpp::List run_loco_cpp(std::string inFile, char del, bool col, bool row, bool zscore, int thread, unsigned int correlatedSetMode, std::string cellStateGeneFile, std::string correlationStateGeneFile, unsigned int numberNeighbourhoods, unsigned int neighborhoodSize, int neighborhoodKNN, double correlationCutoff, int permutations, int minSetSize, double corrSetAbundance, std::string correlationType, bool calcFeatureSets);
+RcppExport SEXP _loco_run_loco_cpp(SEXP inFileSEXP, SEXP delSEXP, SEXP colSEXP, SEXP rowSEXP, SEXP zscoreSEXP, SEXP threadSEXP, SEXP correlatedSetModeSEXP, SEXP cellStateGeneFileSEXP, SEXP correlationStateGeneFileSEXP, SEXP numberNeighbourhoodsSEXP, SEXP neighborhoodSizeSEXP, SEXP neighborhoodKNNSEXP, SEXP correlationCutoffSEXP, SEXP permutationsSEXP, SEXP minSetSizeSEXP, SEXP corrSetAbundanceSEXP, SEXP correlationTypeSEXP, SEXP calcFeatureSetsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -33,13 +33,14 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type minSetSize(minSetSizeSEXP);
     Rcpp::traits::input_parameter< double >::type corrSetAbundance(corrSetAbundanceSEXP);
     Rcpp::traits::input_parameter< std::string >::type correlationType(correlationTypeSEXP);
-    rcpp_result_gen = Rcpp::wrap(run_loco_cpp(inFile, del, col, row, zscore, thread, correlatedSetMode, cellStateGeneFile, correlationStateGeneFile, numberNeighbourhoods, neighborhoodSize, neighborhoodKNN, correlationCutoff, permutations, minSetSize, corrSetAbundance, correlationType));
+    Rcpp::traits::input_parameter< bool >::type calcFeatureSets(calcFeatureSetsSEXP);
+    rcpp_result_gen = Rcpp::wrap(run_loco_cpp(inFile, del, col, row, zscore, thread, correlatedSetMode, cellStateGeneFile, correlationStateGeneFile, numberNeighbourhoods, neighborhoodSize, neighborhoodKNN, correlationCutoff, permutations, minSetSize, corrSetAbundance, correlationType, calcFeatureSets));
     return rcpp_result_gen;
 END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_loco_run_loco_cpp", (DL_FUNC) &_loco_run_loco_cpp, 17},
+    {"_loco_run_loco_cpp", (DL_FUNC) &_loco_run_loco_cpp, 18},
     {NULL, NULL, 0}
 };
 

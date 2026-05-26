@@ -195,7 +195,7 @@ test_loco_a:
 #you should run it with printing cliques and find in each neighborhood roughly ONLY 1,2,3 or 4,5,6
 # RESULT: this should always find the two correlatuion sets A,B,C and D,E,F
 test_loco_b:
-	./bin/loco -i ./test/simulatedData2.tsv -o bin/ -p test_b -c -v ./test/cellStateGenes.txt -w ./test/cellSignalGenes.txt -t 10
+	./bin/loco -i ./test/simulatedData2.tsv -o bin/ -p test_b -c -v ./test/cellStateGenes.txt -w ./test/cellSignalGenes.txt -t 10 -f 1
 	./test/test_b.sh
 
 #tets with 1000 cells and 58 features

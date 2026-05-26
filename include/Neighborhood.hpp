@@ -295,7 +295,8 @@ class Neighborhood
             std::vector<std::vector<double>>& corrMat, //all correlations
             std::vector<double>& corrL, 
             std::vector<double>& pCorrL, 
-            std::vector<std::vector<std::string>>& cliquesFlat 
+            std::vector<std::string>& featureSetString,
+            const bool calcFeatureSets
         );
     private:
 

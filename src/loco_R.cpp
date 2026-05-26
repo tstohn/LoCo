@@ -36,11 +36,11 @@ Rcpp::List build_loco_object(const SingleCellData& rawData,
 
     std::vector<double> corrL;
     std::vector<double> pCorrL;
-    std::vector<std::vector<std::string>> cliquesFlat;
+    std::vector<std::string> featureSetStrings; // a string for each feature-pair listing all sets with comma and semicolon like A,B,C;A,B,D
     neighborhood.fill_result_data(
         nIDs, nID_anchorCellID,nID_allCellIDs,
         correlation_pairs,corrMat,
-        corrL,pCorrL,cliquesFlat);
+        corrL,pCorrL,featureSetStrings, calcFeatureSets);
 
     // =========================
     // 1. safe raw data table
@@ -83,28 +83,15 @@ Rcpp::List build_loco_object(const SingleCellData& rawData,
     //check that the vector of feature_pairs and laplacian-scores is of same length
     int laplacian_size = correlation_pairs.size();
     // Safety check (important for robustness)
-    if (corrL.size() != laplacian_size || pCorrL.size() != laplacian_size || cliquesFlat.size() != laplacian_size) 
+    if (corrL.size() != laplacian_size || pCorrL.size() != laplacian_size) 
     {
         Rcpp::stop("Input vectors must have the same length");
     }
-
-    // Flatten cliquesFlat into comma-separated strings
     if(calcFeatureSets)
     {
-        std::vector<std::string> cliquesCollapsed(laplacian_size);
-        for (int i = 0; i < laplacian_size; i++) {
-            const auto& cliqueVec = cliquesFlat[i];
-
-            std::string combined;
-            for (size_t j = 0; j < cliqueVec.size(); j++) 
-            {
-                combined += cliqueVec[j];
-                if (j < cliqueVec.size() - 1) {
-                    combined += ";";
-                }
-            }
-
-            cliquesCollapsed[i] = combined;
+        if(featureSetStrings.size() != laplacian_size)
+        {
+            Rcpp::stop("Input vectors must have the same length: list of feature sets and length of laplacian scores does not match!");
         }
     }
 
@@ -116,6 +103,7 @@ Rcpp::List build_loco_object(const SingleCellData& rawData,
             Rcpp::Named("FeaturePair") = correlation_pairs,
             Rcpp::Named("LaplacianScore") = corrL,
             Rcpp::Named("p_value") = pCorrL,
+            Rcpp::Named("FeatureSet") = featureSetStrings,
             Rcpp::_["stringsAsFactors"] = false
         );
     }
@@ -125,7 +113,6 @@ Rcpp::List build_loco_object(const SingleCellData& rawData,
             Rcpp::Named("FeaturePair") = correlation_pairs,
             Rcpp::Named("LaplacianScore") = corrL,
             Rcpp::Named("p_value") = pCorrL,
-            Rcpp::Named("FeatureSet") = cliquesCollapsed,
             Rcpp::_["stringsAsFactors"] = false
         );
     }

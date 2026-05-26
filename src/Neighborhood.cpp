@@ -220,7 +220,7 @@ void Neighborhood::write_results_to_file(const std::string& outFile, const std::
 
         if(calcSets)
         {
-
+            outputFile << "\t" << neighbourhoodCorrs.featureSetString[idx];
         }
 
         outputFile << "\n";
@@ -1615,7 +1615,8 @@ void Neighborhood::fill_result_data(
 
     std::vector<double>& corrL, 
     std::vector<double>& pCorrL, 
-    std::vector<std::vector<std::string>>& cliquesFlat 
+    std::vector<std::string>& featureSetString,
+    const bool calcFeatureSets
 )
 {
 
@@ -1654,11 +1655,11 @@ void Neighborhood::fill_result_data(
         corrL.push_back(laplacianScores.L[idx]);
         pCorrL.push_back(laplacianScores.p_values[idx]);
 
-        // flatten cliques: vector of strings as ["A,B,C","B,C,D",...]
-        std::vector<std::string> cliqueStrings;
-        // (Populate your cliqueStrings here)
-
-        cliquesFlat.push_back(cliqueStrings);
+        // get feature sets
+        if(calcFeatureSets)
+        {
+            featureSetString.push_back(neighbourhoodCorrs.featureSetString[idx]);
+        }
     }
 
     // =========================

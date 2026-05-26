@@ -22,7 +22,8 @@ run_loco(
   permutations = 100,
   minSetSize = 2,
   corrSetAbundance = 0.01,
-  correlationType = "spearman"
+  correlationType = "spearman",
+  calcFeatureSets = FALSE
 )
 }
 \arguments{
@@ -61,6 +62,11 @@ run_loco(
 \item{corrSetAbundance}{Minimum abundance threshold (percentage of neighbourhoods that must contain a correlated pair to consider this pair).}
 
 \item{correlationType}{spearman or pearson for the correlations to calculate.}
+
+\item{calcFeatureSets}{calculate sets of features that correlate with each other. This set is created with the algorithm defined in <correlatedSetMode>
+and correlations might not all appear in the same are of the single-cell space, but might occur anywhere across the whole space. 
+A graph of features is created, edges are drawn of feature pass the threshold for minimum number of neighbourhoods with a correlation above threshold.
+Then LoCo looks for connected components in this graph. For details look in paper.}
 }
 \value{
 A named list containing LoCo results with four elements:
