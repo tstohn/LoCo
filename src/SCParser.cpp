@@ -223,6 +223,7 @@ void SCParser::readGeneNames(const std::string& line, const char& del,
         //if we know that the data MUST have rownmes, we can skip the first entry as it must be emopty/ be sth. like CELL_ID_COLUMN
         if(hasRowNames == true && count == 0)
         {
+            ++count;
             continue;
         }
 
@@ -236,6 +237,7 @@ void SCParser::readGeneNames(const std::string& line, const char& del,
         //if the first col is empty we assume that the data has rownames (cell IDs)
         if(count == 0 && substr=="")
         {
+            ++count;
             hasRowNames = true;
             LOCO_OUT << "The first column entry in the first row is empty, we therefore assume that rownames (cell-names) are provided!\
             If this is not the case please remove the empty entry, give a proper gene name or remove the gene-name header entirely\n.";
