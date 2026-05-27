@@ -221,7 +221,7 @@ void SCParser::readGeneNames(const std::string& line, const char& del,
     while(getline( ss, substr, del ))
     {
         //if we know that the data MUST have rownmes, we can skip the first entry as it must be emopty/ be sth. like CELL_ID_COLUMN
-        if(hasRowNames == true)
+        if(hasRowNames == true && count == 0)
         {
             continue;
         }
