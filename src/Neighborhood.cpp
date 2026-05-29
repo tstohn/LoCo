@@ -1559,7 +1559,7 @@ void Neighborhood::calculate_correlation_propagation(double correlationStrengthC
 void Neighborhood::create_neighborhood_graph(int knn)
 {
     //create graph of neighborhoods: input is only the central nodes of neighborhoods
-    std:;cout << "Create neighbourhood graph\n";
+    std::cout << "Create neighbourhood graph\n";
     std::shared_ptr<GraphData> scGraphData = std::make_shared<GraphData>(centralNeighborhoodPtrs, cellStateGenes, knn, &GraphIni::cell_similarity_graph_manhattan_nodes);
     //inout radius does not matter, but set bandwidth to neg. value to skip estimation
     neighborhoodGraph = std::make_shared<GraphHandler>(scGraphData, knn, 0, -1);
