@@ -32,7 +32,7 @@ Rcpp::List build_loco_object(const SingleCellData& rawData,
     std::vector<std::vector<std::string>> nID_allCellIDs;// vector (for each nID) of vector of all cell IDs 
 
     std::vector<std::string> correlation_pairs_laplacian; //all names of the correlation pairs for Alplacian
-    std::vector<std::string>& correlation_pairs_origional; //all names of the correlation pairs for amtrix
+    std::vector<std::string> correlation_pairs_origional; //all names of the correlation pairs for amtrix
 
     std::vector<std::vector<double>> corrMat; //all correlations: rows = neighborhoods in nIDs, cols = correlationPairs in correlation_pairs
 
@@ -83,7 +83,7 @@ Rcpp::List build_loco_object(const SingleCellData& rawData,
     // =========================
 
     //check that the vector of feature_pairs and laplacian-scores is of same length
-    int laplacian_size = correlation_pairs.size();
+    int laplacian_size = correlation_pairs_laplacian.size();
     // Safety check (important for robustness)
     if (corrL.size() != laplacian_size || pCorrL.size() != laplacian_size) 
     {
