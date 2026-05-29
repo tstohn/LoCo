@@ -46,7 +46,7 @@ Input to LoCo is a tsv file of raw single-cell counts with cells in rows and fea
 Once installed you can load LoCo in R and run it:
 ```R
 library(loco)
-locoResults <- run_loco("src/test/data_1.tsv", correlationCutoff= 0.5)
+locoResults <- run_loco("test/data_1.tsv", correlationCutoff= 0.5)
 ```
 
 For the exact output format see below or in the manual.
