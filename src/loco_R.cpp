@@ -31,7 +31,9 @@ Rcpp::List build_loco_object(const SingleCellData& rawData,
     std::vector<std::string> nID_anchorCellID; //vector (for each nID) off all anchor cellIDs (same order as nIDs)
     std::vector<std::vector<std::string>> nID_allCellIDs;// vector (for each nID) of vector of all cell IDs 
 
-    std::vector<std::string> correlation_pairs; //all names of the correlation pairs
+    std::vector<std::string> correlation_pairs_laplacian; //all names of the correlation pairs for Alplacian
+    std::vector<std::string>& correlation_pairs_origional; //all names of the correlation pairs for amtrix
+
     std::vector<std::vector<double>> corrMat; //all correlations: rows = neighborhoods in nIDs, cols = correlationPairs in correlation_pairs
 
     std::vector<double> corrL;
@@ -39,7 +41,7 @@ Rcpp::List build_loco_object(const SingleCellData& rawData,
     std::vector<std::string> featureSetStrings; // a string for each feature-pair listing all sets with comma and semicolon like A,B,C;A,B,D
     neighborhood.fill_result_data(
         nIDs, nID_anchorCellID,nID_allCellIDs,
-        correlation_pairs,corrMat,
+        correlation_pairs_laplacian, correlation_pairs_origional,corrMat,
         corrL,pCorrL,featureSetStrings, calcFeatureSets);
 
     // =========================
@@ -100,7 +102,7 @@ Rcpp::List build_loco_object(const SingleCellData& rawData,
     if(calcFeatureSets)
     {
         laplacian_scores = Rcpp::DataFrame::create(
-            Rcpp::Named("FeaturePair") = correlation_pairs,
+            Rcpp::Named("FeaturePair") = correlation_pairs_laplacian,
             Rcpp::Named("LaplacianScore") = corrL,
             Rcpp::Named("p_value") = pCorrL,
             Rcpp::Named("FeatureSet") = featureSetStrings,
@@ -110,7 +112,7 @@ Rcpp::List build_loco_object(const SingleCellData& rawData,
     else
     {
         laplacian_scores = Rcpp::DataFrame::create(
-            Rcpp::Named("FeaturePair") = correlation_pairs,
+            Rcpp::Named("FeaturePair") = correlation_pairs_laplacian,
             Rcpp::Named("LaplacianScore") = corrL,
             Rcpp::Named("p_value") = pCorrL,
             Rcpp::_["stringsAsFactors"] = false
@@ -123,7 +125,7 @@ Rcpp::List build_loco_object(const SingleCellData& rawData,
 
     // Size checks
     int nIDsize = nIDs.size();
-    int nPairs  = correlation_pairs.size();
+    int nPairs  = correlation_pairs_origional.size();
     int total   = nIDsize * nPairs; // Calculate exact final size
 
     if (corrMat.size() != nIDsize) {
@@ -147,7 +149,7 @@ Rcpp::List build_loco_object(const SingleCellData& rawData,
         const std::string& neigh_id = nIDs[i];
 
         for (int p = 0; p < nPairs; p++) {
-            out_pair[idx]  = correlation_pairs[p];
+            out_pair[idx]  = correlation_pairs_origional[p];
             out_neigh[idx] = neigh_id;
             out_corr[idx]  = corrMat[i][p];
             idx++; // Advance flat index
@@ -242,6 +244,7 @@ Rcpp::List run_correlation_propagation_across_graph(const SingleCellData& inFile
     bool printStatusUpdateCellDistCalc = true;
     unsigned int scGraphKnn = neighborhoodSize; //the KNN value is the number of cells in a neighborhood, we ONLY have to calcualte the knn closest neighbors, no need for more
     bool precalculateAllDistances = false;
+    std::cout << "Calculate cell distances\n";
     std::shared_ptr<GraphData> scNormData = std::make_shared<GraphData>(inFile, cellStateIdxs, scGraphKnn, &GraphIni::cell_similarity_graph_manhattan_raw, thread, printStatusUpdateCellDistCalc, precalculateAllDistances);
 
     //create Neighborhoods

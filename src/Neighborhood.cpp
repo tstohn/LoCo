@@ -1559,6 +1559,7 @@ void Neighborhood::calculate_correlation_propagation(double correlationStrengthC
 void Neighborhood::create_neighborhood_graph(int knn)
 {
     //create graph of neighborhoods: input is only the central nodes of neighborhoods
+    std:;cout << "Create neighbourhood graph\n";
     std::shared_ptr<GraphData> scGraphData = std::make_shared<GraphData>(centralNeighborhoodPtrs, cellStateGenes, knn, &GraphIni::cell_similarity_graph_manhattan_nodes);
     //inout radius does not matter, but set bandwidth to neg. value to skip estimation
     neighborhoodGraph = std::make_shared<GraphHandler>(scGraphData, knn, 0, -1);
@@ -1610,7 +1611,9 @@ void Neighborhood::fill_result_data(
     std::vector<std::string>& nID_anchorCellID, //achnor cell IDs for neighborhoods
     std::vector<std::vector<std::string>>& nID_allCellIDs, //vector off all cellIDs for all neighborhoods (same order as nIDs)
 
-    std::vector<std::string>& correlation_pairs, //all names of the correlation pairs
+    std::vector<std::string>& correlation_pairs_sorted, //all names of the correlation pairs
+
+    std::vector<std::string>& correlation_pairs_origional, //all names of the correlation pairs
     std::vector<std::vector<double>>& corrMat, //all correlations
 
     std::vector<double>& corrL, 
@@ -1648,8 +1651,9 @@ void Neighborhood::fill_result_data(
     {
         size_t idx = indices[i]; // Grab the index that belongs in this sorted position
 
+        //store correlations in order for Laplacian
         std::string featurePairTmp = neighbourhoodCorrs.pairNames[idx];
-        correlation_pairs.push_back(featurePairTmp);
+        correlation_pairs_sorted.push_back(featurePairTmp);
 
         // values
         corrL.push_back(laplacianScores.L[idx]);
@@ -1666,6 +1670,9 @@ void Neighborhood::fill_result_data(
     // CORRELATION MATRIX
     // =========================
     size_t numNeighborhoods = nIDs.size();
+
+    //store correlation in order of the correlation matrix
+    correlation_pairs_origional = neighbourhoodCorrs.pairNames;
 
     //check order is as expected
     for (size_t i = 0; i < numNeighborhoods; ++i)
