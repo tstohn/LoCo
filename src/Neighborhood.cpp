@@ -1561,8 +1561,8 @@ void Neighborhood::create_neighborhood_graph(int knn)
     //create graph of neighborhoods: input is only the central nodes of neighborhoods
     std::cout << "Create neighbourhood graph\n";
     std::shared_ptr<GraphData> scGraphData = std::make_shared<GraphData>(centralNeighborhoodPtrs, cellStateGenes, knn, &GraphIni::cell_similarity_graph_manhattan_nodes);
-    //inout radius does not matter, but set bandwidth to neg. value to skip estimation
-    neighborhoodGraph = std::make_shared<GraphHandler>(scGraphData, knn, 0, -1);
+    //inout radius does not matter, bandwidth=0 triggers auto-estimation via calc_bandwidth
+    neighborhoodGraph = std::make_shared<GraphHandler>(scGraphData, knn, 0, 0);
     neighborhoodGraph->create_graph();
 }
 

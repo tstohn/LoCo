@@ -233,7 +233,7 @@ test_loco_uniform_noSignalMarkers:
 	./bin/loco -i ./test/data_2.tsv -o bin/ -p data_2_b -c -n 50 -s 100 -x 0.5 -z 1 -t 10 -v test/paperCellstateMarkers.txt
 
 test_corr_state_markers:
-	./bin/loco -i ./test/data3.tsv -o bin/ -p data3 -c -n 1 -s 200 -x 0.4 -a 0 -z 1 -t 10 -w test/data3_signalMarkers.txt -v test/data3_stateMarkers.txt 
+	./bin/loco -i ./test/data3.tsv -o bin/ -p data3 -c -n 10 -s 20 -x 0.4 -a 0 -z 1 -t 10 -w test/data3_signalMarkers.txt -v test/data3_stateMarkers.txt 
 
 test_loco:
 	make test_loco_a

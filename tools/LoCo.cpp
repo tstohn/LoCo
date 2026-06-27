@@ -166,6 +166,12 @@ void run_correlation_propagation_across_graph(const SingleCellData& inFile, cons
         }
         std::cout << "STEP 1\n";
         std::cout << "\tCreating " << numNeighborhoodsCalculated << " neighbourhoods with " << neighborhoodSize << " cells\n";
+        
+        if(numNeighborhoodsCalculated == 1)
+        {
+            std::cout << "WARNING: YOU ARE RUNNING LoCo WITH A SINGLE NEIGHBOURHOOD!!!\n";
+            std::cout << " LoCo still estimated correlations within this neihgbourhood but can not detect smooth changes\n";
+        }
         bool printStatusUpdateCellDistCalc = true;
         unsigned int scGraphKnn = neighborhoodSize; //the KNN value is the number of cells in a neighborhood, we ONLY have to calcualte the knn closest neighbors, no need for more
         bool precalculateAllDistances = false;

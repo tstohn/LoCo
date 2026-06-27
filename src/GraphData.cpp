@@ -453,6 +453,7 @@ void GraphIni::protein_correlation_graph(GraphData* graphData, const SingleCellD
 
 
 //NEW; FUNCTION FOR DISTANCE INITIALIZATION WITH KNN
+// only called to get adjacent nodes for neighbourhoods
 void GraphData::build_knn_adjacency(int k)
 {
     // 1. Build kd-tree once
@@ -461,12 +462,14 @@ void GraphData::build_knn_adjacency(int k)
     const size_t N  = nodes.size();
     const int dim   = get_node_at(0)->dimensions();
 
-    // 2. Reset adjacency map
+    // 2. Reset adjacency map and pre-initialize every node so isolated nodes don't cause at() to throw
     adjacencyList.clear();
-    adjacencyList.reserve(N);  // unordered_map reserve
+    adjacencyList.reserve(N);
+    for (size_t i = 0; i < N; ++i)
+        adjacencyList[get_node_at(static_cast<int>(i))];
 
     LOCO_OUT << "creating cell-cell dist with k " << k << "\n";
-    // 3. For each node, query its k nearest neighbors (the point itself is part of the results and will be added to cells for this N)
+    // 3. For each node, query its k nearest neighbors/ point itself is not included
     for (size_t i = 0; i < N; ++i)
     {
         nodePtr node_i = get_node_at(static_cast<int>(i));
@@ -475,11 +478,12 @@ void GraphData::build_knn_adjacency(int k)
         for (int d = 0; d < dim; ++d)
             query_pt[d] = node_i->value_at(d);
 
-        std::vector<size_t> ret_indexes(k);
-        std::vector<double> out_dists_sqr(k);
+        int kPlusSelf = k + 1; // request k+1 so we still get k real neighbors after skipping self
+        std::vector<size_t> ret_indexes(kPlusSelf);
+        std::vector<double> out_dists(kPlusSelf);
 
-        nanoflann::KNNResultSet<double> resultSet(k);
-        resultSet.init(ret_indexes.data(), out_dists_sqr.data());
+        nanoflann::KNNResultSet<double> resultSet(kPlusSelf);
+        resultSet.init(ret_indexes.data(), out_dists.data());
 
         mat_indexPtr->index->findNeighbors(
             resultSet,
@@ -487,26 +491,19 @@ void GraphData::build_knn_adjacency(int k)
             nanoflann::SearchParams(10)
         );
 
-        for (int r = 0; r < k; ++r)
+        int actualResults = static_cast<int>(resultSet.size());
+        int added = 0;
+        for (int r = 0; r < actualResults && added < k; ++r)
         {
             size_t j = ret_indexes[r];
+            if(j == i) continue;
 
             nodePtr node_j = get_node_at(static_cast<int>(j));
-            double dist = std::sqrt(out_dists_sqr[r]);
-
-            // >>> INSERT NEIGHBOR ACCORDING TO HOW OrderedNeighborDistanceHash IS DEFINED <<<
-            // Example A: if OrderedNeighborDistanceHash is std::vector<std::pair<nodePtr,double>>
-            // neighbors.emplace_back(node_j, dist);
-
-            // Example B: if it's std::map<double, nodePtr>
-            // neighbors.emplace(dist, node_j);
-
-            // Example C: if it's std::unordered_map<nodePtr, double>
-            // neighbors.emplace(node_j, dist);
+            double dist = out_dists[r];
 
             adjacencyList[node_i].set(node_j, dist);
             adjacencyList[node_j].set(node_i, dist);
-
+            ++added;
         }
 
         // 5. Store in adjacencyList
@@ -540,18 +537,18 @@ void GraphData::search_kd_tree()
         }
         const size_t num_results = 10;
         std::vector<nanoflann::KNNResultSet<double>::IndexType> ret_indexes(num_results);
-        std::vector<double> out_dists_sqr(num_results);
+        std::vector<double> out_dists(num_results);
 
         nanoflann::KNNResultSet<double> resultSet(num_results);
 
-        resultSet.init(&ret_indexes[0], &out_dists_sqr[0] );
+        resultSet.init(&ret_indexes[0], &out_dists[0] );
         mat_indexPtr->index->findNeighbors(resultSet, &query_pt[0], nanoflann::SearchParams(10));
 
         if(i == nodes.size()-1)
         {
         	LOCO_OUT << "knnSearch(nn="<<num_results<<"): \n";
             for (size_t i = 0; i < num_results; i++)
-                LOCO_OUT << "ret_index["<<i<<"]=" << ret_indexes[i] << " out_dist_sqr=" << out_dists_sqr[i] << std::endl;
+                LOCO_OUT << "ret_index["<<i<<"]=" << ret_indexes[i] << " out_dist=" << out_dists[i] << std::endl;
         }
     }
 }

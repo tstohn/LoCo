@@ -211,15 +211,15 @@ void GraphHandler::fill_knn_matrix(double** weightMatrix)
         {
             if(edges == knn) break;
             double weightedDist = 0;            
-            //APPLY GAUSSIAN KERNEL: bandwidth was already estimated in case it was initially zero
+            // W[i][j] = exp(-d² / 2σ²), d taken directly from stored adjacency distance
             if(bandwidth > 0.0)
             {
-                weightedDist = calc_gaussian_kernel(nodes.at(i), neighbor.first, bandwidth);
+                double d = neighbor.second;
+                weightedDist = std::exp(-(d * d) / (2.0 * bandwidth * bandwidth));
             }
-            //do not further change weight
             else
             {
-                weightedDist = neighbor.second;
+                weightedDist = 1.0 / (neighbor.second + 1e-10);
             }
             edges++;
             
@@ -238,29 +238,24 @@ void GraphHandler::fill_knn_matrix(double** weightMatrix)
 // 3.) bandwidth = avgDist/ 2
 double GraphHandler::calc_bandwidth()
 {
-    std::vector<double> distVector;
-    unsigned long long closeNeighborSize = data->return_adj_list().size() / 10;
-
-    if(closeNeighborSize == 0)
+    std::vector<double> allDists;
+    for(const auto& entry : data->return_adj_list())
     {
-        throw std::invalid_argument("Number of cells too small. In Bandwidth detection for edge-width estimation by gaussian kernel we selected 10\% of total number of cells which euquals zer0!");
-    }
-    // for every node
-    for(const std::pair<const nodePtr, OrderedNeighborDistanceHash>& neighbor : data->return_adj_list())
-    {
-        //calculate average distance of ten perc. closest neighbors
-        OrderedNeighborDistanceHash::ConstIterator it = neighbor.second.begin();
-        double topTenDist = 0;
-        for(size_t i =0; i < closeNeighborSize; ++i)
+        for(auto it = entry.second.begin(); it != entry.second.end(); ++it)
         {
-            topTenDist += it.distance();
-            ++it;
+            allDists.push_back(it.distance());
         }
-        distVector.emplace_back(topTenDist/10);
     }
 
-    //calculate average of distances for all nodes, divided by 5
-    return( (accumulate(distVector.begin(), distVector.end(), 0))/2 );
+    if(allDists.empty())
+    {
+        return 1.0; // no edges (e.g. single neighbourhood): weight matrix will be all zeros regardless
+    }
+
+    // median of all stored edge distances
+    size_t mid = allDists.size() / 2;
+    std::nth_element(allDists.begin(), allDists.begin() + mid, allDists.end());
+    return allDists[mid];
 }
 
 double GraphHandler::calc_gaussian_kernel(const nodePtr& nodeA, const nodePtr& nodeB, const double& bandwidth) const
@@ -277,7 +272,7 @@ GraphHandler::GraphHandler(std::shared_ptr<const GraphData> data, int knn, doubl
 {
     //create adjacency matrix with gaussian kernel
     //estimate a bandwidth
-    if(knn == 0 && bandwidth == 0){bandwidth = calc_bandwidth();}
+    if(bandwidth == 0){bandwidth = calc_bandwidth();}
 
     //create the weightedAdjacencyMatrix used for iGraoph creation (ATTENTION: this data needs to be freed upon destruction)
     int numberNodes = data->number_of_nodes();
