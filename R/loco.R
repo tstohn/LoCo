@@ -1,27 +1,112 @@
 #' Run LoCo analysis
 #'
-#' @param inFile Input file path.
-#' @param del Delimiter used in input file.
-#' @param col Whether feature names are in columns.
-#' @param row Whether cell names are in rows.
-#' @param zscore Apply z-score normalization.
-#' @param thread Number of threads.
-#' @param correlatedSetMode Mode for correlated sets (connected components, fully connected, connected by min x edges)
-#' @param numberCorrelations Number of correlations to compute.
-#' @param cellStateGeneFile Path to cell state gene file. Only these features are used to create cell neighbourhoods.
-#' @param correlationStateGeneFile Path to correlation state gene file: only these features are used to calculate pairwise correlations.
-#' @param numberNeighbourhoods number of neighbourhoods to create. Per default (0), LoCo creates x = (totalCellNumber/ neighbourhoodSize) neighbourhoods.
-#' @param neighbourhoodSize Size of neighbourhoods.
-#' @param neighbourhoodKNN Number of nearest neighbours.
-#' @param correlationCutoff Correlation threshold (minimum correlation between pairs to consider this correlation)
-#' @param permutations Number of permutations for p-value calculation.
-#' @param minSetSize Minimum set size.
-#' @param corrSetAbundance Minimum abundance threshold (percentage of neighbourhoods that must contain a correlated pair to consider this pair).
-#' @param correlationType spearman or pearson for the correlations to calculate. 
-#' @param calcFeatureSets calculate sets of features that correlate with each other. This set is created with the algorithm defined in <correlatedSetMode>
-#' and correlations might not all appear in the same are of the single-cell space, but might occur anywhere across the whole space. 
-#' A graph of features is created, edges are drawn of feature pass the threshold for minimum number of neighbourhoods with a correlation above threshold.
-#' Then LoCo looks for connected components in this graph. For details look in paper.
+#' @description
+#' Runs the complete LoCo (Local Correlations) pipeline on a feature matrix.
+#' LoCo samples random anchor cells, builds fixed-size neighbourhoods around
+#' them, computes pairwise feature correlations within each neighbourhood, and
+#' scores the resulting correlation pairs with a Laplacian smoothness criterion.
+#' Pairs with a low Laplacian score vary systematically across the point cloud
+#' (e.g. a gene pair that is tightly co-expressed only in one cell sub-population)
+#' rather than appearing randomly.  A permutation test gives each pair a p-value.
+#'
+#' @param inFile Path to the input data file.  The file must be a delimited text
+#'   matrix where rows are cells and columns are features (genes, proteins, ...),
+#'   or vice versa -- see \code{col} and \code{row}.
+#' @param del Single character used as the column delimiter in \code{inFile}.
+#'   Default: \code{"\\t"} (tab-separated).
+#' @param col Logical.  If \code{TRUE}, feature names are in the \emph{columns}
+#'   (i.e. each row is a cell and each column is a feature -- the standard layout).
+#'   If \code{FALSE} (default), LoCo treats the file as transposed (rows = features,
+#'   columns = cells).
+#' @param row Logical.  If \code{TRUE}, cell (row) names are present as the first
+#'   column of the file and will be read as cell IDs.  If \code{FALSE} (default),
+#'   LoCo assigns automatic IDs of the form \code{C_<index>} starting from 0.
+#' @param zscore Logical.  If \code{TRUE} (default), each feature is z-score
+#'   normalised (zero mean, unit variance) before correlation is computed.
+#'   Recommended for data with very different dynamic ranges across features.
+#' @param thread Integer.  Number of parallel threads to use.  Default: \code{1}.
+#'   Increase for large datasets to speed up neighbourhood and correlation
+#'   calculations.
+#' @param correlatedSetMode Integer controlling which graph algorithm is used to
+#'   group co-correlated features into \emph{feature sets}.  Only relevant when
+#'   \code{calcFeatureSets = TRUE}.  Accepted values:
+#'   \describe{
+#'     \item{\code{0} -- Clique / fully-connected}{Finds maximal cliques using the
+#'       Bron-Kerbosch algorithm.  Every feature in a returned set is directly
+#'       correlated with every other feature in that set.  Produces the most
+#'       stringent, compact sets but is computationally expensive for large graphs.}
+#'     \item{\code{1} -- Connected components (default)}{Groups features into
+#'       weakly connected subgraphs.  Two features end up in the same set if
+#'       they are linked through any chain of pairwise correlations, even if
+#'       not all pairs are directly correlated.  Fast and suitable for most use
+#'       cases.}
+#'     \item{\code{>= 2} -- Minimum-edge connectivity}{Each feature in a returned
+#'       set must share at least \code{correlatedSetMode} direct correlations
+#'       with other members of that set.  For example, \code{correlatedSetMode = 3}
+#'       requires every feature to have at least 3 correlated partners within
+#'       the set.  Higher values yield denser, more tightly interconnected sets.}
+#'   }
+#' @param numberCorrelations Integer.  Maximum number of feature pairs to
+#'   evaluate.  \code{0} (default) computes all \eqn{n(n-1)/2} pairwise
+#'   correlations.  Set to a positive integer to subsample pairs, which is
+#'   useful for very large feature spaces where exhaustive computation would
+#'   be prohibitive.
+#' @param cellStateGeneFile Path to a plain-text file (one feature name per
+#'   line, no header) listing the features to be used \emph{exclusively} for
+#'   neighbourhood construction.  Only these features drive the KNN graph that
+#'   defines which cells are neighbours.  Useful when a curated gene set (e.g.
+#'   cell-type marker genes) should define cell proximity independently of the
+#'   features being correlated.  Leave as \code{""} (default) to use all
+#'   features for neighbourhood construction.
+#' @param correlationStateGeneFile Path to a plain-text file (one feature name
+#'   per line, no header) listing the features for which pairwise correlations
+#'   are computed.  All other features are ignored during the correlation step.
+#'   Leave as \code{""} (default) to compute correlations for all features.
+#' @param numberNeighbourhoods Integer.  Total number of neighbourhoods to
+#'   create.  \code{0} (default) lets LoCo automatically choose
+#'   \eqn{n_{\mathrm{cells}} / \mathrm{neighbourhoodSize}} neighbourhoods so that
+#'   the point cloud is covered roughly once.  Increase for denser coverage or
+#'   set explicitly to cap compute time.
+#' @param neighbourhoodSize Integer.  Number of cells in each neighbourhood
+#'   (anchor cell + its nearest neighbours).  Default: \code{100}.  Larger
+#'   neighbourhoods capture broader, more global co-expression patterns;
+#'   smaller neighbourhoods capture finer local variation.  The neighbourhood
+#'   size must be meaningfully smaller than the total number of cells.
+#' @param neighbourhoodKNN Integer.  Number of nearest neighbours used to build
+#'   the KNN graph from which neighbourhoods are grown.  Default: \code{5}.
+#'   This controls the graph connectivity used when expanding from the anchor
+#'   cell to fill the neighbourhood to \code{neighbourhoodSize} cells.
+#' @param correlationCutoff Numeric in \eqn{[0, 1]}.  Minimum absolute
+#'   correlation required for a feature pair to be recorded within a
+#'   neighbourhood.  Default: \code{0.5}.  Pairs whose correlation falls below
+#'   this threshold in a given neighbourhood are discarded for that
+#'   neighbourhood.  Lower values retain weaker correlations; higher values
+#'   restrict to strongly correlated pairs only.
+#' @param permutations Integer.  Number of permutations used to estimate the
+#'   null distribution for the Laplacian score p-value.  Default: \code{100}.
+#'   Increase (e.g. to 1000) for more accurate p-values.
+#' @param minSetSize Integer.  Minimum number of features required to report a
+#'   feature set when \code{calcFeatureSets = TRUE}.  Sets smaller than this
+#'   threshold are discarded.  Default: \code{2}.
+#' @param corrSetAbundance Numeric in \eqn{[0, 1]}.  Minimum fraction of
+#'   neighbourhoods in which a feature pair must show a correlation above
+#'   \code{correlationCutoff} to be considered for Laplacian scoring.
+#'   Default: \code{0.01} (1 \%).  Increase to focus on correlations that
+#'   appear consistently across the dataset; decrease to also capture very
+#'   rare, localised correlations.
+#' @param correlationType Character string, either \code{"spearman"} (default)
+#'   or \code{"pearson"}.  Type of correlation computed within each
+#'   neighbourhood.  Spearman correlation is rank-based and more robust to
+#'   outliers; Pearson correlation is faster but sensitive to non-linear
+#'   relationships and extreme values.
+#' @param calcFeatureSets Logical.  If \code{TRUE}, LoCo additionally groups
+#'   co-correlated features into \emph{feature sets} (modules) using the
+#'   algorithm selected by \code{correlatedSetMode}.  A feature-level graph is
+#'   built across all neighbourhoods: an edge is drawn between two features if
+#'   their pair passes the \code{corrSetAbundance} and \code{correlationCutoff}
+#'   filters globally (not restricted to a single spatial region).  The
+#'   resulting feature sets are reported in the \code{FeatureSet} column of
+#'   \code{LaplacianScores}.  Default: \code{FALSE}.
 #' @return A named list containing LoCo results with four elements:
 #'
 #' \describe{
@@ -79,10 +164,30 @@
 #' dpi = 300)
 #' 
 #' @details
-#' The result is a list of data.frame containing: 1.) the RawData, 
-#' 2.) LaplacianScores: scored correlation pairs that vary across single-cell space, 
-#' 3.) Correlations: all correlations in all neighbourhoods,
-#' 4.) Neighbourhoods: the definition of neighbourhoods by their anchor cell and all contained cells.
+#' \strong{Pipeline steps executed by \code{run_loco}:}
+#' \enumerate{
+#'   \item The input matrix is parsed and, if requested, z-score normalised.
+#'   \item \code{numberNeighbourhoods} anchor cells are sampled at random.
+#'         A KNN graph (k = \code{neighbourhoodKNN}) is built from the cell
+#'         coordinates (using all features or only those in
+#'         \code{cellStateGeneFile}), and each anchor cell collects its
+#'         \code{neighbourhoodSize} nearest neighbours to form a neighbourhood.
+#'   \item Within each neighbourhood, pairwise correlations
+#'         (\code{correlationType}) are computed for all feature pairs (or the
+#'         subset in \code{correlationStateGeneFile}).  Pairs below
+#'         \code{correlationCutoff} are discarded for that neighbourhood.
+#'   \item Pairs that survive the \code{corrSetAbundance} filter (present in
+#'         at least that fraction of all neighbourhoods) are scored with the
+#'         Laplacian smoothness criterion and given a permutation-based p-value.
+#'   \item Optionally (\code{calcFeatureSets = TRUE}), features are grouped into
+#'         co-correlated modules via the graph algorithm chosen by
+#'         \code{correlatedSetMode}.
+#' }
+#'
+#' \strong{Interpreting the Laplacian score:} A \emph{low} score means the
+#' correlation is spatially smooth -- it varies gradually and systematically
+#' across the point cloud, suggesting a biologically meaningful local
+#' co-regulation.  A high score means the correlation is noisy or random.
 #' @export
 run_loco <- function(
   inFile,
@@ -197,29 +302,45 @@ run_loco <- function(
 }
 
 
-#' Add UMAP coordinates to LoCo result
+#' Add UMAP coordinates to a LoCo result
 #'
 #' @description
-#' Creates UMAP space for raw data and adds the UMAP-coordinates UMAP1/UMAP2 to RawData, Neighbourhoods and Correlations.
-#' Run: \code{umapAddedLocoResult <- add_umap_coords(locoResult)} to add the UMAP coords to the loco result.
-#' \code{umapAddedLocoResult} can be used to plot the correlations in neighbourhoods on a UMAP.
-#' 
+#' Computes a UMAP embedding of the raw data returned by \code{\link{run_loco}}
+#' and attaches the 2-D coordinates (\code{UMAP1}, \code{UMAP2}) to the
+#' \code{RawData}, \code{Neighbourhoods}, and \code{Correlations} data frames
+#' in the result list.  The enriched list can then be passed directly to
+#' \code{\link{plot_local_correlation_map}} or
+#' \code{\link{plot_cell_level_correlation}}.
+#'
 #' @details
-#' To plot local correlations across neighbourhoods LoCo needs a space to plot those correlations in.
-#' One possibility is to create the UMAP space of the raw data. Within this UMAP space you can inspect
-#' original raw features and additionally assign UMAP coordinates to neighbourhoods by taking the central
-#' cell of all neighbourhoods (the anchor cell) and assigning the UMAP coordinates of this cell to their
-#' neighbourhood. After running \code{add_umap_coords()} you can run \code{plot_local_correlation_map()} to plot local correlations
-#' within this UMAP space. You do not have to use these UMAP coordinates but this function makes it easy
-#' to create the UMAP space for the raw data and the neighbourhoods. However, you can create your own
-#' embedding (PCA, ...) and plot neighbourhoods (by assigning neighbourhood coordinates to the coordinates of their anchor cells).
-#' \code{add_umap_coords()} adds the UMAP coordinates to the RawData data.frame, the Neighbourhoods data.frame and also to the Correlations data.frame.
-#' 
-#' @param locoResult the result of run_loco
-#' @param n_pcs the number of components for PCA (default 0 = skip PCA embedding). If n_pcs > 0 the function firstly decomposes the input matrix into PCs and runs umap on the PCs. In this case scale is set to FALSE, as the PCA already scales the data.
-#' @param scale z-score normalize feature counts before calculating UMAP coords (TRUE). This is ONLY considered when n_pcs is 0. If n_pcs > 0 the functions uses the first \code{n_pcs} PCs to run the UMAP embedding and does not z-score normalize in between!
-#' @param metric distance-metric for UMAP (euclidean)
-#' @param seed seed for UMAP (7)
+#' To visualise where in the point cloud a correlation is strong or weak, LoCo
+#' needs a 2-D layout.  This function provides one by running UMAP on the
+#' feature matrix stored in \code{locoResult$RawData}.  Each neighbourhood is
+#' then assigned the UMAP coordinates of its anchor cell, so that
+#' neighbourhood-level statistics (e.g. per-neighbourhood correlation strength)
+#' can be plotted in the same 2-D space as the individual cells.
+#'
+#' You are not required to use this function.  If you have an existing embedding
+#' (PCA, t-SNE, spatial coordinates, ...), you can add columns \code{UMAP1} and
+#' \code{UMAP2} (or any name of your choice) to \code{locoResult$Correlations}
+#' and \code{locoResult$Neighbourhoods} manually and pass custom dimension names
+#' via the \code{dim1}/\code{dim2} arguments of the plot functions.
+#'
+#' @param locoResult Named list returned by \code{\link{run_loco}}.
+#' @param n_pcs Integer.  Number of principal components to compute before
+#'   running UMAP.  Default \code{0} skips PCA and runs UMAP directly on the
+#'   feature matrix.  Set to a positive integer (e.g. \code{30}) to first
+#'   reduce dimensionality with PCA -- recommended for datasets with many
+#'   features, as it speeds up UMAP and often improves the embedding quality.
+#'   When \code{n_pcs > 0}, \code{scale} is automatically set to \code{FALSE}
+#'   because PCA already centres and scales the data.
+#' @param scale Logical.  If \code{TRUE} (default), z-score normalise the
+#'   feature matrix before computing UMAP.  Ignored when \code{n_pcs > 0}.
+#' @param metric Character string.  Distance metric passed to
+#'   \code{\link[uwot]{umap}}.  Default: \code{"euclidean"}.  Other options
+#'   supported by \pkg{uwot} (e.g. \code{"cosine"}) are also accepted.
+#' @param seed Integer.  Random seed for reproducible UMAP layouts.
+#'   Default: \code{7}.
 #' @export
 add_umap_coords <- function(locoResult,
                             n_pcs = 0,
@@ -370,18 +491,38 @@ add_umap_coords <- function(locoResult,
   return(locoResult)
 }
 
-#' Plot correlations for a correlationPair in all neighbourhoods
-#' 
+#' Plot per-neighbourhood correlation strength across an embedding
+#'
 #' @description
-#' Create a plotting space first (like UMAP coordinates) to then plot neighbourhoods into this space by, e.g., running 
-#' \code{newLocoResult <- add_umap_coords(locoResult)} followed by
-#' \code{plot_local_correlation_map(newLocoResult, "GENE1_GENE2")}
-#' 
+#' Visualises how the correlation of a chosen feature pair varies spatially
+#' across the point cloud.  Each neighbourhood is drawn as a point at the
+#' position of its anchor cell in the 2-D embedding (e.g. UMAP), coloured by
+#' the Spearman/Pearson correlation of the pair inside that neighbourhood.
+#' Blue indicates negative correlation, white indicates no correlation, and
+#' red indicates positive correlation.
+#'
+#' Run \code{\link{add_umap_coords}} first to attach UMAP coordinates, then
+#' call this function:
+#' \preformatted{
+#' result2 <- add_umap_coords(result)
+#' plot_local_correlation_map(result2, result2$LaplacianScores$FeaturePair[1])
+#' }
+#'
 #' @import ggplot2
-#' @param locoResult the result of run_loco after adding an embedding space to the data.frame Correlations in the loco-result. This can be generated by, e.g., running \code{locoResult2 <- add_umap_coords(locoResult1)} and then feeding \code{locoResult2} into this function.
-#' @param correlationPair the name of the correlation that should be plotted. You can see all possible names in the column \code{FeaturePair} in \code{locoResult1$LaplacianScores}.
-#' @param dim1 the x-axis dimension for the plot: per default the UMAP1 coordinate from add_umap_coords
-#' @param dim2 the y-axis dimension for the plot: per default the UMAP2 coordinate from add_umap_coords
+#' @param locoResult Named list returned by \code{\link{run_loco}} after
+#'   embedding coordinates have been added (e.g. via
+#'   \code{\link{add_umap_coords}}).  The \code{Correlations} data frame must
+#'   contain the columns named by \code{dim1} and \code{dim2}.
+#' @param correlationPair Character string.  Name of the feature pair to plot,
+#'   formatted as \code{"featureA_featureB"}.  Valid names are listed in the
+#'   \code{FeaturePair} column of \code{locoResult$LaplacianScores}.
+#' @param dim1 Character string.  Name of the column in
+#'   \code{locoResult$Correlations} to use as the x-axis.
+#'   Default: \code{"UMAP1"} (set by \code{\link{add_umap_coords}}).
+#' @param dim2 Character string.  Name of the column in
+#'   \code{locoResult$Correlations} to use as the y-axis.
+#'   Default: \code{"UMAP2"} (set by \code{\link{add_umap_coords}}).
+#' @return A \code{ggplot2} object.  Save with \code{ggplot2::ggsave()}.
 #' @export
 plot_local_correlation_map <- function(locoResult, correlationPair, dim1 = "UMAP1", dim2 = "UMAP2") 
 {
@@ -454,20 +595,45 @@ plot_local_correlation_map <- function(locoResult, correlationPair, dim1 = "UMAP
 
 
 #' Plot cell-level correlation within a spatial window
-#' 
+#'
 #' @description
-#' Plot correlation between featureA and featureB as a scatter plot using all cells contained in neighbourhoods that are within given space boundaries
-#' [\code{x_min} ... \code{x_max}] and [\code{y_min} ... \code{y_max}].
-#' 
-#' @param locoResult The UMAP-annotated result of run_loco
-#' @param featureA first feature (x-coordinate) of the plotted correlation
-#' @param featureB second feature (y-coordinate) of the plotted correlation
-#' @param x_min The minimum x-coordinate to filter neighbourhoods that are used for plotting. Cells in neighbourhoods are included if the anchor cell of this neighbourhood has an x-coordinate >= \code{x_min}.
-#' @param x_max The maximum x-coordinate to filter neighbourhoods that are used for plotting. Cells in neighbourhoods are included if the anchor cell of this neighbourhood has an x-coordinate <= \code{x_max}.
-#' @param y_min The minimum y-coordinate to filter neighbourhoods that are used for plotting. Cells in neighbourhoods are included if the anchor cell of this neighbourhood has a y-coordinate >= \code{y_min}.
-#' @param y_max The maximum y-coordinate to filter neighbourhoods that are used for plotting. Cells in neighbourhoods are included if the anchor cell of this neighbourhood has a y-coordinate <= \code{y_max}.
-#' @param dim1 the x-axis dimension for the plot: per default the UMAP1 coordinate from add_umap_coords
-#' @param dim2 the y-axis dimension for the plot: per default the UMAP2 coordinate from add_umap_coords
+#' Produces a cell-level scatter plot of \code{featureA} vs \code{featureB}
+#' using only the cells that belong to neighbourhoods whose anchor falls inside
+#' the specified 2-D bounding box (\code{x_min}–\code{x_max},
+#' \code{y_min}–\code{y_max}).
+#'
+#' This is the companion to \code{\link{plot_local_correlation_map}}: first use
+#' the map to visually identify a region of the embedding where a pair shows
+#' strong (or weak) correlation, then use this function to inspect the
+#' underlying cell-level relationship in that region.
+#'
+#' @param locoResult Named list returned by \code{\link{run_loco}} after
+#'   embedding coordinates have been added (e.g. via
+#'   \code{\link{add_umap_coords}}).
+#' @param featureA Character string.  Name of the first feature (plotted on the
+#'   x-axis of the scatter).  Must be a column in \code{locoResult$RawData}.
+#' @param featureB Character string.  Name of the second feature (plotted on
+#'   the y-axis of the scatter).  Must be a column in \code{locoResult$RawData}.
+#' @param x_min Numeric.  Lower bound of the x-axis filter applied to
+#'   neighbourhood anchor positions.  Neighbourhoods whose anchor has a
+#'   \code{dim1} coordinate \strong{below} this value are excluded.
+#' @param x_max Numeric.  Upper bound of the x-axis filter.  Neighbourhoods
+#'   whose anchor has a \code{dim1} coordinate \strong{above} this value are
+#'   excluded.
+#' @param y_min Numeric.  Lower bound of the y-axis filter applied to
+#'   neighbourhood anchor positions.  Neighbourhoods whose anchor has a
+#'   \code{dim2} coordinate \strong{below} this value are excluded.
+#' @param y_max Numeric.  Upper bound of the y-axis filter.  Neighbourhoods
+#'   whose anchor has a \code{dim2} coordinate \strong{above} this value are
+#'   excluded.
+#' @param dim1 Character string.  Column in \code{locoResult$Neighbourhoods}
+#'   used as the x-axis coordinate for spatial filtering.
+#'   Default: \code{"UMAP1"}.
+#' @param dim2 Character string.  Column in \code{locoResult$Neighbourhoods}
+#'   used as the y-axis coordinate for spatial filtering.
+#'   Default: \code{"UMAP2"}.
+#' @return A \code{ggplot2} scatter plot of \code{featureA} vs \code{featureB}
+#'   for all cells in the selected spatial window.
 #' @export
 plot_cell_level_correlation <- function(locoResult, featureA, featureB, x_min, x_max, y_min, y_max, dim1 = "UMAP1", dim2 = "UMAP2")
 {

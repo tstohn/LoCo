@@ -10,4 +10,5 @@ License: GPL-3 + file LICENSE
 LinkingTo: Rcpp
 Imports: Rcpp,ggplot2,uwot,stats
 SystemRequirements: C++17
+Encoding: UTF-8
 RoxygenNote: 7.1.2

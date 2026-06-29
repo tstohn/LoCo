@@ -2,7 +2,7 @@
 % Please edit documentation in R/loco.R
 \name{add_umap_coords}
 \alias{add_umap_coords}
-\title{Add UMAP coordinates to LoCo result}
+\title{Add UMAP coordinates to a LoCo result}
 \usage{
 add_umap_coords(
   locoResult,
@@ -13,29 +13,45 @@ add_umap_coords(
 )
 }
 \arguments{
-\item{locoResult}{the result of run_loco}
+\item{locoResult}{Named list returned by \code{\link{run_loco}}.}
 
-\item{n_pcs}{the number of components for PCA (default 0 = skip PCA embedding). If n_pcs > 0 the function firstly decomposes the input matrix into PCs and runs umap on the PCs. In this case scale is set to FALSE, as the PCA already scales the data.}
+\item{n_pcs}{Integer.  Number of principal components to compute before
+running UMAP.  Default \code{0} skips PCA and runs UMAP directly on the
+feature matrix.  Set to a positive integer (e.g. \code{30}) to first
+reduce dimensionality with PCA -- recommended for datasets with many
+features, as it speeds up UMAP and often improves the embedding quality.
+When \code{n_pcs > 0}, \code{scale} is automatically set to \code{FALSE}
+because PCA already centres and scales the data.}
 
-\item{scale}{z-score normalize feature counts before calculating UMAP coords (TRUE). This is ONLY considered when n_pcs is 0. If n_pcs > 0 the functions uses the first \code{n_pcs} PCs to run the UMAP embedding and does not z-score normalize in between!}
+\item{scale}{Logical.  If \code{TRUE} (default), z-score normalise the
+feature matrix before computing UMAP.  Ignored when \code{n_pcs > 0}.}
 
-\item{metric}{distance-metric for UMAP (euclidean)}
+\item{metric}{Character string.  Distance metric passed to
+\code{\link[uwot]{umap}}.  Default: \code{"euclidean"}.  Other options
+supported by \pkg{uwot} (e.g. \code{"cosine"}) are also accepted.}
 
-\item{seed}{seed for UMAP (7)}
+\item{seed}{Integer.  Random seed for reproducible UMAP layouts.
+Default: \code{7}.}
 }
 \description{
-Creates UMAP space for raw data and adds the UMAP-coordinates UMAP1/UMAP2 to RawData, Neighbourhoods and Correlations.
-Run: \code{umapAddedLocoResult <- add_umap_coords(locoResult)} to add the UMAP coords to the loco result.
-\code{umapAddedLocoResult} can be used to plot the correlations in neighbourhoods on a UMAP.
+Computes a UMAP embedding of the raw data returned by \code{\link{run_loco}}
+and attaches the 2-D coordinates (\code{UMAP1}, \code{UMAP2}) to the
+\code{RawData}, \code{Neighbourhoods}, and \code{Correlations} data frames
+in the result list.  The enriched list can then be passed directly to
+\code{\link{plot_local_correlation_map}} or
+\code{\link{plot_cell_level_correlation}}.
 }
 \details{
-To plot local correlations across neighbourhoods LoCo needs a space to plot those correlations in.
-One possibility is to create the UMAP space of the raw data. Within this UMAP space you can inspect
-original raw features and additionally assign UMAP coordinates to neighbourhoods by taking the central
-cell of all neighbourhoods (the anchor cell) and assigning the UMAP coordinates of this cell to their
-neighbourhood. After running \code{add_umap_coords()} you can run \code{plot_local_correlation_map()} to plot local correlations
-within this UMAP space. You do not have to use these UMAP coordinates but this function makes it easy
-to create the UMAP space for the raw data and the neighbourhoods. However, you can create your own
-embedding (PCA, ...) and plot neighbourhoods (by assigning neighbourhood coordinates to the coordinates of their anchor cells).
-\code{add_umap_coords()} adds the UMAP coordinates to the RawData data.frame, the Neighbourhoods data.frame and also to the Correlations data.frame.
+To visualise where in the point cloud a correlation is strong or weak, LoCo
+needs a 2-D layout.  This function provides one by running UMAP on the
+feature matrix stored in \code{locoResult$RawData}.  Each neighbourhood is
+then assigned the UMAP coordinates of its anchor cell, so that
+neighbourhood-level statistics (e.g. per-neighbourhood correlation strength)
+can be plotted in the same 2-D space as the individual cells.
+
+You are not required to use this function.  If you have an existing embedding
+(PCA, t-SNE, spatial coordinates, ...), you can add columns \code{UMAP1} and
+\code{UMAP2} (or any name of your choice) to \code{locoResult$Correlations}
+and \code{locoResult$Neighbourhoods} manually and pass custom dimension names
+via the \code{dim1}/\code{dim2} arguments of the plot functions.
 }

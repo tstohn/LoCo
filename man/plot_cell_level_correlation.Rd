@@ -17,25 +17,52 @@ plot_cell_level_correlation(
 )
 }
 \arguments{
-\item{locoResult}{The UMAP-annotated result of run_loco}
+\item{locoResult}{Named list returned by \code{\link{run_loco}} after
+embedding coordinates have been added (e.g. via
+\code{\link{add_umap_coords}}).}
 
-\item{featureA}{first feature (x-coordinate) of the plotted correlation}
+\item{featureA}{Character string.  Name of the first feature (plotted on the
+x-axis of the scatter).  Must be a column in \code{locoResult$RawData}.}
 
-\item{featureB}{second feature (y-coordinate) of the plotted correlation}
+\item{featureB}{Character string.  Name of the second feature (plotted on
+the y-axis of the scatter).  Must be a column in \code{locoResult$RawData}.}
 
-\item{x_min}{The minimum x-coordinate to filter neighbourhoods that are used for plotting. Cells in neighbourhoods are included if the anchor cell of this neighbourhood has an x-coordinate >= \code{x_min}.}
+\item{x_min}{Numeric.  Lower bound of the x-axis filter applied to
+neighbourhood anchor positions.  Neighbourhoods whose anchor has a
+\code{dim1} coordinate \strong{below} this value are excluded.}
 
-\item{x_max}{The maximum x-coordinate to filter neighbourhoods that are used for plotting. Cells in neighbourhoods are included if the anchor cell of this neighbourhood has an x-coordinate <= \code{x_max}.}
+\item{x_max}{Numeric.  Upper bound of the x-axis filter.  Neighbourhoods
+whose anchor has a \code{dim1} coordinate \strong{above} this value are
+excluded.}
 
-\item{y_min}{The minimum y-coordinate to filter neighbourhoods that are used for plotting. Cells in neighbourhoods are included if the anchor cell of this neighbourhood has a y-coordinate >= \code{y_min}.}
+\item{y_min}{Numeric.  Lower bound of the y-axis filter applied to
+neighbourhood anchor positions.  Neighbourhoods whose anchor has a
+\code{dim2} coordinate \strong{below} this value are excluded.}
 
-\item{y_max}{The maximum y-coordinate to filter neighbourhoods that are used for plotting. Cells in neighbourhoods are included if the anchor cell of this neighbourhood has a y-coordinate <= \code{y_max}.}
+\item{y_max}{Numeric.  Upper bound of the y-axis filter.  Neighbourhoods
+whose anchor has a \code{dim2} coordinate \strong{above} this value are
+excluded.}
 
-\item{dim1}{the x-axis dimension for the plot: per default the UMAP1 coordinate from add_umap_coords}
+\item{dim1}{Character string.  Column in \code{locoResult$Neighbourhoods}
+used as the x-axis coordinate for spatial filtering.
+Default: \code{"UMAP1"}.}
 
-\item{dim2}{the y-axis dimension for the plot: per default the UMAP2 coordinate from add_umap_coords}
+\item{dim2}{Character string.  Column in \code{locoResult$Neighbourhoods}
+used as the y-axis coordinate for spatial filtering.
+Default: \code{"UMAP2"}.}
+}
+\value{
+A \code{ggplot2} scatter plot of \code{featureA} vs \code{featureB}
+  for all cells in the selected spatial window.
 }
 \description{
-Plot correlation between featureA and featureB as a scatter plot using all cells contained in neighbourhoods that are within given space boundaries
-[\code{x_min} ... \code{x_max}] and [\code{y_min} ... \code{y_max}].
+Produces a cell-level scatter plot of \code{featureA} vs \code{featureB}
+using only the cells that belong to neighbourhoods whose anchor falls inside
+the specified 2-D bounding box (\code{x_min}–\code{x_max},
+\code{y_min}–\code{y_max}).
+
+This is the companion to \code{\link{plot_local_correlation_map}}: first use
+the map to visually identify a region of the embedding where a pair shows
+strong (or weak) correlation, then use this function to inspect the
+underlying cell-level relationship in that region.
 }
