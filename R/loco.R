@@ -73,9 +73,10 @@
 #'   smaller neighbourhoods capture finer local variation.  The neighbourhood
 #'   size must be meaningfully smaller than the total number of cells.
 #' @param neighbourhoodKNN Integer.  Number of nearest neighbours used to build
-#'   the KNN graph from which neighbourhoods are grown.  Default: \code{5}.
-#'   This controls the graph connectivity used when expanding from the anchor
-#'   cell to fill the neighbourhood to \code{neighbourhoodSize} cells.
+#'   the KNN graph of neighbourhoods.  Default: \code{5}.
+#'   This controls the graph connectivity on which the Laplacian Score is calculated.
+#'   Larger values result in correlations that are more smooth, smaller values
+#'   can capture more local changes but are also more prone to capture noise.
 #' @param correlationCutoff Numeric in \eqn{[0, 1]}.  Minimum absolute
 #'   correlation required for a feature pair to be recorded within a
 #'   neighbourhood.  Default: \code{0.5}.  Pairs whose correlation falls below
