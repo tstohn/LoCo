@@ -52,7 +52,7 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
             ("StateSpaceGenes,v", value<std::string>(&cellStateGeneFile)->default_value(""), "File with list of genes for state space (defines neighborhoods)")
             ("CorrSpaceGenes,w", value<std::string>(&correlationStateGeneFile)->default_value(""), "File with list of genes for correlations space (defines correlations that change through state space)")
             ("NeighborhoodKNN,y", value<int>(&neighborhoodKNN)->default_value(5),"KNN for the neighborhood graph: The number of nearest neighbors that get connected to every neighborhood")
-            ("permutations,u", value<int>(&permutations)->default_value(100),"number of permutations to calcualte p-values for laplacian scores. \
+            ("permutations,u", value<int>(&permutations)->default_value(500),"number of permutations to calcualte p-values for laplacian scores. \
             This is the number of random assignments of correlations/ slopes to other neighborhoods")
             ("minimumCorrelationSetSize,m", value<int>(&minSetSize)->default_value(2), "The minimum size for sets of correlated features.\
             Loco reports the laplacian score for pairs of features. However, those features are first filtered by finding sets of correlated features.\

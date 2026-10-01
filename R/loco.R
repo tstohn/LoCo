@@ -99,8 +99,8 @@
 #'   neighbourhood.  Lower values retain weaker correlations; higher values
 #'   restrict to strongly correlated pairs only.
 #' @param permutations Integer.  Number of permutations used to estimate the
-#'   null distribution for the Laplacian score p-value.  Default: \code{100}.
-#'   Increase (e.g. to 1000) for more accurate p-values. The smallest possible
+#'   null distribution for the Laplacian score p-value.  Default: \code{500}.
+#'   Increase (e.g. to 1000 or more) for more accurate p-values. The smallest possible
 #'   p-value is \code{1 / (permutations + 1)}, so this also limits what survives
 #'   multiple-testing correction.
 #' @param minSetSize Integer.  Minimum number of features required to report a
@@ -227,7 +227,7 @@ run_loco <- function(
   neighbourhoodSize = 100,
   neighbourhoodKNN = 5,
   correlationCutoff = 0.5,
-  permutations = 100,
+  permutations = 500,
   minSetSize = 2,
   corrSetAbundance = 0.01,
   correlationType = "spearman",
