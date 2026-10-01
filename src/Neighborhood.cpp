@@ -1320,7 +1320,9 @@ void Neighborhood::laplacian_significance_for_pair(size_t pair_idx, const std::v
     }
 
     // Lock-free write to pre-allocated results
-    laplacianScores.p_values[pair_idx] = p_count / permutations;
+    // add a pseudocount (observed statistic counts as one permutation): p can never be exactly 0
+    laplacianScores.p_values[pair_idx] = (permutations > 0) ?
+        (p_count + 1.0) / (permutations + 1.0) : std::numeric_limits<double>::quiet_NaN();
     currentCount++;
 }
 

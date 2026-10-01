@@ -85,7 +85,9 @@
 #'   restrict to strongly correlated pairs only.
 #' @param permutations Integer.  Number of permutations used to estimate the
 #'   null distribution for the Laplacian score p-value.  Default: \code{100}.
-#'   Increase (e.g. to 1000) for more accurate p-values.
+#'   Increase (e.g. to 1000) for more accurate p-values. The smallest possible
+#'   p-value is \code{1 / (permutations + 1)}, so this also limits what survives
+#'   multiple-testing correction.
 #' @param minSetSize Integer.  Minimum number of features required to report a
 #'   feature set when \code{calcFeatureSets = TRUE}.  Sets smaller than this
 #'   threshold are discarded.  Default: \code{2}.
@@ -124,7 +126,11 @@
 #'     \itemize{
 #'       \item \code{FeaturePair}: names of feature pairs as \code{feature1_feature2}
 #'       \item \code{LaplacianScore}: computed laplacian score
-#'       \item \code{p_value}: permutation-based p-value
+#'       \item \code{p_value}: permutation-based p-value, calculated as
+#'         \code{(k + 1) / (permutations + 1)} where \code{k} is the number of permutations
+#'         with a Laplacian score at or below the observed one (so it is never 0)
+#'       \item \code{p_adj}: Benjamini-Hochberg adjusted \code{p_value} (FDR) across all
+#'         scored feature pairs
 #'       \item \code{FeatureSet}: comma-separated list of features forming sets of co-correlated features
 #'     }
 #'   }
@@ -298,6 +304,13 @@ run_loco <- function(
     correlationType,
     calcFeatureSets
   )
+
+  # multiple-testing correction (Benjamini-Hochberg) over all scored feature pairs;
+  # NaN p-values (e.g. zero variance) are kept as NA and do not count towards the number of tests
+  if (!is.null(res$LaplacianScores) && nrow(res$LaplacianScores) > 0) {
+    pv <- res$LaplacianScores$p_value
+    res$LaplacianScores$p_adj <- p.adjust(pv, method = "BH", n = sum(!is.na(pv)))
+  }
 
   return(res)
 }

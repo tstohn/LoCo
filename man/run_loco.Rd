@@ -103,9 +103,10 @@ smaller neighbourhoods capture finer local variation.  The neighbourhood
 size must be meaningfully smaller than the total number of cells.}
 
 \item{neighbourhoodKNN}{Integer.  Number of nearest neighbours used to build
-the KNN graph from which neighbourhoods are grown.  Default: \code{5}.
-This controls the graph connectivity used when expanding from the anchor
-cell to fill the neighbourhood to \code{neighbourhoodSize} cells.}
+the KNN graph of neighbourhoods.  Default: \code{5}.
+This controls the graph connectivity on which the Laplacian Score is calculated.
+Larger values result in correlations that are more smooth, smaller values
+can capture more local changes but are also more prone to capture noise.}
 
 \item{correlationCutoff}{Numeric in \eqn{[0, 1]}.  Minimum absolute
 correlation required for a feature pair to be recorded within a
@@ -116,7 +117,9 @@ restrict to strongly correlated pairs only.}
 
 \item{permutations}{Integer.  Number of permutations used to estimate the
 null distribution for the Laplacian score p-value.  Default: \code{100}.
-Increase (e.g. to 1000) for more accurate p-values.}
+Increase (e.g. to 1000) for more accurate p-values. The smallest possible
+p-value is \code{1 / (permutations + 1)}, so this also limits what survives
+multiple-testing correction.}
 
 \item{minSetSize}{Integer.  Minimum number of features required to report a
 feature set when \code{calcFeatureSets = TRUE}.  Sets smaller than this
@@ -161,7 +164,11 @@ A named list containing LoCo results with four elements:
     \itemize{
       \item \code{FeaturePair}: names of feature pairs as \code{feature1_feature2}
       \item \code{LaplacianScore}: computed laplacian score
-      \item \code{p_value}: permutation-based p-value
+      \item \code{p_value}: permutation-based p-value, calculated as
+        \code{(k + 1) / (permutations + 1)} where \code{k} is the number of permutations
+        with a Laplacian score at or below the observed one (so it is never 0)
+      \item \code{p_adj}: Benjamini-Hochberg adjusted \code{p_value} (FDR) across all
+        scored feature pairs
       \item \code{FeatureSet}: comma-separated list of features forming sets of co-correlated features
     }
   }
