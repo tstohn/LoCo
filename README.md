@@ -79,7 +79,7 @@ Stores the processed input expression matrix in a **long-format** structure. Thi
 The primary results table summarizing feature pairs that show statistically significant local correlation patterns. LoCo firstly filters all correlations that are above a certain threshold (see parameter for correlation threshold). Additionally LoCo filters correlations that must be present in a minimum percentage of all neighbourhoods (default is 0.01 = 1%, you can change it by setting corrSetAbundance between 0 and 1), and LoCo only considers correlations that were found in sets of co-correlated features. These sets can be defined by minSetSize and correlatedSetMode.  minSetSize is the minimum size of the set of features, which is 2 by default (but you can set it to sth. bigger if you only want to retain co-correlated sets of features of, e.g., at least size 5, when you want to study bigger networks/ biological programs of co-correlated features. The correlatedSetMode is the mode of how these features in the set should co-correlate (default 1) - 0: all features must correlated with each other above the correlation threshold, a value x >= 1 means that within a set of co-correlated features every feature must correlate with at least x other features above the correlation threshold.
 * **FeaturePair**: The names of the two features being compared (e.g., `feature1_feature2`).
 * **LaplacianScore**: The calculated score used to rank the strength of the local relationship.
-* **p_value**: A permutation-based significance value.
+* **p_value**: A permutation-based significance value (BH corrected for multiple testing).
 * **FeatureSet**: A comma-separated list of features that form larger "co-correlated" clusters.
 
 ### 3. `Correlations`
@@ -117,6 +117,8 @@ For some examples you can have a look into the Makefile under 'make test' to see
 The cpp package provides the same functionality as the R-package plus it can run LoCo with various granularities. Instead of one parameter for <neighborhoodSize> (-s / the number of cells within one neighbourhood) you can run LoCo with an array of <neighborhoodSize>, each of them generating one output to analyze correlations on many granularities (different scales from small to bigger neighbourhoods)
 
 ### c) Output:
+
+!! BE AWARE CURRENTLY THE CPP VERSION DOES NOT DO BH-MULTIPLE TESTING CORRECTION AND HAS TO BE DONE BU THE USER IF NEEDED - THE R-PACKAGE REPORTS THE BH-CORRECTED P-VALUES !!
 
 LoCo will create several files that can be used to analyze/ plot local correlation patterns in the data. Those files will state neighborhood-ids (aas the id of the anchor cell) and cell-ids for cells in the neighborhoods. All indices start from zero and index the row of the origional input file.
 Among those the most important ones are:
