@@ -46,12 +46,25 @@
 #'       requires every feature to have at least 3 correlated partners within
 #'       the set.  Higher values yield denser, more tightly interconnected sets.}
 #'   }
+#' @param minNonNAFraction Numeric in \eqn{[0, 1]}.  Minimum fraction of
+#'   neighbourhoods in which a feature pair must have a defined (non-NA)
+#'   correlation.  Pairs with a non-NA fraction of at most this value are
+#'   removed from \code{LaplacianScores} and \code{Correlations}.  A
+#'   correlation is NA in a neighbourhood when it was not calculated there
+#'   (e.g. not enough valid values).  For example \code{0.75} keeps only pairs
+#'   with a correlation in more than 75\% of all neighbourhoods.  Default:
+#'   \code{0} (no filtering).  This filter is applied AFTER p-values and
+#'   \code{p_adj} are calculated (so \code{p_adj} still corrects for all
+#'   pairs) and BEFORE \code{numberCorrelations} is applied.
 #' @param numberCorrelations Integer.  Maximum number of SIGNIFICANT feature
 #'   pairs to return.  \code{0} (default) disables this and returns all feature
 #'   pairs.  If set to a positive integer, LoCo first calculates the Laplacian
 #'   score, the permutation p-value (\code{p_value}) and the
 #'   Benjamini-Hochberg adjusted p-value (\code{p_adj}) for ALL feature pairs
-#'   (the filtering happens AFTER significance testing).  It then keeps only
+#'   (the filtering happens AFTER significance testing).  If
+#'   \code{minNonNAFraction > 0}, pairs are first filtered for sufficient
+#'   non-NA neighbourhoods, and only the remaining pairs are considered here.
+#'   It then keeps only
 #'   the significant pairs (\code{p_adj <= significanceCutoff}) and, of those,
 #'   only the \code{numberCorrelations} pairs with the lowest Laplacian score
 #'   (most local correlation).  All other pairs are removed from
@@ -219,6 +232,7 @@ run_loco <- function(
   zscore = TRUE,
   thread = 1,
   correlatedSetMode = 1,
+  minNonNAFraction = 0,
   numberCorrelations = 0,
   significanceCutoff = 0.05,
   cellStateGeneFile = "",
@@ -258,6 +272,9 @@ run_loco <- function(
   }
   if (!is.numeric(correlatedSetMode) || correlatedSetMode < 0) {
     stop("`correlatedSetMode` must be >= 0")
+  }
+  if (!is.numeric(minNonNAFraction) || minNonNAFraction < 0 || minNonNAFraction > 1) {
+    stop("`minNonNAFraction` must be between 0 and 1")
   }
   if (!is.numeric(numberCorrelations) || numberCorrelations < 0) {
     stop("`numberCorrelations` must be >= 0")
@@ -328,6 +345,21 @@ run_loco <- function(
   # p-value (done BEFORE any filtering below). NaN p-values (e.g. zero variance) stay NA.
   if (!is.null(res$LaplacianScores) && nrow(res$LaplacianScores) > 0) {
     res$LaplacianScores$p_adj <- p.adjust(res$LaplacianScores$p_value, method = "BH")
+  }
+
+  # keep only pairs with a non-NA correlation in more than <minNonNAFraction> of all neighbourhoods.
+  # Done AFTER p-values/ p_adj (computed for all pairs) and BEFORE the numberCorrelations filter.
+  if (minNonNAFraction > 0 && !is.null(res$Correlations) && nrow(res$Correlations) > 0) {
+    nonNAFraction <- tapply(!is.na(res$Correlations$Correlation), res$Correlations$CorrelationPair, mean)
+    passNA <- names(nonNAFraction)[nonNAFraction > minNonNAFraction]
+    message(
+      "minNonNAFraction: ", length(passNA), " of ", length(nonNAFraction),
+      " pairs have a correlation in > ", minNonNAFraction * 100, "% of neighbourhoods"
+    )
+    res$LaplacianScores <- res$LaplacianScores[res$LaplacianScores$FeaturePair %in% passNA, , drop = FALSE]
+    rownames(res$LaplacianScores) <- NULL
+    res$Correlations <- res$Correlations[res$Correlations$CorrelationPair %in% passNA, , drop = FALSE]
+    rownames(res$Correlations) <- NULL
   }
 
   # keep only the <numberCorrelations> significant pairs with the lowest Laplacian score.

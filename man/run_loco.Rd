@@ -12,6 +12,7 @@ run_loco(
   zscore = TRUE,
   thread = 1,
   correlatedSetMode = 1,
+  minNonNAFraction = 0,
   numberCorrelations = 0,
   significanceCutoff = 0.05,
   cellStateGeneFile = "",
@@ -72,12 +73,26 @@ group co-correlated features into \emph{feature sets}.  Only relevant when
     the set.  Higher values yield denser, more tightly interconnected sets.}
 }}
 
+\item{minNonNAFraction}{Numeric in \eqn{[0, 1]}.  Minimum fraction of
+neighbourhoods in which a feature pair must have a defined (non-NA)
+correlation.  Pairs with a non-NA fraction of at most this value are
+removed from \code{LaplacianScores} and \code{Correlations}.  A
+correlation is NA in a neighbourhood when it was not calculated there
+(e.g. not enough valid values).  For example \code{0.75} keeps only pairs
+with a correlation in more than 75\% of all neighbourhoods.  Default:
+\code{0} (no filtering).  This filter is applied AFTER p-values and
+\code{p_adj} are calculated (so \code{p_adj} still corrects for all
+pairs) and BEFORE \code{numberCorrelations} is applied.}
+
 \item{numberCorrelations}{Integer.  Maximum number of SIGNIFICANT feature
 pairs to return.  \code{0} (default) disables this and returns all feature
 pairs.  If set to a positive integer, LoCo first calculates the Laplacian
 score, the permutation p-value (\code{p_value}) and the
 Benjamini-Hochberg adjusted p-value (\code{p_adj}) for ALL feature pairs
-(the filtering happens AFTER significance testing).  It then keeps only
+(the filtering happens AFTER significance testing).  If
+\code{minNonNAFraction > 0}, pairs are first filtered for sufficient
+non-NA neighbourhoods, and only the remaining pairs are considered here.
+It then keeps only
 the significant pairs (\code{p_adj <= significanceCutoff}) and, of those,
 only the \code{numberCorrelations} pairs with the lowest Laplacian score
 (most local correlation).  All other pairs are removed from
