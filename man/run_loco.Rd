@@ -13,6 +13,7 @@ run_loco(
   thread = 1,
   correlatedSetMode = 1,
   numberCorrelations = 0,
+  significanceCutoff = 0.05,
   cellStateGeneFile = "",
   correlationStateGeneFile = "",
   numberNeighbourhoods = 0,
@@ -71,21 +72,27 @@ group co-correlated features into \emph{feature sets}.  Only relevant when
     the set.  Higher values yield denser, more tightly interconnected sets.}
 }}
 
-\item{numberCorrelations}{Integer.  Number of feature pairs to keep.  After
-the Laplacian score has been calculated for all feature pairs that pass the
-correlation filters, the pairs are sorted by Laplacian score (lowest = most
-local) and only the \code{numberCorrelations} pairs with the lowest score are
-kept.  This happens BEFORE significance testing, so permutations are only
-run for the kept pairs, and the pairs that are dropped are removed from all
-results (\code{LaplacianScores}, \code{Correlations} and the feature sets).
-\code{0} (default) keeps all pairs.  Pairs without a defined Laplacian score
-are ranked last.
-\strong{Multiple-testing correction:} \code{p_adj} (Benjamini-Hochberg) is
-always calculated with the number of ALL pairs with a defined Laplacian score
-BEFORE this cut as the number of tests, not just the \code{numberCorrelations}
-kept pairs.  Selecting the lowest scores and then only correcting for the
-kept pairs would underestimate the number of tests and give too optimistic
-adjusted p-values.}
+\item{numberCorrelations}{Integer.  Maximum number of SIGNIFICANT feature
+pairs to return.  \code{0} (default) disables this and returns all feature
+pairs.  If set to a positive integer, LoCo first calculates the Laplacian
+score, the permutation p-value (\code{p_value}) and the
+Benjamini-Hochberg adjusted p-value (\code{p_adj}) for ALL feature pairs
+(the filtering happens AFTER significance testing).  It then keeps only
+the significant pairs (\code{p_adj <= significanceCutoff}) and, of those,
+only the \code{numberCorrelations} pairs with the lowest Laplacian score
+(most local correlation).  All other pairs are removed from
+\code{LaplacianScores} and \code{Correlations}.  If fewer than
+\code{numberCorrelations} pairs are significant, all significant pairs are
+returned.
+Because the p-values and \code{p_adj} are calculated for all pairs before
+filtering, \code{p_adj} corrects for ALL tested pairs and is not
+affected by this filter.  Note that the \code{FeatureSet} column is also
+calculated before filtering, from all pairs that passed the correlation
+filters.}
+
+\item{significanceCutoff}{Numeric in \eqn{[0, 1]}.  Threshold on the
+adjusted p-value (\code{p_adj}) that defines a pair as significant.
+Only used when \code{numberCorrelations > 0}.  Default: \code{0.05}.}
 
 \item{cellStateGeneFile}{Path to a plain-text file (one feature name per
 line, no header) listing the features to be used \emph{exclusively} for
@@ -177,9 +184,8 @@ A named list containing LoCo results with four elements:
       \item \code{p_value}: permutation-based p-value, calculated as
         \code{(k + 1) / (permutations + 1)} where \code{k} is the number of permutations
         with a Laplacian score at or below the observed one (so it is never 0)
-      \item \code{p_adj}: Benjamini-Hochberg adjusted \code{p_value} (FDR). The number of
-        tests is the number of all feature pairs with a defined Laplacian score before
-        \code{numberCorrelations} was applied
+      \item \code{p_adj}: Benjamini-Hochberg adjusted \code{p_value} (FDR) across all
+        feature pairs with a defined p-value
       \item \code{FeatureSet}: comma-separated list of features forming sets of co-correlated features
     }
   }

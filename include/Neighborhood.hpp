@@ -183,38 +183,6 @@ struct CorrelationResults
         return featureNames.at(feat_a) + "_" + featureNames.at(feat_b);
     }
 
-    // keep only the pairs at the given indices (indices into the CURRENT pair order, ascending),
-    // compacts pairList, pairNames, the correlation matrix and (if already filled) featureSetString
-    void keep_pairs(const std::vector<size_t>& keepIdx)
-    {
-        const size_t newNumPairs = keepIdx.size();
-        const size_t numCols = pairToListOfAllNCorrs.cols;
-
-        std::vector<std::pair<int, int>> newPairList;
-        std::vector<std::string> newPairNames;
-        std::vector<std::string> newFeatureSetString;
-        newPairList.reserve(newNumPairs);
-        newPairNames.reserve(newNumPairs);
-        FlatMatrix newMatrix;
-        newMatrix.init(newNumPairs, numCols);
-
-        for(size_t newIdx = 0; newIdx < newNumPairs; ++newIdx)
-        {
-            const size_t oldIdx = keepIdx[newIdx];
-            newPairList.push_back(pairList[oldIdx]);
-            newPairNames.push_back(pairNames[oldIdx]);
-            if(!featureSetString.empty()) { newFeatureSetString.push_back(featureSetString[oldIdx]); }
-            std::copy(pairToListOfAllNCorrs.data.begin() + oldIdx * numCols,
-                      pairToListOfAllNCorrs.data.begin() + (oldIdx + 1) * numCols,
-                      newMatrix.data.begin() + newIdx * numCols);
-        }
-
-        pairList = std::move(newPairList);
-        pairNames = std::move(newPairNames);
-        pairToListOfAllNCorrs = std::move(newMatrix);
-        if(!featureSetString.empty()) { featureSetString = std::move(newFeatureSetString); }
-    }
-
     void init(const FlatMatrix& tempCalculationMatrix, 
               const std::vector<std::pair<int, int>>& allPairs,
               const std::vector<std::atomic<int>>& countsAboveThreshold,
@@ -287,10 +255,6 @@ struct LaplacianResults
     std::vector<double> L;
 
     std::vector<double> p_values;
-
-    // number of pairs with a defined Laplacian score BEFORE the numberCorrelations cut:
-    // this is the number of tests for multiple-testing correction
-    size_t numberPairsTestable = 0;
 };
 
 //small edge struct for quick shuffling in permutations for laplacian results
@@ -315,7 +279,7 @@ class Neighborhood
                      const SingleCellData& inputData,
                      const std::vector<int>& cellStateGenes, const std::vector<int>& corrStateGenes, int permutations,
                      const double& corrSetAbundance, const unsigned int correlatedSetMode,
-                    const std::string& correlationType, unsigned int numberCorrelationsLimit = 0);
+                    const std::string& correlationType);
 
         //calculate how correlation cliques of proteins change smoothly along the
         //cell-cell neighborhood graph (from neighborhood to neighborhood)
@@ -323,11 +287,6 @@ class Neighborhood
         void calculate_correlation_propagation(double correlationStrengthCutoff, int minFeatureSetSize=2, bool calcSets = false, int thread=5);
         void write_results_to_file(const std::string& output, const std::string& prefix, bool calcSets);
         void write_shuffled_laplacians(const std::string& outFile, const std::string& prefix);
-        //number of pairs with a defined Laplacian score before the numberCorrelations cut (= number of tests)
-        size_t get_number_pairs_testable() const
-        {
-            return(laplacianScores.numberPairsTestable);
-        }
         void fill_result_data(
             std::vector<std::string>& nIDs, // all neighborhoods IDs
             std::vector<std::string>& nID_anchorCellID, //achnor cell IDs for neighborhoods
@@ -395,8 +354,6 @@ class Neighborhood
 
         unsigned int neighborhoodSize;
         unsigned int neighbourhoodNum;
-        //keep only this number of correlation pairs with the lowest laplacian score (before significance testing), 0 = keep all
-        unsigned int numberCorrelations = 0;
         /* A NEIGHBORHOOD is essentially a list of NODE IDs, which are the CENTER NODES that define each neighborhood,
         for all those NODE IDS we then aggregate surrounding neighbors to define their neoghborhood (we use GraphData which gets 
         <knn> nodes that r closest to this center point, to get an overlap of those neighborhoods we create another knn graph an get <knn'> surrounding

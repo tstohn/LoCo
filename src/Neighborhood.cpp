@@ -1363,49 +1363,6 @@ void Neighborhood::step_3_calculate_laplacian_score(const int threads)
     }
     pool_L.wait_for_tasks();
 
-    // number of pairs with a defined score (these are all pairs that can be tested): stays the number of
-    // tests for multiple-testing correction even if we only keep the best <numberCorrelations> pairs below
-    laplacianScores.numberPairsTestable = 0;
-    for (size_t p = 0; p < totalPairs; ++p)
-    {
-        if (!std::isnan(laplacianScores.L[p])) { laplacianScores.numberPairsTestable++; }
-    }
-
-    // 2b.) keep only the <numberCorrelations> pairs with the LOWEST laplacian score (before the expensive
-    // significance testing). NaN scores rank last, ties are broken by index
-    if (numberCorrelations > 0 && numberCorrelations < totalPairs)
-    {
-        LOCO_OUT << "\t Keep the " << numberCorrelations << " correlation pairs with the lowest Laplacian score (of "
-                 << totalPairs << ")\n";
-        std::vector<size_t> order(totalPairs);
-        std::iota(order.begin(), order.end(), 0);
-        auto lowerScore = [this](size_t a, size_t b)
-        {
-            const double la = std::isnan(laplacianScores.L[a]) ? std::numeric_limits<double>::infinity() : laplacianScores.L[a];
-            const double lb = std::isnan(laplacianScores.L[b]) ? std::numeric_limits<double>::infinity() : laplacianScores.L[b];
-            if (la != lb) { return la < lb; }
-            return a < b;
-        };
-        std::partial_sort(order.begin(), order.begin() + numberCorrelations, order.end(), lowerScore);
-        std::vector<size_t> keepIdx(order.begin(), order.begin() + numberCorrelations);
-        std::sort(keepIdx.begin(), keepIdx.end()); // keep original pair order
-
-        std::vector<std::string> newNames;
-        std::vector<double> newVariances;
-        std::vector<double> newL;
-        for (size_t idx : keepIdx)
-        {
-            newNames.push_back(laplacianScores.pairNames[idx]);
-            newVariances.push_back(laplacianScores.variances[idx]);
-            newL.push_back(laplacianScores.L[idx]);
-        }
-        laplacianScores.pairNames = std::move(newNames);
-        laplacianScores.variances = std::move(newVariances);
-        laplacianScores.L = std::move(newL);
-        neighbourhoodCorrs.keep_pairs(keepIdx);
-        totalPairs = keepIdx.size();
-    }
-
     // 3.) calcualte significance values (only print status here)
     LOCO_OUT << "\t Calculate significance for Laplacian Score across " << std::to_string(permutations) << " permutations\n";
     // Build the global edge list exactly ONCE
@@ -1615,13 +1572,11 @@ Neighborhood::Neighborhood(const std::shared_ptr<const GraphData> scData, unsign
                            unsigned int neighborhoodSize, int neighborhoodKNN,
                            const SingleCellData& inputData,
                            const std::vector<int>& cellStateGenes, const std::vector<int>& corrStateGenes, int permutations,
-                           const double& corrSetAbundance, const unsigned int correlatedSetMode, const std::string& correlationType,
-                           unsigned int numberCorrelationsLimit) : 
+                           const double& corrSetAbundance, const unsigned int correlatedSetMode, const std::string& correlationType) : 
                            neighborhoodSize(neighborhoodSize), neighbourhoodNum(neighborhoodNumber), inputDataOrigional(inputData),
                            cellStateGenes(cellStateGenes), corrStateGenes(corrStateGenes), permutations(permutations),
                            minimumCorrSetAbundance(corrSetAbundance), correlatedSetMode(correlatedSetMode), correlationType(correlationType)
 {
-    numberCorrelations = numberCorrelationsLimit;
     int cellIDRange = scData->number_of_nodes();
     //save all neighborhood IDs & node IDs making up neighborhoods
     std::vector<int> centralNodeIDs = neighborhoodCalculations::get_random_elements(neighborhoodNumber, cellIDRange);
