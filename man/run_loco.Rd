@@ -71,11 +71,21 @@ group co-correlated features into \emph{feature sets}.  Only relevant when
     the set.  Higher values yield denser, more tightly interconnected sets.}
 }}
 
-\item{numberCorrelations}{Integer.  Maximum number of feature pairs to
-evaluate.  \code{0} (default) computes all \eqn{n(n-1)/2} pairwise
-correlations.  Set to a positive integer to subsample pairs, which is
-useful for very large feature spaces where exhaustive computation would
-be prohibitive.}
+\item{numberCorrelations}{Integer.  Number of feature pairs to keep.  After
+the Laplacian score has been calculated for all feature pairs that pass the
+correlation filters, the pairs are sorted by Laplacian score (lowest = most
+local) and only the \code{numberCorrelations} pairs with the lowest score are
+kept.  This happens BEFORE significance testing, so permutations are only
+run for the kept pairs, and the pairs that are dropped are removed from all
+results (\code{LaplacianScores}, \code{Correlations} and the feature sets).
+\code{0} (default) keeps all pairs.  Pairs without a defined Laplacian score
+are ranked last.
+\strong{Multiple-testing correction:} \code{p_adj} (Benjamini-Hochberg) is
+always calculated with the number of ALL pairs with a defined Laplacian score
+BEFORE this cut as the number of tests, not just the \code{numberCorrelations}
+kept pairs.  Selecting the lowest scores and then only correcting for the
+kept pairs would underestimate the number of tests and give too optimistic
+adjusted p-values.}
 
 \item{cellStateGeneFile}{Path to a plain-text file (one feature name per
 line, no header) listing the features to be used \emph{exclusively} for
@@ -167,8 +177,9 @@ A named list containing LoCo results with four elements:
       \item \code{p_value}: permutation-based p-value, calculated as
         \code{(k + 1) / (permutations + 1)} where \code{k} is the number of permutations
         with a Laplacian score at or below the observed one (so it is never 0)
-      \item \code{p_adj}: Benjamini-Hochberg adjusted \code{p_value} (FDR) across all
-        scored feature pairs
+      \item \code{p_adj}: Benjamini-Hochberg adjusted \code{p_value} (FDR). The number of
+        tests is the number of all feature pairs with a defined Laplacian score before
+        \code{numberCorrelations} was applied
       \item \code{FeatureSet}: comma-separated list of features forming sets of co-correlated features
     }
   }
