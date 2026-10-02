@@ -250,8 +250,8 @@ struct LaplacianResults
 {
     std::vector<std::string> pairNames;      // names of all pairs (e.g., []"A_B", "B_D"]), for quick printing later on
 
-    //pre-calcualte variances, we need them many times when calculating significance
-    std::vector<double> variances;
+    //degree-weighted variance (denominator of the laplacian score) of the correlations of a pair across the neighbourhood graph
+    std::vector<double> degreeWeightedVariance;
     std::vector<double> L;
 
     std::vector<double> p_values;
@@ -303,8 +303,7 @@ class Neighborhood
 
         // new 4-step functions
         void laplacian_significance_for_pair(size_t pair_idx, const std::vector<Edge>& edges, std::atomic<int>& currentCount);
-        void calculate_laplacian_score_for_pair(const int featurePairIdx);
-        void calculate_pair_variance(size_t pair_idx);
+        void calculate_laplacian_score_for_pair(const int featurePairIdx, const std::vector<Edge>& edges);
         void step_2_calculate_correlation(const double& corrThreshold, const int threads);
         void step_3_calculate_laplacian_score(const int threads);
         void step_4_calculate_feature_sets(int minFeatureSetSize);

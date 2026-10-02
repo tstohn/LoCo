@@ -195,10 +195,12 @@ A named list containing LoCo results with four elements:
     based on Laplacian scoring. Contains:
     \itemize{
       \item \code{FeaturePair}: names of feature pairs as \code{feature1_feature2}
-      \item \code{LaplacianScore}: computed laplacian score
+      \item \code{LaplacianScore}: degree-weighted Laplacian score (0 = smooth, about 1 = no
+        structure, maximum 2), calculated on the neighbourhoods with a defined correlation
       \item \code{p_value}: permutation-based p-value, calculated as
         \code{(k + 1) / (permutations + 1)} where \code{k} is the number of permutations
-        with a Laplacian score at or below the observed one (so it is never 0)
+        with a Laplacian score at or below the observed one (so it is never 0). Permutations
+        shuffle only the defined correlations, NAs keep their position.
       \item \code{p_adj}: Benjamini-Hochberg adjusted \code{p_value} (FDR) across all
         feature pairs with a defined p-value
       \item \code{FeatureSet}: comma-separated list of features forming sets of co-correlated features
@@ -256,6 +258,23 @@ rather than appearing randomly.  A permutation test gives each pair a p-value.
 correlation is spatially smooth -- it varies gradually and systematically
 across the point cloud, suggesting a biologically meaningful local
 co-regulation.  A high score means the correlation is noisy or random.
+
+\strong{Laplacian score and missing correlations:} The score is the
+Laplacian score of He, Cai and Niyogi (2005) of the correlations of a feature
+pair across the neighbourhood graph:
+\eqn{L = \sum_{i<j} w_{ij} (c_i - c_j)^2 / \sum_i d_i (c_i - \mu_w)^2}, where
+\eqn{c_i} is the correlation in neighbourhood \eqn{i}, \eqn{w_{ij}} the edge
+weight, \eqn{d_i = \sum_j w_{ij}} the degree and
+\eqn{\mu_w = \sum_i d_i c_i / \sum_i d_i} the degree-weighted mean.  A score of
+0 is a perfectly smooth signal, about 1 means no relation to the graph, and
+the maximum is 2.  A correlation is undefined (NA) in a neighbourhood if a
+feature has no variation in it.  Such neighbourhoods are removed from the
+graph for this pair (the remaining edges and weights are kept, nothing is
+imputed), and the score, degrees and mean are calculated on the remaining
+neighbourhoods only.  A pair needs a defined correlation in at least 10\% of
+all neighbourhoods, otherwise its score is NA.  For the permutation test the
+NAs stay at their position and only the defined correlations are shuffled
+among the neighbourhoods with a defined correlation.
 }
 \examples{
 # Load example dataset shipped with the package

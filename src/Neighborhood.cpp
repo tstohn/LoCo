@@ -1072,59 +1072,6 @@ void Neighborhood::calculate_correlations_for_N(nodePtr neighborhoodCenter, size
     currentCount++;
 }
 
-void Neighborhood::calculate_pair_variance(size_t pair_idx)
-{
-    // 1. Grab a zero-copy pointer to the entire row of correlations across all Ns
-    size_t numNeighbourhoods = 0;
-    const double* corrsAcrossN = neighbourhoodCorrs.get_correlations_across_N_for_pair(pair_idx, numNeighbourhoods);
-
-    size_t nonNanNodes = 0;
-    double mean = 0.0;
-
-    // 2. FIRST PASS: Calculate the Mean and count valid entries
-    for (size_t s = 0; s < numNeighbourhoods; ++s)
-    {
-        double correlationTmp = corrsAcrossN[s];
-        
-        // Ensure the value is valid (Not NaN and not the default -2.0 FlatMatrix value)
-        if (!std::isnan(correlationTmp) && correlationTmp != -2.0)
-        {
-            mean += correlationTmp;
-            nonNanNodes++;
-        }
-    }
-
-    double variance = 0.0;
-
-    // 3. Check for the 10% threshold
-    if (nonNanNodes >= numNeighbourhoods / 10)
-    {
-        mean /= nonNanNodes;
-
-        // SECOND PASS: Calculate deviations from the mean
-        for (size_t s = 0; s < numNeighbourhoods; ++s)
-        {
-            double correlationTmp = corrsAcrossN[s];
-            if (!std::isnan(correlationTmp) && correlationTmp != -2.0)
-            {
-                double deviation = correlationTmp - mean;
-                variance += deviation * deviation; // Fast explicit multiplication instead of pow()
-            }
-        }
-
-        variance /= nonNanNodes;
-    }
-    else 
-    {
-        variance = 0.0; // Left explicitly at zero per 10perc-rule
-    }
-
-    // 4. LOCK-FREE WRITE: Safe because every thread owns a unique pair_idx slot!
-    laplacianScores.variances[pair_idx] = variance;
-}
-
-// neighbourhoods have order as in centralNeighborhoodPtrs
-// corr-pairs as in tmpAllPairs which is then written to Flatmatrix
 void Neighborhood::step_2_calculate_correlation(const double& corrThreshold, const int threads)
 {
 
@@ -1229,91 +1176,148 @@ void Neighborhood::step_2_calculate_correlation(const double& corrThreshold, con
 
 }
 
-void Neighborhood::calculate_laplacian_score_for_pair(const int featurePairIdx)
-{   
-    double corrWeightSum = 0;
-    const double* pairCorrs = neighbourhoodCorrs.pairToListOfAllNCorrs.get_row(featurePairIdx);
-
-    //safely check variance: we set vairance of corrs to NAN if less than 10% of neighbourhoods had a valid corr defined
-    double variance = laplacianScores.variances[featurePairIdx];
-    if (variance == 0.0) 
+// ---------------------------------------------------------------------------
+// LAPLACIAN SCORE (He, Cai & Niyogi 2005) of the correlations of one feature pair across the neighbourhood graph
+//
+// Let c_i be the correlation of the pair in neighbourhood i and w_ij the edge weight between neighbourhoods i,j.
+// Neighbourhoods where the correlation is NOT defined (NaN) are removed from the graph (induced subgraph on the
+// valid neighbourhoods V, same edges and weights, nothing is reconnected or imputed). In this subgraph:
+//
+//   d_i  = sum_{j in V} w_ij                      (degree)
+//   mu_w = sum_i d_i c_i / sum_i d_i              (degree-weighted mean)
+//   L    = sum_{i<j in V} w_ij (c_i - c_j)^2  /  sum_{i in V} d_i (c_i - mu_w)^2
+//
+// L is ~0 for a smooth signal, ~1 for a signal without relation to the graph and up to 2 for alternating signals.
+// ---------------------------------------------------------------------------
+namespace
+{
+    // the induced subgraph of the neighbourhood graph on all neighbourhoods with a defined correlation
+    struct ValidSubgraph
     {
-        laplacianScores.L[featurePairIdx] = std::numeric_limits<double>::quiet_NaN();
-        return;
+        std::vector<int> validNodes;      // neighbourhoods with a defined correlation
+        std::vector<size_t> edgeIdx;      // indices into the global edge list: edges with both endpoints valid
+        std::vector<double> degree;       // degree within the valid subgraph (size: number of neighbourhoods)
+        double totalDegree = 0.0;         // sum of all degrees (= 2 * sum of valid edge weights)
+    };
+
+    // a correlation is defined if it is not NaN (-2.0 is the 'not set' default of the FlatMatrix)
+    inline bool is_defined_correlation(const double c)
+    {
+        return !std::isnan(c) && c != -2.0;
     }
 
-    for(unsigned int i = 0; i < (neighbourhoodNum-1); ++i)
+    ValidSubgraph build_valid_subgraph(const double* pairCorrs, const size_t numberNodes, const std::vector<Edge>& edges)
     {
-        for(unsigned int j = i+1; j < neighbourhoodNum; ++j)
+        ValidSubgraph graph;
+        graph.degree.assign(numberNodes, 0.0);
+        for(size_t n = 0; n < numberNodes; ++n)
         {
-            double weight = neighborhoodGraph->get_edge_weight_between_nodes(i, j);
-            if(weight == 0){continue;}
-
-            //actual feature values for nodes
-            double featureNodeACorr = pairCorrs[i];
-            double featureNodeBCorr = pairCorrs[j];
-
-            if( !std::isnan(featureNodeACorr) && !std::isnan(featureNodeBCorr))
+            if(is_defined_correlation(pairCorrs[n])) { graph.validNodes.push_back(static_cast<int>(n)); }
+        }
+        for(size_t e = 0; e < edges.size(); ++e)
+        {
+            const Edge& edge = edges[e];
+            if(is_defined_correlation(pairCorrs[edge.i]) && is_defined_correlation(pairCorrs[edge.j]))
             {
-                double diff = featureNodeACorr - featureNodeBCorr;
-                corrWeightSum += weight * (diff * diff); //square the result
+                graph.edgeIdx.push_back(e);
+                graph.degree[edge.i] += edge.w;
+                graph.degree[edge.j] += edge.w;
+                graph.totalDegree += 2.0 * edge.w;
             }
         }
+        return graph;
     }
 
-    corrWeightSum /= laplacianScores.variances.at(featurePairIdx);
-    laplacianScores.L[featurePairIdx] = corrWeightSum;
+    // Laplacian score for the values c (indexed by neighbourhood, only valid neighbourhoods are read).
+    // Returns NaN if the score is undefined (no edges or no variation among the connected neighbourhoods).
+    // denominator: degree-weighted variance (out)
+    double degree_weighted_laplacian(const double* c, const ValidSubgraph& graph, const std::vector<Edge>& edges, double& denominator)
+    {
+        denominator = 0.0;
+        if(graph.totalDegree <= 0.0) { return std::numeric_limits<double>::quiet_NaN(); }
+
+        double numerator = 0.0;
+        for(const size_t e : graph.edgeIdx)
+        {
+            const double diff = c[edges[e].i] - c[edges[e].j];
+            numerator += edges[e].w * diff * diff;
+        }
+
+        double weightedSum = 0.0;
+        for(const int n : graph.validNodes) { weightedSum += graph.degree[n] * c[n]; }
+        const double weightedMean = weightedSum / graph.totalDegree;
+
+        for(const int n : graph.validNodes)
+        {
+            const double dev = c[n] - weightedMean;
+            denominator += graph.degree[n] * dev * dev;
+        }
+
+        // no variation among the connected neighbourhoods
+        if(denominator < 1e-18) { return std::numeric_limits<double>::quiet_NaN(); }
+        return numerator / denominator;
+    }
 }
 
+void Neighborhood::calculate_laplacian_score_for_pair(const int featurePairIdx, const std::vector<Edge>& edges)
+{
+    const double* pairCorrs = neighbourhoodCorrs.pairToListOfAllNCorrs.get_row(featurePairIdx);
+    const ValidSubgraph graph = build_valid_subgraph(pairCorrs, neighbourhoodNum, edges);
+
+    // we need a minimum of 10% of all neighbourhoods with a defined correlation (and at least one)
+    double denominator = 0.0;
+    double score = std::numeric_limits<double>::quiet_NaN();
+    if(!graph.validNodes.empty() && graph.validNodes.size() >= neighbourhoodNum / 10)
+    {
+        score = degree_weighted_laplacian(pairCorrs, graph, edges, denominator);
+    }
+
+    laplacianScores.degreeWeightedVariance[featurePairIdx] = denominator;
+    laplacianScores.L[featurePairIdx] = score;
+}
+
+// significance of the Laplacian score by permutations:
+// the mask of neighbourhoods with a defined correlation stays FIXED. Only the defined correlations are shuffled
+// among the valid neighbourhoods, so every permutation is scored on exactly the same valid subgraph
+// (same edges, same degrees) as the observed score. NaNs never move.
 void Neighborhood::laplacian_significance_for_pair(size_t pair_idx, const std::vector<Edge>& edges, std::atomic<int>& currentCount)
 {
-    // Quick lookups
-    double observedL = laplacianScores.L[pair_idx];
-    double variance = laplacianScores.variances[pair_idx];
+    const double observedL = laplacianScores.L[pair_idx];
 
-    // Safety Check: If L is NaN (due to 0 variance earlier), p-value is also NaN
-    if (std::isnan(observedL) || variance == 0.0)
+    // Safety Check: If L is NaN (undefined score), p-value is also NaN
+    if (std::isnan(observedL))
     {
         laplacianScores.p_values[pair_idx] = std::numeric_limits<double>::quiet_NaN();
         currentCount++;
         return;
     }
 
-    // Zero-Copy access to feature values
     const double* pairCorrs = neighbourhoodCorrs.pairToListOfAllNCorrs.get_row(pair_idx);
+    const ValidSubgraph graph = build_valid_subgraph(pairCorrs, neighbourhoodNum, edges);
 
-    // create a vector of numbers from 0 to number of N
+    // defined correlations (shuffled) and the vector with the permuted values at the valid neighbourhoods
+    std::vector<double> validValues;
+    validValues.reserve(graph.validNodes.size());
+    for(const int n : graph.validNodes) { validValues.push_back(pairCorrs[n]); }
+    std::vector<double> permutedCorrs(pairCorrs, pairCorrs + neighbourhoodNum);
+
     thread_local std::mt19937 rng(std::random_device{}());
-    std::vector<int> perm(neighbourhoodNum);
-    std::iota(perm.begin(), perm.end(), 0);
     double p_count = 0.0;
 
-    // Permutation Loop
     for(int p = 0; p < permutations; ++p)
     {
-        //shuffle this vector of numbers: use these as indices for shuffled neighbourhood correlations
-        std::shuffle(perm.begin(), perm.end(), rng);
-
-        double corrSum = 0.0;
-
-        // Iterate over the pre-built edge list (Massive speedup!)
-        for(const Edge& e : edges)
+        std::shuffle(validValues.begin(), validValues.end(), rng);
+        for(size_t k = 0; k < graph.validNodes.size(); ++k)
         {
-            // Map the graph's fixed indices to the shuffled correlation data
-            double corrA = pairCorrs[perm[e.i]];
-            double corrB = pairCorrs[perm[e.j]];
-
-            if(!std::isnan(corrA) && !std::isnan(corrB))
-            {
-                double diff = corrA - corrB;
-                corrSum += e.w * (diff * diff);
-            }
+            permutedCorrs[graph.validNodes[k]] = validValues[k];
         }
 
-        double shuffledL = corrSum / variance;
+        double denominatorPermuted = 0.0;
+        const double shuffledL = degree_weighted_laplacian(permutedCorrs.data(), graph, edges, denominatorPermuted);
 
-        // Compare against observed
-        if(shuffledL <= observedL)
+        // an undefined shuffled score means no variation among the connected neighbourhoods = perfectly smooth:
+        // count it as at least as smooth as the observed score
+        if(std::isnan(shuffledL) || shuffledL <= observedL)
         {
             p_count++;
         }
@@ -1329,46 +1333,12 @@ void Neighborhood::laplacian_significance_for_pair(size_t pair_idx, const std::v
 void Neighborhood::step_3_calculate_laplacian_score(const int threads)
 {
     laplacianScores.pairNames = neighbourhoodCorrs.pairNames;
-
-    // 1.) pre-calcualte variance for significance-calculations later
-    // Get total number of filtered pairs from your global/member structure
     size_t totalPairs = laplacianScores.pairNames.size();
-    // pre-allocate laplacian result vector for thread-safe writing
-    laplacianScores.variances.resize(totalPairs, 0.0);
-    // Initialize the atomic counter and the thread pool
-    ThreadPool pool_variance(threads);
-    // Enqueue tasks by index (Blazing fast, zero allocations inside the loop)
-    for (size_t p = 0; p < totalPairs; ++p)
-    {
-        pool_variance.enqueue([this, p]() 
-        {
-            this->calculate_pair_variance(p);
-        });
-    }
-    // Block main thread until all background workers finish their math
-    pool_variance.wait_for_tasks();
-    
-    // 2.) calcualte laplacian score
-    LOCO_OUT << "\t Calculate Laplacian Score for found correlations\n";
-    // Pre-allocate sizes inside your global/member LaplacianResults struct
-    laplacianScores.L.resize(totalPairs, 0.0);         // Holds final Laplacian scores
-    ThreadPool pool_L(threads);
-    {
-        for (size_t p = 0; p < totalPairs; ++p)
-        {
-            pool_L.enqueue([this, p]() {
-                this->calculate_laplacian_score_for_pair(p);
-            });
-        }
-    }
-    pool_L.wait_for_tasks();
 
-    // 3.) calcualte significance values (only print status here)
-    LOCO_OUT << "\t Calculate significance for Laplacian Score across " << std::to_string(permutations) << " permutations\n";
-    // Build the global edge list exactly ONCE
+    // 1.) edge list of the neighbourhood graph, built exactly ONCE (used for scores AND permutations)
     std::vector<Edge> globalEdges;
     globalEdges.reserve(neighbourhoodNum * 5); // guess due to KNN graph, will be more in reality since its not a directed graph
-    for(unsigned int i = 0; i < neighbourhoodNum - 1; ++i)
+    for(unsigned int i = 0; i + 1 < neighbourhoodNum; ++i)
     {
         for(unsigned int j = i + 1; j < neighbourhoodNum; ++j)
         {
@@ -1379,6 +1349,25 @@ void Neighborhood::step_3_calculate_laplacian_score(const int threads)
             }
         }
     }
+
+    // 2.) calcualte laplacian score (degree-weighted, on the subgraph of neighbourhoods with a defined correlation)
+    LOCO_OUT << "\t Calculate Laplacian Score for found correlations\n";
+    // pre-allocate result vectors for thread-safe writing
+    laplacianScores.degreeWeightedVariance.resize(totalPairs, 0.0);
+    laplacianScores.L.resize(totalPairs, 0.0);         // Holds final Laplacian scores
+    {
+        ThreadPool pool_L(threads);
+        for (size_t p = 0; p < totalPairs; ++p)
+        {
+            pool_L.enqueue([this, p, &globalEdges]() {
+                this->calculate_laplacian_score_for_pair(p, globalEdges);
+            });
+        }
+        pool_L.wait_for_tasks();
+    }
+
+    // 3.) calcualte significance values (only print status here)
+    LOCO_OUT << "\t Calculate significance for Laplacian Score across " << std::to_string(permutations) << " permutations\n";
     // Pre-allocate p-values
     laplacianScores.p_values.resize(totalPairs, 0.0);
     // Initialize the atomic counter
