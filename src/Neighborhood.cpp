@@ -27,6 +27,169 @@ namespace neighborhoodCalculations
         return std::vector<int>(pool.begin(), pool.begin() + numbers);
     }
 
+    // Disjoint, size-constrained k-medians partition of ALL cells (Manhattan distance, like the kd-tree used for
+    // the "random" neighbourhood sampling) in the cell state space (= the nodes of scData, which only contain the
+    // cellStateGeneFile features, or all features if no file was given).
+    // Every cell belongs to exactly one cluster; cluster sizes differ by at most 1 (floor(n/k) or floor(n/k)+1).
+    // Returns for every cluster: anchor cell (member closest to the cluster median) and ALL member cells, the
+    // anchor is the first member (the same way the kd-tree search returns the anchor first).
+    std::vector<std::pair<int, std::vector<int>>> size_constrained_kmedians(const std::shared_ptr<const GraphData>& scData,
+                                                                           const unsigned int k, const int maxIterations = 30)
+    {
+        const size_t n = scData->number_of_nodes();
+        if (k < 1 || k > n)
+            throw std::invalid_argument("kmeans sampling: number of neighbourhoods must be between 1 and the number of cells!");
+        const size_t dim = scData->get_node_at(0)->dimensions();
+
+        // flat copy of the cell state coordinates
+        std::vector<double> X(n * dim);
+        for (size_t i = 0; i < n; ++i)
+        {
+            const nodePtr node = scData->get_node_at(i);
+            for (size_t d = 0; d < dim; ++d) X[i * dim + d] = node->value_at(static_cast<int>(d));
+        }
+
+        auto manhattan = [&](const double* a, const double* b)
+        {
+            double dist = 0.0;
+            for (size_t d = 0; d < dim; ++d) dist += std::abs(a[d] - b[d]);
+            return dist;
+        };
+
+        std::mt19937 gen(std::random_device{}());
+
+        // ---- k-means++ initialisation (with Manhattan distances) ----
+        std::vector<double> centroids(static_cast<size_t>(k) * dim);
+        {
+            std::vector<double> minDist(n, std::numeric_limits<double>::max());
+            size_t next = std::uniform_int_distribution<size_t>(0, n - 1)(gen);
+            for (unsigned int c = 0; c < k; ++c)
+            {
+                std::copy(&X[next * dim], &X[next * dim] + dim, &centroids[static_cast<size_t>(c) * dim]);
+                double sum = 0.0;
+                for (size_t i = 0; i < n; ++i)
+                {
+                    minDist[i] = std::min(minDist[i], manhattan(&X[i * dim], &centroids[static_cast<size_t>(c) * dim]));
+                    sum += minDist[i];
+                }
+                if (c + 1 == k) break;
+                if (sum <= 0.0) { next = std::uniform_int_distribution<size_t>(0, n - 1)(gen); continue; }
+                double target = std::uniform_real_distribution<double>(0.0, sum)(gen);
+                next = n - 1;
+                for (size_t i = 0; i < n; ++i)
+                {
+                    target -= minDist[i];
+                    if (target <= 0.0) { next = i; break; }
+                }
+            }
+        }
+
+        // cluster capacities: floor(n/k) for every cluster, floor(n/k)+1 for exactly n%k of them
+        const size_t baseSize = n / k;
+        const size_t numberLarger = n % k;
+        // number of nearest centroids kept per cell for the greedy assignment (all of them if k is small)
+        const size_t prefLen = std::min<size_t>(k, 25);
+
+        std::vector<int> assignment(n, -1);
+        std::vector<size_t> sizes(k);
+        std::vector<double> dists(k);
+        std::vector<int> order(k);
+        std::vector<int> prefs(n * prefLen);
+        std::vector<double> regret(n);
+        std::vector<int> processOrder(n);
+
+        for (int iter = 0; iter < maxIterations; ++iter)
+        {
+            // distances to all centroids, keep the prefLen nearest centroids per cell (sorted)
+            for (size_t i = 0; i < n; ++i)
+            {
+                for (unsigned int c = 0; c < k; ++c) dists[c] = manhattan(&X[i * dim], &centroids[static_cast<size_t>(c) * dim]);
+                std::iota(order.begin(), order.end(), 0);
+                std::partial_sort(order.begin(), order.begin() + prefLen, order.end(),
+                                  [&](int a, int b) { return dists[a] < dists[b]; });
+                for (size_t p = 0; p < prefLen; ++p) prefs[i * prefLen + p] = order[p];
+                regret[i] = (prefLen > 1) ? dists[order[1]] - dists[order[0]] : 0.0;
+            }
+
+            // greedy capacity-constrained assignment: cells with the highest regret (strongest preference) first
+            std::iota(processOrder.begin(), processOrder.end(), 0);
+            std::sort(processOrder.begin(), processOrder.end(), [&](int a, int b) { return regret[a] > regret[b]; });
+
+            std::fill(sizes.begin(), sizes.end(), 0);
+            size_t largerUsed = 0;
+            auto has_room = [&](size_t c) { return sizes[c] < baseSize || (sizes[c] == baseSize && largerUsed < numberLarger); };
+
+            std::vector<int> newAssignment(n, -1);
+            for (const int i : processOrder)
+            {
+                int chosen = -1;
+                for (size_t p = 0; p < prefLen; ++p)
+                {
+                    const int c = prefs[static_cast<size_t>(i) * prefLen + p];
+                    if (has_room(c)) { chosen = c; break; }
+                }
+                if (chosen < 0) // all preferred clusters are full: nearest cluster that still has room
+                {
+                    double best = std::numeric_limits<double>::max();
+                    for (unsigned int c = 0; c < k; ++c)
+                    {
+                        if (!has_room(c)) continue;
+                        const double dist = manhattan(&X[static_cast<size_t>(i) * dim], &centroids[static_cast<size_t>(c) * dim]);
+                        if (dist < best) { best = dist; chosen = static_cast<int>(c); }
+                    }
+                }
+                if (sizes[chosen] == baseSize) ++largerUsed;
+                ++sizes[chosen];
+                newAssignment[i] = chosen;
+            }
+
+            const bool converged = (newAssignment == assignment);
+            assignment.swap(newAssignment);
+            if (converged) break;
+
+            // update step: coordinate-wise median of the members (the minimiser of the sum of Manhattan distances)
+            std::vector<std::vector<int>> members(k);
+            for (size_t i = 0; i < n; ++i) members[assignment[i]].push_back(static_cast<int>(i));
+            std::vector<double> values;
+            for (unsigned int c = 0; c < k; ++c)
+            {
+                if (members[c].empty()) continue;
+                values.resize(members[c].size());
+                for (size_t d = 0; d < dim; ++d)
+                {
+                    for (size_t m = 0; m < members[c].size(); ++m) values[m] = X[static_cast<size_t>(members[c][m]) * dim + d];
+                    const size_t mid = values.size() / 2;
+                    std::nth_element(values.begin(), values.begin() + mid, values.end());
+                    double median = values[mid];
+                    if (values.size() % 2 == 0)
+                        median = 0.5 * (median + *std::max_element(values.begin(), values.begin() + mid));
+                    centroids[static_cast<size_t>(c) * dim + d] = median;
+                }
+            }
+        }
+
+        // anchor = member closest to the centroid, anchor first in the member list
+        std::vector<std::vector<int>> members(k);
+        for (size_t i = 0; i < n; ++i) members[assignment[i]].push_back(static_cast<int>(i));
+
+        std::vector<std::pair<int, std::vector<int>>> result;
+        result.reserve(k);
+        for (unsigned int c = 0; c < k; ++c)
+        {
+            if (members[c].empty()) continue;
+            size_t anchorPos = 0;
+            double best = std::numeric_limits<double>::max();
+            for (size_t m = 0; m < members[c].size(); ++m)
+            {
+                const double dist = manhattan(&X[static_cast<size_t>(members[c][m]) * dim], &centroids[static_cast<size_t>(c) * dim]);
+                if (dist < best) { best = dist; anchorPos = m; }
+            }
+            std::swap(members[c][0], members[c][anchorPos]);
+            result.emplace_back(members[c][0], members[c]);
+        }
+        return result;
+    }
+
     //return LOWEST values first: we want the values with LWOEST laplacian first
     bool sort_corr(const std::pair<int, int>& a, const std::pair<int, int>& b,
                    std::unordered_map< std::pair<int, int>, const double, pair_hash> correlationLaplacian)
@@ -300,12 +463,15 @@ void Neighborhood::write_results_to_file(const std::string& outFile, const std::
     outputFile << "\n";
     //write lines
     //iterate over cellIDs (0 - <number cells in neighborhood>), for every id write out the cell with this id for every neighborhood
-    for(size_t cellID = 0; cellID < neighborhoodSize; ++cellID)
+    size_t maxNeighbourhoodCells = neighborhoodSize;
+    for(const auto& nb : neighborhoods) { maxNeighbourhoodCells = std::max(maxNeighbourhoodCells, nb.second.size()); }
+    for(size_t cellID = 0; cellID < maxNeighbourhoodCells; ++cellID)
     {
         //for every neighborhood (in columns)
         for(size_t neiborhoodID = 0; neiborhoodID < neighborHoodPtrVector.size(); ++neiborhoodID)
         {
-            outputFile << neighborhoods.at(neighborHoodPtrVector.at(neiborhoodID)).at(cellID);
+            const std::vector<int>& nbCells = neighborhoods.at(neighborHoodPtrVector.at(neiborhoodID));
+            if(cellID < nbCells.size()) { outputFile << nbCells.at(cellID); } else { outputFile << "NA"; }
             if(neiborhoodID < (neighborHoodPtrVector.size()-1)){outputFile << "\t";}
         }
         outputFile << "\n";
@@ -1561,22 +1727,42 @@ Neighborhood::Neighborhood(const std::shared_ptr<const GraphData> scData, unsign
                            unsigned int neighborhoodSize, int neighborhoodKNN,
                            const SingleCellData& inputData,
                            const std::vector<int>& cellStateGenes, const std::vector<int>& corrStateGenes, int permutations,
-                           const double& corrSetAbundance, const unsigned int correlatedSetMode, const std::string& correlationType) : 
+                           const double& corrSetAbundance, const unsigned int correlatedSetMode, const std::string& correlationType,
+                           const std::string& nSampling) : 
                            neighborhoodSize(neighborhoodSize), neighbourhoodNum(neighborhoodNumber), inputDataOrigional(inputData),
                            cellStateGenes(cellStateGenes), corrStateGenes(corrStateGenes), permutations(permutations),
                            minimumCorrSetAbundance(corrSetAbundance), correlatedSetMode(correlatedSetMode), correlationType(correlationType)
 {
-    int cellIDRange = scData->number_of_nodes();
-    //save all neighborhood IDs & node IDs making up neighborhoods
-    std::vector<int> centralNodeIDs = neighborhoodCalculations::get_random_elements(neighborhoodNumber, cellIDRange);
-    for(int centerNodeID : centralNodeIDs)
+    if(nSampling == "kmeans")
     {
-        const nodePtr centerNode = scData->get_node_at(centerNodeID);
-        centralNeighborhoodPtrs.push_back(centerNode);
-        //std::vector<int> value = scData->get_adjacent_node_ids_knn(centerNode, neighborhoodSize);
-        std::vector<int> value = scData->get_adjacent_node_ids_knn_kdsearch(centerNode);
+        // disjoint neighbourhoods: size-constrained k-medians clusters (Manhattan) in the cell state space.
+        // anchor = cell closest to the cluster median, neighbourhood = all cells of the cluster
+        const std::vector<std::pair<int, std::vector<int>>> clusters = neighborhoodCalculations::size_constrained_kmedians(scData, neighborhoodNumber);
+        for(const auto& cluster : clusters)
+        {
+            const nodePtr centerNode = scData->get_node_at(cluster.first);
+            centralNeighborhoodPtrs.push_back(centerNode);
+            neighborhoods.insert(std::make_pair(centerNode, cluster.second));
+        }
+    }
+    else if(nSampling == "random")
+    {
+        int cellIDRange = scData->number_of_nodes();
+        //save all neighborhood IDs & node IDs making up neighborhoods
+        std::vector<int> centralNodeIDs = neighborhoodCalculations::get_random_elements(neighborhoodNumber, cellIDRange);
+        for(int centerNodeID : centralNodeIDs)
+        {
+            const nodePtr centerNode = scData->get_node_at(centerNodeID);
+            centralNeighborhoodPtrs.push_back(centerNode);
+            //std::vector<int> value = scData->get_adjacent_node_ids_knn(centerNode, neighborhoodSize);
+            std::vector<int> value = scData->get_adjacent_node_ids_knn_kdsearch(centerNode);
 
-        neighborhoods.insert(std::make_pair(centerNode, value));
+            neighborhoods.insert(std::make_pair(centerNode, value));
+        }
+    }
+    else
+    {
+        throw std::invalid_argument("Nsampling must be 'random' or 'kmeans'");
     }
 
     //create the neighborhood graph (how to neighborhoods connect)

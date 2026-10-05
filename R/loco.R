@@ -125,6 +125,21 @@
 #'   Default: \code{0.01} (1 \%).  Increase to focus on correlations that
 #'   appear consistently across the dataset; decrease to also capture very
 #'   rare, localised correlations.
+#' @param Nsampling Character string, either \code{"random"} (default) or
+#'   \code{"kmeans"}.  Controls how neighbourhoods are chosen.
+#'   \describe{
+#'     \item{\code{"random"}}{Anchor cells are sampled uniformly at random;
+#'       every neighbourhood is the anchor plus its \code{neighbourhoodSize}
+#'       nearest cells (Manhattan distance).  Neighbourhoods can overlap.}
+#'     \item{\code{"kmeans"}}{All cells are partitioned into
+#'       \emph{non-overlapping} neighbourhoods by a size-constrained k-medians
+#'       clustering (Manhattan distance) on the same cell-state features as the
+#'       \code{"random"} mode (\code{cellStateGeneFile}, or all features if no
+#'       file is given).  The number of neighbourhoods is
+#'       \code{numberNeighbourhoods} (default: number of cells /
+#'       \code{neighbourhoodSize}); neighbourhood sizes differ by at most one
+#'       cell.  The anchor is the cell closest to the cluster median.}
+#'   }
 #' @param correlationType Character string, either \code{"spearman"} (default)
 #'   or \code{"pearson"}.  Type of correlation computed within each
 #'   neighbourhood.  Spearman correlation is rank-based and more robust to
@@ -264,7 +279,8 @@ run_loco <- function(
   minSetSize = 2,
   corrSetAbundance = 0.01,
   correlationType = "spearman",
-  calcFeatureSets = FALSE
+  calcFeatureSets = FALSE,
+  Nsampling = "random"
 ) {
 
   # ---- checks ----
@@ -332,6 +348,10 @@ run_loco <- function(
     stop("`calcFeatureSets` must be TRUE or FALSE")
   }
 
+  if (!is.character(Nsampling) || length(Nsampling) != 1 || !(Nsampling %in% c("random", "kmeans"))) {
+    stop("`Nsampling` must be 'random' or 'kmeans'.")
+  }
+
   if( (correlationType != "spearman") && (correlationType != "pearson") )
   {
         stop("`correlationType` must be 'spearman' or 'pearson'.")
@@ -357,7 +377,8 @@ run_loco <- function(
     as.integer(minSetSize),
     corrSetAbundance,
     correlationType,
-    calcFeatureSets
+    calcFeatureSets,
+    Nsampling
   )
 
   # multiple-testing correction (Benjamini-Hochberg) over ALL feature pairs with a

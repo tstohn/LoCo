@@ -25,7 +25,8 @@ run_loco(
   minSetSize = 2,
   corrSetAbundance = 0.01,
   correlationType = "spearman",
-  calcFeatureSets = FALSE
+  calcFeatureSets = FALSE,
+  Nsampling = "random"
 )
 }
 \arguments{
@@ -178,6 +179,22 @@ their pair passes the \code{corrSetAbundance} and \code{correlationCutoff}
 filters globally (not restricted to a single spatial region).  The
 resulting feature sets are reported in the \code{FeatureSet} column of
 \code{LaplacianScores}.  Default: \code{FALSE}.}
+
+\item{Nsampling}{Character string, either \code{"random"} (default) or
+\code{"kmeans"}.  Controls how neighbourhoods are chosen.
+\describe{
+  \item{\code{"random"}}{Anchor cells are sampled uniformly at random;
+    every neighbourhood is the anchor plus its \code{neighbourhoodSize}
+    nearest cells (Manhattan distance).  Neighbourhoods can overlap.}
+  \item{\code{"kmeans"}}{All cells are partitioned into
+    \emph{non-overlapping} neighbourhoods by a size-constrained k-medians
+    clustering (Manhattan distance) on the same cell-state features as the
+    \code{"random"} mode (\code{cellStateGeneFile}, or all features if no
+    file is given).  The number of neighbourhoods is
+    \code{numberNeighbourhoods} (default: number of cells /
+    \code{neighbourhoodSize}); neighbourhood sizes differ by at most one
+    cell.  The anchor is the cell closest to the cluster median.}
+}}
 }
 \value{
 A named list containing LoCo results with four elements:

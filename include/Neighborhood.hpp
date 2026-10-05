@@ -279,7 +279,7 @@ class Neighborhood
                      const SingleCellData& inputData,
                      const std::vector<int>& cellStateGenes, const std::vector<int>& corrStateGenes, int permutations,
                      const double& corrSetAbundance, const unsigned int correlatedSetMode,
-                    const std::string& correlationType);
+                    const std::string& correlationType, const std::string& nSampling = "random");
 
         //calculate how correlation cliques of proteins change smoothly along the
         //cell-cell neighborhood graph (from neighborhood to neighborhood)
