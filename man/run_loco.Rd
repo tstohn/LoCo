@@ -25,6 +25,7 @@ run_loco(
   minSetSize = 2,
   corrSetAbundance = 0.01,
   correlationType = "spearman",
+  minVaryingFraction = 0.1,
   calcFeatureSets = FALSE,
   Nsampling = "random"
 )
@@ -102,9 +103,9 @@ only the \code{numberCorrelations} pairs with the lowest Laplacian score
 returned.
 Because the p-values and \code{p_adj} are calculated for all pairs before
 filtering, \code{p_adj} corrects for ALL tested pairs and is not
-affected by this filter.  Note that the \code{FeatureSet} column is also
-calculated before filtering, from all pairs that passed the correlation
-filters.}
+affected by this filter.  The filter is applied BEFORE the feature sets
+are calculated, so the \code{FeatureSet} column (and the runtime of the
+feature set calculation) only uses the kept pairs.}
 
 \item{significanceCutoff}{Numeric in \eqn{[0, 1]}.  Threshold on the
 adjusted p-value (\code{p_adj}) that defines a pair as significant.
@@ -170,6 +171,37 @@ or \code{"pearson"}.  Type of correlation computed within each
 neighbourhood.  Spearman correlation is rank-based and more robust to
 outliers; Pearson correlation is faster but sensitive to non-linear
 relationships and extreme values.}
+
+\item{minVaryingFraction}{Numeric in \eqn{[0, 1]}.  Minimum fraction of the
+  cells in a neighbourhood that must \emph{vary} for a feature, i.e. whose
+  value differs from the most frequent value of this feature in the
+  neighbourhood.  For sparse data such as scRNA-seq this is the fraction of
+  cells expressing the gene (the most frequent value is 0).  In every
+  neighbourhood where a feature is below this fraction, all correlations of
+  this feature are set to NA (not calculated) in that neighbourhood.
+  Default: \code{0.1}, so in a neighbourhood of 100 cells a gene must differ
+  from its most frequent value in at least 10 cells.  \code{0} disables the
+  filter (correlations are then only NA if a feature has no variation at all).
+
+  \strong{Why:} without this filter a feature that is, e.g., 0 in 99 cells
+  and 1 in a single cell still has a defined correlation.  If the partner
+  feature happens to be high in that one cell, the correlation is close to 1
+  (Pearson and Spearman, since all zeroes share the same rank), although it
+  is driven by a single cell.  Such correlations are spurious and add noise
+  to the Laplacian score.
+
+  \strong{Effect on the other steps:} the filter is applied per feature and
+  per neighbourhood WHILE the correlations are calculated, i.e. BEFORE the
+  \code{correlationCutoff}/ \code{corrSetAbundance} filters, the Laplacian
+  score and the permutation test.  The resulting NAs are treated like any
+  other missing correlation (see \emph{Laplacian score and missing
+  correlations} in Details): the neighbourhood is left out for that pair and
+  NAs keep their position in the permutations.  Pairs of rarely expressed
+  features therefore get more NAs and can be removed with
+  \code{minNonNAFraction}.  Because the threshold is a fraction it adapts to
+  the neighbourhood size (e.g. \code{Nsampling = "kmeans"}).  For continuous
+  data without ties (e.g. protein intensities) almost every cell differs from
+  the most frequent value, so the filter has no effect there.}
 
 \item{calcFeatureSets}{Logical.  If \code{TRUE}, LoCo additionally groups
 co-correlated features into \emph{feature sets} (modules) using the
@@ -261,7 +293,9 @@ rather than appearing randomly.  A permutation test gives each pair a p-value.
         \code{neighbourhoodSize} nearest neighbours to form a neighbourhood.
   \item Within each neighbourhood, pairwise correlations
         (\code{correlationType}) are computed for all feature pairs (or the
-        subset in \code{correlationStateGeneFile}).  Pairs below
+        subset in \code{correlationStateGeneFile}).  Features that vary in
+        fewer than \code{minVaryingFraction} of the cells of a neighbourhood
+        get NA correlations in this neighbourhood.  Pairs below
         \code{correlationCutoff} are discarded for that neighbourhood.
   \item Pairs that survive the \code{corrSetAbundance} filter (present in
         at least that fraction of all neighbourhoods) are scored with the
@@ -285,7 +319,8 @@ weight, \eqn{d_i = \sum_j w_{ij}} the degree and
 \eqn{\mu_w = \sum_i d_i c_i / \sum_i d_i} the degree-weighted mean.  A score of
 0 is a perfectly smooth signal, about 1 means no relation to the graph, and
 the maximum is 2.  A correlation is undefined (NA) in a neighbourhood if a
-feature has no variation in it.  Such neighbourhoods are removed from the
+feature has no variation in it, or if it varies in fewer than
+\code{minVaryingFraction} of the cells of this neighbourhood.  Such neighbourhoods are removed from the
 graph for this pair (the remaining edges and weights are kept, nothing is
 imputed), and the score, degrees and mean are calculated on the remaining
 neighbourhoods only.  A pair needs a defined correlation in at least 10\% of

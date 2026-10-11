@@ -104,6 +104,25 @@ static void rankify(std::vector<double>& X) {
 
 }
 
+// number of values that differ from the most frequent value of X (e.g. number of cells expressing a gene when
+// most cells have 0 counts). Used to exclude features in a neighbourhood whose variation comes from only a few cells
+// (e.g. all zeroes and a single 1), which would otherwise produce spuriously strong correlations
+inline size_t count_non_modal_values(std::vector<double> X)
+{
+    const size_t n = X.size();
+    if (n == 0) return 0;
+
+    std::sort(X.begin(), X.end());
+    size_t maxRun = 1;
+    size_t run = 1;
+    for (size_t i = 1; i < n; ++i)
+    {
+        run = (X[i] == X[i - 1]) ? run + 1 : 1;
+        maxRun = std::max(maxRun, run);
+    }
+    return n - maxRun;
+}
+
 inline void remove_subsets_sota(std::vector<std::vector<int>>& vectors) {
     if (vectors.empty()) return;
 

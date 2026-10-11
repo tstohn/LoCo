@@ -1206,6 +1206,20 @@ void Neighborhood::calculate_correlations_for_N(nodePtr neighborhoodCenter, size
     // make rank computation independent of nodes: do it on the transpose of raw data to get all features quickly
     //2.) compute ranks of values for spearman correlation
     std::vector<std::vector<double>> featureMajorData = transpose_to_feature_major(pointCloud);
+
+    //1b.) features with too little variation in this neighbourhood: fewer than minVaryingFraction of the cells differ from
+    // the most frequent value (e.g. all zeroes and a single 1) -> all their correlations are NaN in this neighbourhood
+    // (done BEFORE ranking, the ties are the same but this avoids depending on rank precision)
+    std::vector<bool> featureVaries(featureMajorData.size(), true);
+    if(minVaryingFraction > 0.0)
+    {
+        for (size_t f = 0; f < featureMajorData.size(); ++f)
+        {
+            const double n = static_cast<double>(featureMajorData[f].size());
+            featureVaries[f] = static_cast<double>(count_non_modal_values(featureMajorData[f])) >= minVaryingFraction * n;
+        }
+    }
+
     if(correlationType == "spearman")
     {
         for (size_t f = 0; f < featureMajorData.size(); ++f) 
@@ -1221,7 +1235,11 @@ void Neighborhood::calculate_correlations_for_N(nodePtr neighborhoodCenter, size
         int featB = tmpAllPairs[p].second;
 
         // Calculate correlation (assuming your function takes two vectors)
-        double corr = calculate_correlation_coefficient(featureMajorData[featA], featureMajorData[featB]);
+        double corr = std::numeric_limits<double>::quiet_NaN();
+        if(featureVaries[featA] && featureVaries[featB])
+        {
+            corr = calculate_correlation_coefficient(featureMajorData[featA], featureMajorData[featB]);
+        }
 
         // Write directly to the matrix lock-free! (Using the neighborhood_idx as the row)
         tempCalculationMatrix(neighborhood_idx, p) = corr;
@@ -1610,6 +1628,137 @@ OLD CODE AS EXMAPLE
 
 */
 
+// Benjamini-Hochberg adjusted p-values over ALL pairs with a defined p-value: exactly R's
+// p.adjust(p, method = "BH") -- NaN p-values stay NaN and do not count as tests,
+// q = min(1, cummin((n / i) * p)) over the p-values sorted in decreasing order
+void Neighborhood::step_3b_adjust_p_values()
+{
+    const std::vector<double>& p = laplacianScores.p_values;
+    laplacianScores.p_adj.assign(p.size(), std::numeric_limits<double>::quiet_NaN());
+
+    std::vector<size_t> defined;
+    defined.reserve(p.size());
+    for(size_t i = 0; i < p.size(); ++i)
+    {
+        if(!std::isnan(p[i])) { defined.push_back(i); }
+    }
+    const size_t n = defined.size();
+    if(n == 0) { return; }
+
+    // decreasing p (ties keep their index order, like R's order(); tied p-values get the same q anyway)
+    std::stable_sort(defined.begin(), defined.end(), [&p](size_t a, size_t b) { return p[a] > p[b]; });
+
+    double runningMin = std::numeric_limits<double>::infinity();
+    for(size_t k = 0; k < n; ++k)
+    {
+        const size_t rank = n - k; // rank of this p-value in increasing order (n ... 1)
+        const double q = (static_cast<double>(n) / static_cast<double>(rank)) * p[defined[k]];
+        runningMin = std::min(runningMin, q);
+        laplacianScores.p_adj[defined[k]] = std::min(1.0, runningMin);
+    }
+}
+
+// keep only the pairs at keepIdx (indices into the current pair vectors, increasing): all per-pair data
+// (pair list/ names, correlation matrix rows, Laplacian results) is subset, the original pair order is kept
+void Neighborhood::keep_only_pairs(const std::vector<size_t>& keepIdx)
+{
+    const size_t numNeighbourhoods = neighbourhoodCorrs.pairToListOfAllNCorrs.cols;
+
+    std::vector<std::pair<int, int>> pairList;
+    std::vector<std::string> pairNames;
+    FlatMatrix corrs(keepIdx.size(), numNeighbourhoods);
+    std::vector<double> L, p_values, p_adj, degreeWeightedVariance;
+    std::vector<size_t> sortRank;
+
+    for(size_t k = 0; k < keepIdx.size(); ++k)
+    {
+        const size_t p = keepIdx[k];
+        pairList.push_back(neighbourhoodCorrs.pairList[p]);
+        pairNames.push_back(neighbourhoodCorrs.pairNames[p]);
+        const double* row = neighbourhoodCorrs.pairToListOfAllNCorrs.get_row(p);
+        std::copy(row, row + numNeighbourhoods, &corrs.data[k * numNeighbourhoods]);
+        L.push_back(laplacianScores.L[p]);
+        p_values.push_back(laplacianScores.p_values[p]);
+        p_adj.push_back(laplacianScores.p_adj[p]);
+        degreeWeightedVariance.push_back(laplacianScores.degreeWeightedVariance[p]);
+        sortRank.push_back(laplacianScores.sortRank[p]);
+    }
+
+    neighbourhoodCorrs.pairList = std::move(pairList);
+    neighbourhoodCorrs.pairNames = pairNames;
+    neighbourhoodCorrs.pairToListOfAllNCorrs = std::move(corrs);
+    laplacianScores.pairNames = std::move(pairNames);
+    laplacianScores.L = std::move(L);
+    laplacianScores.p_values = std::move(p_values);
+    laplacianScores.p_adj = std::move(p_adj);
+    laplacianScores.degreeWeightedVariance = std::move(degreeWeightedVariance);
+    laplacianScores.sortRank = std::move(sortRank);
+}
+
+// pair filters, applied AFTER p-values and p_adj are calculated for ALL pairs (p_adj corrects for all tested
+// pairs) and BEFORE the feature sets are calculated (feature sets only use the kept pairs):
+//   1.) minNonNAFraction > 0: keep pairs with a defined (non-NaN) correlation in MORE than this fraction of all
+//       neighbourhoods
+//   2.) numberCorrelations > 0: of the remaining pairs keep the significant ones (p_adj <= significanceCutoff) and
+//       of those the <numberCorrelations> with the lowest Laplacian score (ties: lower p_adj, then output order)
+void Neighborhood::step_3b_filter_pairs(double minNonNAFraction, unsigned int numberCorrelations, double significanceCutoff)
+{
+    const size_t numPairs = laplacianScores.L.size();
+
+    // output order: rank of every pair when ALL pairs are sorted by L (same sort as for the output before)
+    {
+        std::vector<size_t> indices(numPairs);
+        std::iota(indices.begin(), indices.end(), 0);
+        std::sort(indices.begin(), indices.end(),
+            [this](size_t a, size_t b) { return laplacianScores.L[a] < laplacianScores.L[b]; });
+        laplacianScores.sortRank.assign(numPairs, 0);
+        for(size_t r = 0; r < numPairs; ++r) { laplacianScores.sortRank[indices[r]] = r; }
+    }
+
+    if(minNonNAFraction > 0.0 && numPairs > 0)
+    {
+        const size_t numNeighbourhoods = neighbourhoodCorrs.pairToListOfAllNCorrs.cols;
+        std::vector<size_t> keepIdx;
+        for(size_t p = 0; p < numPairs; ++p)
+        {
+            const double* row = neighbourhoodCorrs.pairToListOfAllNCorrs.get_row(p);
+            size_t defined = 0;
+            for(size_t n = 0; n < numNeighbourhoods; ++n)
+            {
+                if(!std::isnan(row[n])) { ++defined; }
+            }
+            // fraction computed like R's mean() of a logical vector (long double sum / n)
+            const double fraction = static_cast<double>(static_cast<long double>(defined) / static_cast<long double>(numNeighbourhoods));
+            if(fraction > minNonNAFraction) { keepIdx.push_back(p); }
+        }
+        LOCO_OUT << "minNonNAFraction: " << keepIdx.size() << " of " << numPairs << " pairs have a correlation in > "
+                 << minNonNAFraction * 100 << "% of neighbourhoods\n";
+        keep_only_pairs(keepIdx);
+    }
+
+    const size_t remainingPairs = laplacianScores.L.size();
+    if(numberCorrelations > 0 && remainingPairs > 0)
+    {
+        std::vector<size_t> sigIdx;
+        for(size_t p = 0; p < remainingPairs; ++p)
+        {
+            const double q = laplacianScores.p_adj[p];
+            if(!std::isnan(q) && q <= significanceCutoff) { sigIdx.push_back(p); }
+        }
+        std::sort(sigIdx.begin(), sigIdx.end(), [this](size_t a, size_t b) {
+            if(laplacianScores.L[a] != laplacianScores.L[b]) { return laplacianScores.L[a] < laplacianScores.L[b]; }
+            if(laplacianScores.p_adj[a] != laplacianScores.p_adj[b]) { return laplacianScores.p_adj[a] < laplacianScores.p_adj[b]; }
+            return laplacianScores.sortRank[a] < laplacianScores.sortRank[b];
+        });
+        const size_t numberSig = sigIdx.size();
+        if(sigIdx.size() > numberCorrelations) { sigIdx.resize(numberCorrelations); }
+        std::sort(sigIdx.begin(), sigIdx.end()); // back to the original pair order
+        LOCO_OUT << "numberCorrelations: " << numberSig << " of " << remainingPairs << " pairs are significant (p_adj <= "
+                 << significanceCutoff << "), keeping " << sigIdx.size() << " with the lowest Laplacian score\n";
+        keep_only_pairs(sigIdx);
+    }
+}
+
 void Neighborhood::step_4_calculate_feature_sets(int minFeatureSetSize)
 {
     // create graph with features as nodes
@@ -1692,8 +1841,16 @@ void Neighborhood::step_4_calculate_feature_sets(int minFeatureSetSize)
 }
 
 //centralneighbourhoodPtrs: all the neighbourhoodsPTrs, sotring all cells in enighbourhoods etc.
-void Neighborhood::calculate_correlation_propagation(double correlationStrengthCutoff, int minFeatureSetSize, const bool calcSets, int threads)
+void Neighborhood::calculate_correlation_propagation(double correlationStrengthCutoff, int minFeatureSetSize, const bool calcSets, int threads,
+                                                     double minNonNAFraction, unsigned int numberCorrelations, double significanceCutoff,
+                                                     double minVaryingFraction)
 {
+    this->minVaryingFraction = minVaryingFraction;
+    if(minVaryingFraction > 0.0)
+    {
+        LOCO_OUT << "minVaryingFraction: correlations of a feature are NA in neighbourhoods where less than "
+                 << minVaryingFraction * 100 << "% of cells differ from its most frequent value\n";
+    }
 
     LOCO_OUT << "STEP 2";
     LOCO_OUT << "\tCalculate correlations in all neighbourhoods\n";
@@ -1703,6 +1860,10 @@ void Neighborhood::calculate_correlation_propagation(double correlationStrengthC
     LOCO_OUT << "STEP 3";
     LOCO_OUT << "\tCalculate Laplacian score\n";
     step_3_calculate_laplacian_score(threads);
+
+    // p_adj for ALL pairs, then the pair filters: feature sets are only calculated for the kept pairs
+    step_3b_adjust_p_values();
+    step_3b_filter_pairs(minNonNAFraction, numberCorrelations, significanceCutoff);
 
     if(calcSets)
     {
@@ -1795,6 +1956,7 @@ void Neighborhood::fill_result_data(
 
     std::vector<double>& corrL, 
     std::vector<double>& pCorrL, 
+    std::vector<double>& pAdjL,
     std::vector<std::string>& featureSetString,
     const bool calcFeatureSets
 )
@@ -1817,10 +1979,11 @@ void Neighborhood::fill_result_data(
     size_t numPairs = neighbourhoodCorrs.pairNames.size();
     std::vector<size_t> indices(numPairs);
     std::iota(indices.begin(), indices.end(), 0);
-    // Sort the indices based on laplacianScores.L in increasing order
+    // Sort by the rank of the pair when ALL pairs (before filtering) were sorted by laplacianScores.L in
+    // increasing order (see step_3b_filter_pairs): unfiltered output = sorted by L, filtering keeps the order
     std::sort(indices.begin(), indices.end(), 
         [this](size_t a, size_t b) {
-            return laplacianScores.L[a] < laplacianScores.L[b];
+            return laplacianScores.sortRank[a] < laplacianScores.sortRank[b];
         }
     );
     // Use the sorted indices to populate your lists
@@ -1835,6 +1998,7 @@ void Neighborhood::fill_result_data(
         // values
         corrL.push_back(laplacianScores.L[idx]);
         pCorrL.push_back(laplacianScores.p_values[idx]);
+        pAdjL.push_back(laplacianScores.p_adj[idx]);
 
         // get feature sets
         if(calcFeatureSets)

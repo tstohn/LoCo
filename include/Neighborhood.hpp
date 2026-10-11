@@ -255,6 +255,11 @@ struct LaplacianResults
     std::vector<double> L;
 
     std::vector<double> p_values;
+    // Benjamini-Hochberg adjusted p_values (over all pairs with a defined p-value, calculated BEFORE any pair filter)
+    std::vector<double> p_adj;
+    // rank of every pair when ALL pairs (before filtering) are sorted by L: the output is sorted by this rank,
+    // so filtering never changes the relative output order of the kept pairs
+    std::vector<size_t> sortRank;
 };
 
 //small edge struct for quick shuffling in permutations for laplacian results
@@ -284,7 +289,14 @@ class Neighborhood
         //calculate how correlation cliques of proteins change smoothly along the
         //cell-cell neighborhood graph (from neighborhood to neighborhood)
         //fills the corrResult
-        void calculate_correlation_propagation(double correlationStrengthCutoff, int minFeatureSetSize=2, bool calcSets = false, int thread=5);
+        // minNonNAFraction / numberCorrelations / significanceCutoff: pair filters applied AFTER the p-values and
+        // p_adj are calculated for ALL pairs and BEFORE the feature sets are calculated (see step_3b_filter_pairs)
+        // minVaryingFraction: per-neighbourhood filter applied WHILE calculating correlations: a feature needs at least this
+        // fraction of cells in a neighbourhood that differ from its most frequent value, otherwise all its correlations
+        // in that neighbourhood are NaN (see calculate_correlations_for_N)
+        void calculate_correlation_propagation(double correlationStrengthCutoff, int minFeatureSetSize=2, bool calcSets = false, int thread=5,
+                                               double minNonNAFraction = 0.0, unsigned int numberCorrelations = 0,
+                                               double significanceCutoff = 0.05, double minVaryingFraction = 0.1);
         void write_results_to_file(const std::string& output, const std::string& prefix, bool calcSets);
         void write_shuffled_laplacians(const std::string& outFile, const std::string& prefix);
         void fill_result_data(
@@ -296,6 +308,7 @@ class Neighborhood
             std::vector<std::vector<double>>& corrMat, //all correlations
             std::vector<double>& corrL, 
             std::vector<double>& pCorrL, 
+            std::vector<double>& pAdjL,
             std::vector<std::string>& featureSetString,
             const bool calcFeatureSets
         );
@@ -306,6 +319,9 @@ class Neighborhood
         void calculate_laplacian_score_for_pair(const int featurePairIdx, const std::vector<Edge>& edges);
         void step_2_calculate_correlation(const double& corrThreshold, const int threads);
         void step_3_calculate_laplacian_score(const int threads);
+        void step_3b_adjust_p_values();
+        void step_3b_filter_pairs(double minNonNAFraction, unsigned int numberCorrelations, double significanceCutoff);
+        void keep_only_pairs(const std::vector<size_t>& keepIdx);
         void step_4_calculate_feature_sets(int minFeatureSetSize);
 
         void calculate_correlations_for_N(nodePtr neighborhoodCenter, size_t neighborhood_idx, 
@@ -411,6 +427,10 @@ class Neighborhood
 
         //spearman or pearson for the correlations to detect
         std::string correlationType;
+
+        //minimum fraction of cells in a neighbourhood whose value differs from the feature's most frequent value
+        //(e.g. cells expressing a gene), features below it get NaN correlations in this neighbourhood (0 = no filter)
+        double minVaryingFraction = 0.1;
 
         //thread variables
         std::mutex threadLock;

@@ -84,6 +84,7 @@ The primary results table summarizing feature pairs that show statistically sign
 
 ### 3. `Correlations`
 Provides all (spearman) correlations between the filtered feature-pairs in all neighbourhoods. Pairs with zero variance in one feature will get nan assigned to their correlation.
+A correlation is also NA in a neighbourhood if one of the two features varies in less than `minVaryingFraction` of its cells (default `0.1` = 10%), i.e. fewer than 10% of the cells differ from the feature's most frequent value (for scRNA-seq: fewer than 10% of cells express the gene). This removes spurious correlations driven by single cells (e.g. a gene that is 0 in 99 cells and 1 in one cell can otherwise correlate almost perfectly with any gene that is high in that cell). Set `minVaryingFraction = 0` (R) or `-g 0` (cpp-tool) to disable this filter.
 * **CorrelationPair**: Matches the pairs found in the `LaplacianScores` table.
 * **NeighbourhoodID**: The specific local group (e.g., `N_42`) where the correlation was calculated.
 * **Correlation**: The actual correlation coefficient for that pair within that specific neighborhood.

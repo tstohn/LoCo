@@ -38,11 +38,12 @@ Rcpp::List build_loco_object(const SingleCellData& rawData,
 
     std::vector<double> corrL;
     std::vector<double> pCorrL;
+    std::vector<double> pAdjL;
     std::vector<std::string> featureSetStrings; // a string for each feature-pair listing all sets with comma and semicolon like A,B,C;A,B,D
     neighborhood.fill_result_data(
         nIDs, nID_anchorCellID,nID_allCellIDs,
         correlation_pairs_laplacian, correlation_pairs_origional,corrMat,
-        corrL,pCorrL,featureSetStrings, calcFeatureSets);
+        corrL,pCorrL,pAdjL,featureSetStrings, calcFeatureSets);
 
     // =========================
     // 1. safe raw data table
@@ -85,7 +86,7 @@ Rcpp::List build_loco_object(const SingleCellData& rawData,
     //check that the vector of feature_pairs and laplacian-scores is of same length
     int laplacian_size = correlation_pairs_laplacian.size();
     // Safety check (important for robustness)
-    if (corrL.size() != laplacian_size || pCorrL.size() != laplacian_size) 
+    if (corrL.size() != laplacian_size || pCorrL.size() != laplacian_size || pAdjL.size() != laplacian_size) 
     {
         Rcpp::stop("Input vectors must have the same length");
     }
@@ -106,6 +107,7 @@ Rcpp::List build_loco_object(const SingleCellData& rawData,
             Rcpp::Named("LaplacianScore") = corrL,
             Rcpp::Named("p_value") = pCorrL,
             Rcpp::Named("FeatureSet") = featureSetStrings,
+            Rcpp::Named("p_adj") = pAdjL,
             Rcpp::_["stringsAsFactors"] = false
         );
     }
@@ -115,6 +117,7 @@ Rcpp::List build_loco_object(const SingleCellData& rawData,
             Rcpp::Named("FeaturePair") = correlation_pairs_laplacian,
             Rcpp::Named("LaplacianScore") = corrL,
             Rcpp::Named("p_value") = pCorrL,
+            Rcpp::Named("p_adj") = pAdjL,
             Rcpp::_["stringsAsFactors"] = false
         );
     }
@@ -224,7 +227,9 @@ Rcpp::List run_correlation_propagation_across_graph(const SingleCellData& inFile
                                               const std::vector<std::string>& corrStateGenes, 
                                               const int permutations, const int minSetSize, const double corrSetAbundance, 
                                               const unsigned int correlatedSetMode, const std::string& correlationType,
-                                            const bool calcFeatureSets, const std::string& nSampling)
+                                            const bool calcFeatureSets, const std::string& nSampling,
+                                            const double minNonNAFraction, const unsigned int numberCorrelations,
+                                            const double significanceCutoff, const double minVaryingFraction)
 {
     //we can store results for many Neighbourhood-size simultaneously
     Rcpp::List all_results;
@@ -258,7 +263,9 @@ Rcpp::List run_correlation_propagation_across_graph(const SingleCellData& inFile
     Neighborhood neighborhood(scNormData, numberNeighbourhoodsCalculated, neighborhoodSize, neighborhoodKNN, 
                             inFile, cellStateIdxs, corrIdxs, permutations, corrSetAbundance,
                             correlatedSetMode, correlationType, nSampling);
-    neighborhood.calculate_correlation_propagation(correlationCutoff, minSetSize, calcFeatureSets, thread);
+    neighborhood.calculate_correlation_propagation(correlationCutoff, minSetSize, calcFeatureSets, thread,
+                                                  minNonNAFraction, numberCorrelations, significanceCutoff,
+                                                  minVaryingFraction);
 
     //return the RCPP data structure for loco
     Rcpp::List res = build_loco_object(inFile, neighborhood, calcFeatureSets);
@@ -286,7 +293,11 @@ Rcpp::List run_loco_cpp(
     double corrSetAbundance,
     std::string correlationType,
     bool calcFeatureSets,
-    std::string nSampling
+    std::string nSampling,
+    double minNonNAFraction,
+    unsigned int numberCorrelations,
+    double significanceCutoff,
+    double minVaryingFraction
 ){
 
     //READ IN DATA
@@ -324,7 +335,11 @@ Rcpp::List run_loco_cpp(
         correlatedSetMode,
         correlationType,
         calcFeatureSets,
-        nSampling
+        nSampling,
+        minNonNAFraction,
+        numberCorrelations,
+        significanceCutoff,
+        minVaryingFraction
     );
 
     return(result);

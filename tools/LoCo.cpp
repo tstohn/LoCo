@@ -26,7 +26,7 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
                      unsigned int & numNeighborhoods, std::string& neighborhoodSizeStr, int& neighborhoodKNN, double& correlationCutoff,
                      std::string& cellStateGeneFile, std::string& correlationStateGeneFile,
                      bool& zscore, int& permutations, int&minSetSize, double& corrSetAbundance, unsigned int& correlatedSetMode,
-                     std::string& correlationType, bool& calcSets)
+                     std::string& correlationType, bool& calcSets, double& minVaryingFraction)
 {
     try
     {
@@ -70,6 +70,9 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
             graphs for every neighbourhood, filters subgraphs based on different graph-connectivity and finally only retains features of these graphs for local \
             correlation detection. Grpahs can be detected as follows: 0= fully connected components (cliques)1 = connected components (nodes with at least one edge), etc.")
             ("CorrelationType,b", value<std::string>(&correlationType)->default_value("spearman"), "spearman or pearson for the type of correlation to calculate")
+            ("minVaryingFraction,g", value<double>(&minVaryingFraction)->default_value(0.1), "minimum fraction of cells (0-1) in a neighbourhood whose value \
+            differs from the most frequent value of a feature (e.g. cells expressing a gene when most cells have 0 counts). In neighbourhoods where a feature is below it, \
+            all correlations of this feature are NA (not calculated). This removes spurious correlations driven by single cells (e.g. all zeroes and a single 1). 0 disables the filter.")
 
             //GENERAL
             ("FeatureSets,f", value<bool>(&calcSets)->default_value(0), "calculate feature sets: sets of features that co-correlate,default is false (0) (1=true, 0=false)")
@@ -150,7 +153,8 @@ void run_correlation_propagation_across_graph(const SingleCellData& inFile, cons
                                               const std::vector<std::string>& cellStateGenes,
                                               const std::vector<std::string>& corrStateGenes, 
                                               const int permutations, const int minSetSize, const double corrSetAbundance, 
-                                              const unsigned int correlatedSetMode, const std::string& correlationType, bool calcSets)
+                                              const unsigned int correlatedSetMode, const std::string& correlationType, bool calcSets,
+                                              const double minVaryingFraction)
 {
     //generate cell-cell neighborhood graph
     std::vector<int> cellStateIdxs = get_indexlist_from_genenames(inFile, cellStateGenes);
@@ -181,7 +185,8 @@ void run_correlation_propagation_across_graph(const SingleCellData& inFile, cons
         Neighborhood neighborhood(scNormData, numNeighborhoodsCalculated, neighborhoodSize, neighborhoodKNN, 
                                 inFile, cellStateIdxs, corrIdxs, permutations, corrSetAbundance,
                                 correlatedSetMode, correlationType);
-        neighborhood.calculate_correlation_propagation(correlationCutoff, minSetSize, calcSets, thread);
+        neighborhood.calculate_correlation_propagation(correlationCutoff, minSetSize, calcSets, thread,
+                                                       0.0, 0, 0.05, minVaryingFraction);
 
         //write results to file:
         //neighborhood, coordinates, correlation, slope for every protein-pair
@@ -242,12 +247,13 @@ int main(int argc, char** argv)
     int minSetSize;
     double corrSetAbundance;
     std::string correlationType;
+    double minVaryingFraction;
 
     if(!parse_arguments(argv, argc, inFile, outFile, prefix,
                         thread, del, col, row, 
                         numNeighborhoods, neighborhoodSizeString, neighborhoodKNN, correlationCutoff,
                         cellStateGeneFile, correlationStateGeneFile, 
-                        zscore, permutations, minSetSize, corrSetAbundance, correlatedSetMode, correlationType, calcSets))
+                        zscore, permutations, minSetSize, corrSetAbundance, correlatedSetMode, correlationType, calcSets, minVaryingFraction))
     {
         exit(EXIT_FAILURE);
     }
@@ -257,6 +263,12 @@ int main(int argc, char** argv)
         std::cout << "Method '" << correlationType << "' is not a valid method for correlations (spearman|pearson)." << std::endl;
         exit(EXIT_FAILURE);
     } 
+
+    if (minVaryingFraction < 0.0 || minVaryingFraction > 1.0)
+    {
+        std::cout << "minVaryingFraction must be between 0 and 1." << std::endl;
+        exit(EXIT_FAILURE);
+    }
 
     neighborhoodSizes = parseNeighborhoodSizes(neighborhoodSizeString);
 
@@ -290,7 +302,7 @@ int main(int argc, char** argv)
                                               neighborhoodKNN, correlationCutoff,
                                               cellStateGenes, corrStateGenes, 
                                               permutations, minSetSize, corrSetAbundance, correlatedSetMode,
-                                              correlationType, calcSets);
+                                              correlationType, calcSets, minVaryingFraction);
 
     return(EXIT_SUCCESS);
 }
