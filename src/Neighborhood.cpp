@@ -1216,7 +1216,8 @@ void Neighborhood::calculate_correlations_for_N(nodePtr neighborhoodCenter, size
         for (size_t f = 0; f < featureMajorData.size(); ++f)
         {
             const double n = static_cast<double>(featureMajorData[f].size());
-            featureVaries[f] = static_cast<double>(count_non_modal_values(featureMajorData[f])) >= minVaryingFraction * n;
+            // small tolerance: e.g. 0.07 * 100 = 7.0000000000000009 in floating point, which would require 8 cells
+            featureVaries[f] = static_cast<double>(count_non_modal_values(featureMajorData[f])) >= minVaryingFraction * n - 1e-9;
         }
     }
 
