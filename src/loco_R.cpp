@@ -129,7 +129,8 @@ Rcpp::List build_loco_object(const SingleCellData& rawData,
     // Size checks
     int nIDsize = nIDs.size();
     int nPairs  = correlation_pairs_origional.size();
-    int total   = nIDsize * nPairs; // Calculate exact final size
+    // R_xlen_t: neighbourhoods x pairs can exceed the int range (2^31 - 1), R supports long vectors
+    R_xlen_t total = static_cast<R_xlen_t>(nIDsize) * static_cast<R_xlen_t>(nPairs); // Calculate exact final size
 
     if (corrMat.size() != nIDsize) {
         Rcpp::stop("corrMat must have same length as nIDs");
@@ -145,7 +146,7 @@ Rcpp::List build_loco_object(const SingleCellData& rawData,
     Rcpp::CharacterVector out_neigh(total);
     Rcpp::NumericVector    out_corr(total);
 
-    int idx = 0; // Track the current flat index
+    R_xlen_t idx = 0; // Track the current flat index
 
     // Build LONG table efficiently using indices
     for (int i = 0; i < nIDsize; i++) {

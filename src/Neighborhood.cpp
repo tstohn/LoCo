@@ -1734,7 +1734,8 @@ void Neighborhood::step_3b_filter_pairs(double minNonNAFraction, unsigned int nu
         }
         LOCO_OUT << "minNonNAFraction: " << keepIdx.size() << " of " << numPairs << " pairs have a correlation in > "
                  << minNonNAFraction * 100 << "% of neighbourhoods\n";
-        keep_only_pairs(keepIdx);
+        // only copy the pairs if any were removed (keepIdx is then all pairs in the original order)
+        if(keepIdx.size() < numPairs) { keep_only_pairs(keepIdx); }
     }
 
     const size_t remainingPairs = laplacianScores.L.size();
@@ -1756,7 +1757,7 @@ void Neighborhood::step_3b_filter_pairs(double minNonNAFraction, unsigned int nu
         std::sort(sigIdx.begin(), sigIdx.end()); // back to the original pair order
         LOCO_OUT << "numberCorrelations: " << numberSig << " of " << remainingPairs << " pairs are significant (p_adj <= "
                  << significanceCutoff << "), keeping " << sigIdx.size() << " with the lowest Laplacian score\n";
-        keep_only_pairs(sigIdx);
+        if(sigIdx.size() < remainingPairs) { keep_only_pairs(sigIdx); }
     }
 }
 
