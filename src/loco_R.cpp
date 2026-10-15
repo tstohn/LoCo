@@ -19,7 +19,7 @@ using namespace Rcpp;
 // create a List of several dataframes
 // 1.) raw data table
 // 2.) laplacian scores
-// 3.) correlations: tibble with 3 columns "CorrelationPair", "NeighbourhoodID", "Correlation"
+// 3.) correlations: numeric matrix, rows = neighbourhoods (NeighbourhoodID), cols = correlation pairs
 // 4,) neighbourhoods: anchor cell + contained cells
 Rcpp::List build_loco_object(const SingleCellData& rawData,
                              Neighborhood& neighborhood,
@@ -34,7 +34,6 @@ Rcpp::List build_loco_object(const SingleCellData& rawData,
     std::vector<std::string> correlation_pairs_laplacian; //all names of the correlation pairs for Alplacian
     std::vector<std::string> correlation_pairs_origional; //all names of the correlation pairs for amtrix
 
-    std::vector<std::vector<double>> corrMat; //all correlations: rows = neighborhoods in nIDs, cols = correlationPairs in correlation_pairs
 
     std::vector<double> corrL;
     std::vector<double> pCorrL;
@@ -42,7 +41,7 @@ Rcpp::List build_loco_object(const SingleCellData& rawData,
     std::vector<std::string> featureSetStrings; // a string for each feature-pair listing all sets with comma and semicolon like A,B,C;A,B,D
     neighborhood.fill_result_data(
         nIDs, nID_anchorCellID,nID_allCellIDs,
-        correlation_pairs_laplacian, correlation_pairs_origional,corrMat,
+        correlation_pairs_laplacian, correlation_pairs_origional,
         corrL,pCorrL,pAdjL,featureSetStrings, calcFeatureSets);
 
     // =========================
@@ -123,50 +122,24 @@ Rcpp::List build_loco_object(const SingleCellData& rawData,
     }
 
     // =========================
-    // 3. neighbourhoodIDs - correlations (LONG FORMAT)
+    // 3. correlations: MATRIX rows = neighbourhoods (nIDs), cols = correlation pairs
     // =========================
-
-    // Size checks
+    // C++ stores the correlations row-major with row = pair, col = neighbourhood: the values of one pair are
+    // contiguous. An R matrix is column-major, so a (neighbourhoods x pairs) R matrix has exactly the same memory
+    // layout -> a single copy, no transpose and no strings per value (get_correlations() in R creates the long format)
+    const FlatMatrix& pairCorrs = neighborhood.get_pair_correlations();
     int nIDsize = nIDs.size();
     int nPairs  = correlation_pairs_origional.size();
+    if (pairCorrs.rows != static_cast<size_t>(nPairs) || pairCorrs.cols != static_cast<size_t>(nIDsize)) {
+        Rcpp::stop("Correlation matrix must have one row per correlation pair and one column per neighbourhood");
+    }
+
     // R_xlen_t: neighbourhoods x pairs can exceed the int range (2^31 - 1), R supports long vectors
-    R_xlen_t total = static_cast<R_xlen_t>(nIDsize) * static_cast<R_xlen_t>(nPairs); // Calculate exact final size
-
-    if (corrMat.size() != nIDsize) {
-        Rcpp::stop("corrMat must have same length as nIDs");
-    }
-    for (int i = 0; i < nIDsize; i++) {
-        if (corrMat[i].size() != nPairs) {
-            Rcpp::stop("Each corrMat row must match number of correlation pairs");
-        }
-    }
-
-    // Pre-allocate the exact memory size UP FRONT
-    Rcpp::CharacterVector out_pair(total);
-    Rcpp::CharacterVector out_neigh(total);
-    Rcpp::NumericVector    out_corr(total);
-
-    R_xlen_t idx = 0; // Track the current flat index
-
-    // Build LONG table efficiently using indices
-    for (int i = 0; i < nIDsize; i++) {
-        const std::string& neigh_id = nIDs[i];
-
-        for (int p = 0; p < nPairs; p++) {
-            out_pair[idx]  = correlation_pairs_origional[p];
-            out_neigh[idx] = neigh_id;
-            out_corr[idx]  = corrMat[i][p];
-            idx++; // Advance flat index
-        }
-    }
-
-    // Build DataFrame
-    Rcpp::DataFrame corr_df = Rcpp::DataFrame::create(
-        Rcpp::Named("CorrelationPair")   = out_pair,
-        Rcpp::Named("NeighbourhoodID")   = out_neigh,
-        Rcpp::Named("Correlation")       = out_corr,
-        Rcpp::_["stringsAsFactors"]      = false
-    );
+    R_xlen_t total = static_cast<R_xlen_t>(nIDsize) * static_cast<R_xlen_t>(nPairs);
+    Rcpp::NumericVector corr_mat(total);
+    std::copy(pairCorrs.data.begin(), pairCorrs.data.begin() + total, corr_mat.begin());
+    corr_mat.attr("dim") = Rcpp::IntegerVector::create(nIDsize, nPairs);
+    corr_mat.attr("dimnames") = Rcpp::List::create(Rcpp::wrap(nIDs), Rcpp::wrap(correlation_pairs_origional));
 
     // =========================
     // 4. safe neighbourhoodIDs - anchorCell - allCells
@@ -214,7 +187,7 @@ Rcpp::List build_loco_object(const SingleCellData& rawData,
     Rcpp::List loco_result = Rcpp::List::create(
         Rcpp::Named("RawData") = raw_df,
         Rcpp::Named("LaplacianScores") = laplacian_scores,
-        Rcpp::Named("Correlations") = corr_df,
+        Rcpp::Named("Correlations") = corr_mat,
         Rcpp::Named("Neighbourhoods") = n_df
     );
 

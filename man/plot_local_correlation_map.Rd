@@ -14,7 +14,7 @@ plot_local_correlation_map(
 \arguments{
 \item{locoResult}{Named list returned by \code{\link{run_loco}} after
 embedding coordinates have been added (e.g. via
-\code{\link{add_umap_coords}}).  The \code{Correlations} data frame must
+\code{\link{add_umap_coords}}).  The \code{Neighbourhoods} data frame must
 contain the columns named by \code{dim1} and \code{dim2}.}
 
 \item{correlationPair}{Character string.  Name of the feature pair to plot,
@@ -22,11 +22,11 @@ formatted as \code{"featureA_featureB"}.  Valid names are listed in the
 \code{FeaturePair} column of \code{locoResult$LaplacianScores}.}
 
 \item{dim1}{Character string.  Name of the column in
-\code{locoResult$Correlations} to use as the x-axis.
+\code{locoResult$Neighbourhoods} to use as the x-axis.
 Default: \code{"UMAP1"} (set by \code{\link{add_umap_coords}}).}
 
 \item{dim2}{Character string.  Name of the column in
-\code{locoResult$Correlations} to use as the y-axis.
+\code{locoResult$Neighbourhoods} to use as the y-axis.
 Default: \code{"UMAP2"} (set by \code{\link{add_umap_coords}}).}
 }
 \value{

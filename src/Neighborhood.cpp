@@ -1953,8 +1953,7 @@ void Neighborhood::fill_result_data(
 
     std::vector<std::string>& correlation_pairs_sorted, //all names of the correlation pairs
 
-    std::vector<std::string>& correlation_pairs_origional, //all names of the correlation pairs
-    std::vector<std::vector<double>>& corrMat, //all correlations
+    std::vector<std::string>& correlation_pairs_origional, //all names of the correlation pairs (order of get_pair_correlations)
 
     std::vector<double>& corrL, 
     std::vector<double>& pCorrL, 
@@ -2031,21 +2030,12 @@ void Neighborhood::fill_result_data(
         }
     }
 
-    // Pre-allocate target matrix to exact final size
-    corrMat.resize(numNeighborhoods, std::vector<double>(numPairs, 0.0));
-
-    // Do the direct memory transpose
-    for (size_t p = 0; p < numPairs; ++p)
+    // the correlations themselves are not copied here: get_pair_correlations() returns them (row = pair in the
+    // order of correlation_pairs_origional, col = neighbourhood in the order of nIDs, checked above)
+    if(neighbourhoodCorrs.pairToListOfAllNCorrs.rows != correlation_pairs_origional.size() ||
+       neighbourhoodCorrs.pairToListOfAllNCorrs.cols != numNeighborhoods)
     {
-        // Grab the flat row for this feature pair once
-        const double* pairRow = neighbourhoodCorrs.pairToListOfAllNCorrs.get_row(p);
-
-        for (size_t n = 0; n < numNeighborhoods; ++n)
-        {
-            // Because we verified the order above, we know that column 'n' 
-            // perfectly matches the target row 'n'.
-            corrMat[n][p] = pairRow[n]; 
-        }
+        throw std::runtime_error("Correlation matrix does not match the number of pairs/ neighbourhoods.");
     }
 
     // =========================

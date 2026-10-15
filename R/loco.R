@@ -211,10 +211,13 @@
 #'   }
 #'
 #'   \item{Correlations}{
-#'     A data.frame of correlation values per neighbourhood with 3 columns "CorrelationPair", "NeighbourhoodID", "Correlation".
-#'     The first column \code{CorrelationPair} contains feature pairs (same name as in LaplacianScore),
-#'     the second column \code{NeighbourhoodID} contains all neighbourhoodIDs (like \code{N_<number>}),
-#'     and the third column \code{Correlation} contains the correlation of the pair in this neighbourhood.
+#'     A numeric matrix of the correlation of every pair in every neighbourhood: one row per neighbourhood
+#'     (row names = \code{NeighbourhoodID}, like \code{N_<number>}, in the same order as the rows of
+#'     \code{Neighbourhoods}) and one column per feature pair (column names = pair names as in
+#'     \code{LaplacianScores$FeaturePair}). \code{NA} where the correlation is not defined.
+#'     \code{Correlations[, "A_B"]} are the correlations of pair \code{A_B} across all neighbourhoods.
+#'     Use \code{\link{get_correlations}} for the long format (columns \code{CorrelationPair},
+#'     \code{NeighbourhoodID}, \code{Correlation}).
 #'   }
 #'
 #'   \item{Neighbourhoods}{
@@ -434,8 +437,8 @@ run_loco <- function(
 #' @description
 #' Computes a UMAP embedding of the raw data returned by \code{\link{run_loco}}
 #' and attaches the 2-D coordinates (\code{UMAP1}, \code{UMAP2}) to the
-#' \code{RawData}, \code{Neighbourhoods}, and \code{Correlations} data frames
-#' in the result list.  The enriched list can then be passed directly to
+#' \code{RawData} and \code{Neighbourhoods} data frames in the result list
+#' (\code{Correlations} is a matrix whose rows are the rows of \code{Neighbourhoods}).  The enriched list can then be passed directly to
 #' \code{\link{plot_local_correlation_map}} or
 #' \code{\link{plot_cell_level_correlation}}.
 #'
@@ -449,9 +452,9 @@ run_loco <- function(
 #'
 #' You are not required to use this function.  If you have an existing embedding
 #' (PCA, t-SNE, spatial coordinates, ...), you can add columns \code{UMAP1} and
-#' \code{UMAP2} (or any name of your choice) to \code{locoResult$Correlations}
-#' and \code{locoResult$Neighbourhoods} manually and pass custom dimension names
-#' via the \code{dim1}/\code{dim2} arguments of the plot functions.
+#' \code{UMAP2} (or any name of your choice) to \code{locoResult$Neighbourhoods}
+#' manually (e.g. the coordinates of the anchor cell of every neighbourhood) and pass
+#' custom dimension names via the \code{dim1}/\code{dim2} arguments of the plot functions.
 #'
 #' @param locoResult Named list returned by \code{\link{run_loco}}.
 #' @param n_pcs Integer.  Number of principal components to compute before
@@ -489,12 +492,6 @@ add_umap_coords <- function(locoResult,
   }
   if (!is.data.frame(locoResult$RawData)) {
     stop("RawData (part of the result of run_loco) must be a data.frame or tibble. Please run run_loco and use add_umap_coords with this result.")
-  }
-  if (is.null(locoResult$Correlations)) {
-    stop("locoResult has no Correlations element. Please run run_loco and use add_umap_coords with this result.")
-  }
-  if (!is.data.frame(locoResult$Correlations)) {
-    stop("Correlations (part of the result of run_loco) must be a data.frame or tibble. Please run run_loco and use add_umap_coords with this result.")
   }
 
   rawData <- locoResult$RawData
@@ -582,41 +579,63 @@ add_umap_coords <- function(locoResult,
     locoResult$Neighbourhoods <- neigh
   }
 
-  # -----------------------------
-  # 5. add UMAP coords to Correlations
-  # -----------------------------
-  if ("Correlations" %in% names(locoResult)) 
-  {
-    corr <- locoResult$Correlations
-
-    if (!("NeighbourhoodID" %in% colnames(corr))) 
-    {
-      stop("Correlations must contain 'NeighbourhoodID'")
-    }
-
-    if (!("NeighbourhoodID" %in% colnames(neigh))) 
-    {
-      stop("Neighbourhoods must contain 'NeighbourhoodID'")
-    }
-
-    # match Correlations$NeighbourhoodID -> Neighbourhoods$NeighbourhoodID
-    idx_corr <- match(corr$NeighbourhoodID, neigh$NeighbourhoodID)
-
-    # warn if missing
-    if (any(is.na(idx_corr))) 
-    {
-      warning("Some NeighbourhoodIDs in Correlations not found in Neighbourhoods.")
-    }
-
-    # assign coords (this automatically repeats correctly)
-    corr$UMAP1 <- neigh$UMAP1[idx_corr]
-    corr$UMAP2 <- neigh$UMAP2[idx_corr]
-
-    locoResult$Correlations <- corr
-  }
-
   return(locoResult)
 }
+
+#' Correlations of a LoCo result in long format
+#'
+#' @description
+#' \code{run_loco} returns \code{Correlations} as a matrix (rows = neighbourhoods, columns = feature
+#' pairs) because the long format needs one row per pair and neighbourhood (easily hundreds of millions of
+#' rows). This function returns the long format for all or only some pairs.
+#'
+#' @param locoResult Named list returned by \code{\link{run_loco}}. Results of older versions of LoCo
+#'   (\code{Correlations} already in long format) are accepted as well.
+#' @param pairs Character vector of pair names (\code{"featureA_featureB"}, as in
+#'   \code{LaplacianScores$FeaturePair}) or \code{NULL} (default) for all pairs. For large results
+#'   select only the pairs you need: all pairs need about 3x the memory of the matrix.
+#' @return A data.frame with the columns \code{CorrelationPair}, \code{NeighbourhoodID} and
+#'   \code{Correlation}: one row per pair and neighbourhood, ordered by neighbourhood (order of
+#'   \code{Neighbourhoods}) and within a neighbourhood by pair (order of the matrix columns).
+#' @examples
+#' \dontrun{
+#' corr <- get_correlations(result, pairs = result$LaplacianScores$FeaturePair[1:10])
+#' }
+#' @export
+get_correlations <- function(locoResult, pairs = NULL)
+{
+  if (!is.list(locoResult) || is.null(locoResult$Correlations)) {
+    stop("locoResult must be the result of run_loco (with a Correlations element)")
+  }
+  corr <- locoResult$Correlations
+
+  # result of an older LoCo version: already long format
+  if (is.data.frame(corr)) {
+    if (!is.null(pairs)) {
+      missing <- setdiff(pairs, corr$CorrelationPair)
+      if (length(missing) > 0) stop("CorrelationPair not found: ", paste(missing, collapse = ", "))
+      corr <- corr[corr$CorrelationPair %in% pairs, , drop = FALSE]
+    }
+    return(corr)
+  }
+
+  if (!is.matrix(corr) || is.null(rownames(corr)) || is.null(colnames(corr))) {
+    stop("Correlations must be a matrix with NeighbourhoodIDs as row names and pairs as column names")
+  }
+  if (!is.null(pairs)) {
+    col_idx <- match(pairs, colnames(corr))
+    if (anyNA(col_idx)) stop("CorrelationPair not found: ", paste(pairs[is.na(col_idx)], collapse = ", "))
+    corr <- corr[, col_idx, drop = FALSE]
+  }
+
+  data.frame(
+    CorrelationPair = rep(colnames(corr), times = nrow(corr)),
+    NeighbourhoodID = rep(rownames(corr), each = ncol(corr)),
+    Correlation = as.vector(t(corr)),
+    stringsAsFactors = FALSE
+  )
+}
+
 
 #' Plot per-neighbourhood correlation strength across an embedding
 #'
@@ -638,16 +657,16 @@ add_umap_coords <- function(locoResult,
 #' @import ggplot2
 #' @param locoResult Named list returned by \code{\link{run_loco}} after
 #'   embedding coordinates have been added (e.g. via
-#'   \code{\link{add_umap_coords}}).  The \code{Correlations} data frame must
+#'   \code{\link{add_umap_coords}}).  The \code{Neighbourhoods} data frame must
 #'   contain the columns named by \code{dim1} and \code{dim2}.
 #' @param correlationPair Character string.  Name of the feature pair to plot,
 #'   formatted as \code{"featureA_featureB"}.  Valid names are listed in the
 #'   \code{FeaturePair} column of \code{locoResult$LaplacianScores}.
 #' @param dim1 Character string.  Name of the column in
-#'   \code{locoResult$Correlations} to use as the x-axis.
+#'   \code{locoResult$Neighbourhoods} to use as the x-axis.
 #'   Default: \code{"UMAP1"} (set by \code{\link{add_umap_coords}}).
 #' @param dim2 Character string.  Name of the column in
-#'   \code{locoResult$Correlations} to use as the y-axis.
+#'   \code{locoResult$Neighbourhoods} to use as the y-axis.
 #'   Default: \code{"UMAP2"} (set by \code{\link{add_umap_coords}}).
 #' @return A \code{ggplot2} object.  Save with \code{ggplot2::ggsave()}.
 #' @export
@@ -660,26 +679,24 @@ plot_local_correlation_map <- function(locoResult, correlationPair, dim1 = "UMAP
     stop("locoResult must be a list")
   }
 
-  if (is.null(locoResult$Correlations)) {
-    stop("locoResult has no Correlations element")
+  if (is.null(locoResult$Neighbourhoods)) {
+    stop("locoResult has no Neighbourhoods element")
   }
-
-  # subset the Correlation pair
-  correlation_col <- as.character(locoResult$Correlations$CorrelationPair)
-  idx <- which(trimws(correlation_col) == trimws(correlationPair))
-  if (length(idx) == 0) {
-    stop("CorrelationPair not found: ", correlationPair)
-  }
-  corr <- locoResult$Correlations[idx, , drop = FALSE]
-
-  # required columns: Correlation and the space dimensions
-  req_cols <- c("Correlation", dim1, dim2)
-
-  missing <- setdiff(req_cols, colnames(corr))
+  neigh <- locoResult$Neighbourhoods
+  missing <- setdiff(c(dim1, dim2), colnames(neigh))
   if (length(missing) > 0) {
-    stop("Missing required columns in Correlations: ",
-         paste(missing, collapse = ", "))
+    stop("Missing required columns in Neighbourhoods: ", paste(missing, collapse = ", "),
+         ". Run add_umap_coords() or add the coordinates of the anchor cells to Neighbourhoods.")
   }
+
+  # correlations of this pair (one row per neighbourhood) + the coordinates of their neighbourhoods
+  corr <- get_correlations(locoResult, pairs = trimws(correlationPair))
+  idx <- match(corr$NeighbourhoodID, neigh$NeighbourhoodID)
+  if (anyNA(idx)) {
+    warning("Some NeighbourhoodIDs in Correlations not found in Neighbourhoods.")
+  }
+  corr[[dim1]] <- neigh[[dim1]][idx]
+  corr[[dim2]] <- neigh[[dim2]][idx]
 
   # -----------------------------
   # plot

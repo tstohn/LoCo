@@ -257,10 +257,13 @@ A named list containing LoCo results with four elements:
   }
 
   \item{Correlations}{
-    A data.frame of correlation values per neighbourhood with 3 columns "CorrelationPair", "NeighbourhoodID", "Correlation".
-    The first column \code{CorrelationPair} contains feature pairs (same name as in LaplacianScore),
-    the second column \code{NeighbourhoodID} contains all neighbourhoodIDs (like \code{N_<number>}),
-    and the third column \code{Correlation} contains the correlation of the pair in this neighbourhood.
+    A numeric matrix of the correlation of every pair in every neighbourhood: one row per neighbourhood
+    (row names = \code{NeighbourhoodID}, like \code{N_<number>}, in the same order as the rows of
+    \code{Neighbourhoods}) and one column per feature pair (column names = pair names as in
+    \code{LaplacianScores$FeaturePair}). \code{NA} where the correlation is not defined.
+    \code{Correlations[, "A_B"]} are the correlations of pair \code{A_B} across all neighbourhoods.
+    Use \code{\link{get_correlations}} for the long format (columns \code{CorrelationPair},
+    \code{NeighbourhoodID}, \code{Correlation}).
   }
 
   \item{Neighbourhoods}{

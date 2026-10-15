@@ -68,7 +68,7 @@ plot_local_correlation_map(locoResults, locoResults$Laplacian$FeaturePair[1])
 
 ### c) Output
 
-LoCo returns a named list containing four distinct `data.frame` objects that desribe the neighbourhoods and the found local correlations.
+LoCo returns a named list containing three `data.frame` objects and one matrix (`Correlations`) that desribe the neighbourhoods and the found local correlations.
 
 ### 1. `RawData`
 Stores the processed input expression matrix in a **long-format** structure. This data is z-scored unless z-scoring was turned off.
@@ -85,9 +85,12 @@ The primary results table summarizing feature pairs that show statistically sign
 ### 3. `Correlations`
 Provides all (spearman) correlations between the filtered feature-pairs in all neighbourhoods. Pairs with zero variance in one feature will get nan assigned to their correlation.
 A correlation is also NA in a neighbourhood if one of the two features varies in less than `minVaryingFraction` of its cells (default `0.1` = 10%), i.e. fewer than 10% of the cells differ from the feature's most frequent value (for scRNA-seq: fewer than 10% of cells express the gene). This removes spurious correlations driven by single cells (e.g. a gene that is 0 in 99 cells and 1 in one cell can otherwise correlate almost perfectly with any gene that is high in that cell). Set `minVaryingFraction = 0` (R) or `-g 0` (cpp-tool) to disable this filter.
-* **CorrelationPair**: Matches the pairs found in the `LaplacianScores` table.
-* **NeighbourhoodID**: The specific local group (e.g., `N_42`) where the correlation was calculated.
-* **Correlation**: The actual correlation coefficient for that pair within that specific neighborhood.
+`Correlations` is a numeric **matrix** (not a data.frame, to keep large results small and fast):
+* **Rows**: one per neighbourhood, row names are the `NeighbourhoodID`s (e.g., `N_42`), in the same order as the rows of `Neighbourhoods`.
+* **Columns**: one per feature pair, column names match the pairs in the `LaplacianScores` table.
+* **Values**: the correlation coefficient of that pair within that neighbourhood, e.g. `Correlations[, "A_B"]` for all neighbourhoods of pair `A_B`.
+
+For the long format (columns `CorrelationPair`, `NeighbourhoodID`, `Correlation`) use `get_correlations(locoResults)`, or `get_correlations(locoResults, pairs = c("A_B", "C_D"))` for only some pairs (recommended for large results).
 
 ### 4. `Neighbourhoods`
 Describes the sampled neighbourhoods. Neighbourhoods are created by first sampling anchor cells (AnchorCellID) around which LoCo creates local neighbourhoods (AllCellIDs). The CellIDs are the same ones as used in `RawData` and NeighbourhoodIDs are the same as in `Correlations`.

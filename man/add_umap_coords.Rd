@@ -36,8 +36,8 @@ Default: \code{7}.}
 \description{
 Computes a UMAP embedding of the raw data returned by \code{\link{run_loco}}
 and attaches the 2-D coordinates (\code{UMAP1}, \code{UMAP2}) to the
-\code{RawData}, \code{Neighbourhoods}, and \code{Correlations} data frames
-in the result list.  The enriched list can then be passed directly to
+\code{RawData} and \code{Neighbourhoods} data frames in the result list
+(\code{Correlations} is a matrix whose rows are the rows of \code{Neighbourhoods}).  The enriched list can then be passed directly to
 \code{\link{plot_local_correlation_map}} or
 \code{\link{plot_cell_level_correlation}}.
 }
@@ -51,7 +51,7 @@ can be plotted in the same 2-D space as the individual cells.
 
 You are not required to use this function.  If you have an existing embedding
 (PCA, t-SNE, spatial coordinates, ...), you can add columns \code{UMAP1} and
-\code{UMAP2} (or any name of your choice) to \code{locoResult$Correlations}
-and \code{locoResult$Neighbourhoods} manually and pass custom dimension names
-via the \code{dim1}/\code{dim2} arguments of the plot functions.
+\code{UMAP2} (or any name of your choice) to \code{locoResult$Neighbourhoods}
+manually (e.g. the coordinates of the anchor cell of every neighbourhood) and pass
+custom dimension names via the \code{dim1}/\code{dim2} arguments of the plot functions.
 }
