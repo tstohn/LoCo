@@ -53,17 +53,20 @@
 #'   correlation is NA in a neighbourhood when it was not calculated there
 #'   (e.g. not enough valid values).  For example \code{0.75} keeps only pairs
 #'   with a correlation in more than 75\% of all neighbourhoods.  Default:
-#'   \code{0} (no filtering).  This filter is applied AFTER p-values and
-#'   \code{p_adj} are calculated (so \code{p_adj} still corrects for all
-#'   pairs) and BEFORE \code{numberCorrelations} is applied.
+#'   \code{0} (no filtering).  This filter is applied right after the
+#'   correlations and BEFORE the Laplacian score: removed pairs get no score
+#'   and no p-value and do not count as tests for \code{p_adj}.  There is no
+#'   other minimum: every remaining pair is scored.  Pairs whose Laplacian
+#'   score is undefined (no two neighbouring neighbourhoods with a defined
+#'   correlation, or no variation among them) are removed as well, so the
+#'   result contains no pairs with an NA score.
 #' @param numberCorrelations Integer.  Maximum number of SIGNIFICANT feature
 #'   pairs to return.  \code{0} (default) disables this and returns all feature
 #'   pairs.  If set to a positive integer, LoCo first calculates the Laplacian
 #'   score, the permutation p-value (\code{p_value}) and the
-#'   Benjamini-Hochberg adjusted p-value (\code{p_adj}) for ALL feature pairs
-#'   (the filtering happens AFTER significance testing).  If
-#'   \code{minNonNAFraction > 0}, pairs are first filtered for sufficient
-#'   non-NA neighbourhoods, and only the remaining pairs are considered here.
+#'   Benjamini-Hochberg adjusted p-value (\code{p_adj}) for ALL tested feature
+#'   pairs (the filtering happens AFTER significance testing).  Pairs removed
+#'   by \code{minNonNAFraction} were never tested and are not considered here.
 #'   It then keeps only
 #'   the significant pairs (\code{p_adj <= significanceCutoff}) and, of those,
 #'   only the \code{numberCorrelations} pairs with the lowest Laplacian score
@@ -71,8 +74,8 @@
 #'   \code{LaplacianScores} and \code{Correlations}.  If fewer than
 #'   \code{numberCorrelations} pairs are significant, all significant pairs are
 #'   returned.
-#'   Because the p-values and \code{p_adj} are calculated for all pairs before
-#'   filtering, \code{p_adj} corrects for ALL tested pairs and is not
+#'   Because the p-values and \code{p_adj} are calculated for all tested pairs
+#'   before filtering, \code{p_adj} corrects for ALL tested pairs and is not
 #'   affected by this filter.  The filter is applied BEFORE the feature sets
 #'   are calculated, so the \code{FeatureSet} column (and the runtime of the
 #'   feature set calculation) only uses the kept pairs.
@@ -289,8 +292,11 @@
 #' \code{minVaryingFraction} of the cells of this neighbourhood.  Such neighbourhoods are removed from the
 #' graph for this pair (the remaining edges and weights are kept, nothing is
 #' imputed), and the score, degrees and mean are calculated on the remaining
-#' neighbourhoods only.  A pair needs a defined correlation in at least 10\% of
-#' all neighbourhoods, otherwise its score is NA.  For the permutation test the
+#' neighbourhoods only.  Pairs with a defined correlation in at most
+#' \code{minNonNAFraction} of all neighbourhoods are removed before scoring, and
+#' pairs whose score is undefined (no edge between two neighbourhoods with a
+#' defined correlation, or no variation) are removed from the result, so no
+#' returned pair has an NA score.  For the permutation test the
 #' NAs stay at their position and only the defined correlations are shuffled
 #' among the neighbourhoods with a defined correlation.
 #' @export
@@ -425,8 +431,9 @@ run_loco <- function(
     significanceCutoff,
     minVaryingFraction
   )
-  # p_adj (Benjamini-Hochberg over ALL pairs) and the minNonNAFraction/ numberCorrelations filters are applied
-  # in C++, after the p-values and BEFORE the feature sets are calculated
+  # minNonNAFraction is applied in C++ BEFORE the Laplacian score (removed pairs are not scored/ tested);
+  # p_adj (Benjamini-Hochberg over all tested pairs) and the numberCorrelations filter are applied after the
+  # p-values and BEFORE the feature sets are calculated
 
   return(res)
 }
