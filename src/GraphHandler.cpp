@@ -232,10 +232,8 @@ void GraphHandler::fill_knn_matrix(double** weightMatrix)
 }
 
 
-//estimating a bandwidth
-// 1.) take 10% of closest neighbors
-// 2.) calculate avgDist = average distance
-// 3.) bandwidth = avgDist/ 2
+//estimating a bandwidth (sigma of the gaussian kernel): median of all stored (kNN) edge distances.
+// Zero distances (identical points) are ignored, so the bandwidth is never 0 (bandwidth 0 would disable the kernel)
 double GraphHandler::calc_bandwidth()
 {
     std::vector<double> allDists;
@@ -243,7 +241,7 @@ double GraphHandler::calc_bandwidth()
     {
         for(auto it = entry.second.begin(); it != entry.second.end(); ++it)
         {
-            allDists.push_back(it.distance());
+            if(it.distance() > 0.0) { allDists.push_back(it.distance()); }
         }
     }
 
@@ -267,12 +265,17 @@ double GraphHandler::calc_gaussian_kernel(const nodePtr& nodeA, const nodePtr& n
 
 // TODO: we still do not calcualte new matrix after aplying gaussian kernel to it
 // it should be a fully connected adj matrix: stpring also zeroes, se we can use it to initialize the iGraph
-GraphHandler::GraphHandler(std::shared_ptr<const GraphData> data, int knn, double inputRadius, double bandwidth) :
-            knn{knn}, radius{inputRadius}, data{data}, bandwidth{bandwidth}
+GraphHandler::GraphHandler(std::shared_ptr<const GraphData> data, int knn, double inputRadius, double inputBandwidth) :
+            knn{knn}, radius{inputRadius}, data{data}, bandwidth{inputBandwidth}
 {
     //create adjacency matrix with gaussian kernel
-    //estimate a bandwidth
+    //estimate a bandwidth: set the MEMBER (it is used by fill_knn_matrix/ fill_distance_matrix), otherwise the
+    // kernel is silently skipped and the weights fall back to 1/distance
     if(bandwidth == 0){bandwidth = calc_bandwidth();}
+    if(knn > 0 && bandwidth > 0.0)
+    {
+        LOCO_OUT << "\tneighbourhood graph: gaussian kernel edge weights with bandwidth " << bandwidth << "\n";
+    }
 
     //create the weightedAdjacencyMatrix used for iGraoph creation (ATTENTION: this data needs to be freed upon destruction)
     int numberNodes = data->number_of_nodes();

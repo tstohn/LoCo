@@ -133,10 +133,12 @@ class OrderedHash {
         void set(K key, V value) 
         {
             auto iter = map.find(key);
-            if (iter != map.end()) 
+            if (iter != map.end())
             {
-                // no order change, just update value
+                // no order change, just update value (the key must not be added to `order` twice, otherwise
+                // e.g. mutual kNN neighbours appear twice in a neighbour list)
                 iter->second = value;
+                return;
             }
             order.push_back(key);
             map.insert(std::make_pair(key, value));

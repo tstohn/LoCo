@@ -255,7 +255,7 @@ struct LaplacianResults
     std::vector<double> L;
 
     std::vector<double> p_values;
-    // Benjamini-Hochberg adjusted p_values (over all pairs with a defined p-value, calculated BEFORE any pair filter)
+    // Benjamini-Hochberg adjusted p_values over all tested pairs (after minNonNAFraction, BEFORE numberCorrelations)
     std::vector<double> p_adj;
     // rank of every pair when ALL pairs (before filtering) are sorted by L: the output is sorted by this rank,
     // so filtering never changes the relative output order of the kept pairs
