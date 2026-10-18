@@ -285,7 +285,11 @@ class Neighborhood
                      const std::vector<int>& cellStateGenes, const std::vector<int>& corrStateGenes, int permutations,
                      const double& corrSetAbundance, const unsigned int correlatedSetMode,
                     const std::string& correlationType, const std::string& nSampling = "random",
-                    const double mdavAlpha = 1.0, const double mdavRadiusFactor = 2.0, const int threads = 1);
+                    const double mdavAlpha = 1.0, const double mdavRadiusFactor = 2.0, const int threads = 1,
+                    const unsigned int kmeansR = 5, const double kmeansSlack = 0.05, const unsigned int seed = 0);
+        // per cell (order of the input cells): "placed", or why it is in no neighbourhood
+        // (kmeans: "no_room", "dissolved", "dropped"; random/ mdav: "not_in_neighbourhood")
+        const std::vector<std::string>& get_cell_neighbourhood_status() const { return cellNeighbourhoodStatus; }
 
         //calculate how correlation cliques of proteins change smoothly along the
         //cell-cell neighborhood graph (from neighborhood to neighborhood)
@@ -378,6 +382,7 @@ class Neighborhood
 
         unsigned int neighborhoodSize;
         unsigned int neighbourhoodNum;
+        std::vector<std::string> cellNeighbourhoodStatus;
         /* A NEIGHBORHOOD is essentially a list of NODE IDs, which are the CENTER NODES that define each neighborhood,
         for all those NODE IDS we then aggregate surrounding neighbors to define their neoghborhood (we use GraphData which gets 
         <knn> nodes that r closest to this center point, to get an overlap of those neighborhoods we create another knn graph an get <knn'> surrounding

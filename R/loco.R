@@ -136,14 +136,50 @@
 #'     \item{\code{"random"}}{Anchor cells are sampled uniformly at random;
 #'       every neighbourhood is the anchor plus its \code{neighbourhoodSize}
 #'       nearest cells (Manhattan distance).  Neighbourhoods can overlap.}
-#'     \item{\code{"kmeans"}}{All cells are partitioned into
-#'       \emph{non-overlapping} neighbourhoods by a size-constrained k-medians
-#'       clustering (Manhattan distance) on the same cell-state features as the
-#'       \code{"random"} mode (\code{cellStateGeneFile}, or all features if no
-#'       file is given).  The number of neighbourhoods is
-#'       \code{numberNeighbourhoods} (default: number of cells /
-#'       \code{neighbourhoodSize}); neighbourhood sizes differ by at most one
-#'       cell.  The anchor is the cell closest to the cluster median.}
+#'     \item{\code{"kmeans"}}{\emph{Non-overlapping} neighbourhoods by a
+#'       size-constrained k-medians clustering (Manhattan distance) on the same
+#'       cell-state features as the \code{"random"} mode (\code{cellStateGeneFile},
+#'       or all features if no file is given).  The planned number of
+#'       neighbourhoods is \code{numberNeighbourhoods} (default: number of cells /
+#'       \code{neighbourhoodSize}).  Neighbourhood sizes may vary by
+#'       \code{kmeansSlack} (default 5\%, i.e. 95 to 105 cells for
+#'       \code{neighbourhoodSize = 100}); not every cell has to be in a
+#'       neighbourhood.
+#'       \enumerate{
+#'         \item k-means++ seeding: the first centre is a random cell, every further
+#'           centre a random cell drawn with probability proportional to its
+#'           distance to the nearest centre so far (\code{seed}).
+#'         \item k-medians iterations (at most 30, until at most 0.1\% of the cells
+#'           change): all cells are assigned from scratch, cells with the strongest
+#'           preference for one centre first, each to the nearest of its
+#'           \code{kmeansR} (default 5) nearest centres with fewer than
+#'           \code{neighbourhoodSize} cells; cells that do not fit then go to the
+#'           nearest of these centres that is still below the maximum size.  A cell whose
+#'           \code{kmeansR} nearest neighbourhoods are all full is \emph{not placed}
+#'           in this round and considered again in the next one.  Neighbourhoods
+#'           below the minimum size then take their nearest not-placed cells up to the
+#'           minimum (so that no centre starves; cells placed far away this way are
+#'           repaired in the swap phase).  From the 3rd iteration on, a neighbourhood
+#'           that still stays below the minimum (per iteration only the smallest of
+#'           neighbouring ones) is moved to the worst served cell (the cell furthest
+#'           from its centre), so the other neighbourhoods of a small population take
+#'           over its cells; in the last 5 iterations it is dissolved instead.  Every
+#'           centre then moves to the median of its cells.
+#'         \item Neighbourhoods with fewer than the minimum size are dissolved (they do
+#'           not exist); their cells join one of their \code{kmeansR} nearest
+#'           neighbourhoods with room if possible.
+#'         \item Swap phase: every cell whose own neighbourhood is \emph{not among its
+#'           \code{kmeansR} nearest neighbourhoods} is moved to the nearest of these
+#'           with room, otherwise swapped with a cell of one of them if this reduces
+#'           the total distance, otherwise left out of its neighbourhood (only if
+#'           this keeps the minimum size).  Left-out cells join one of their
+#'           \code{kmeansR} nearest neighbourhoods if one has room.
+#'       }
+#'       The anchor is the cell closest to the neighbourhood median.  A summary is
+#'       printed (number of neighbourhoods, coverage and why cells are not placed,
+#'       size distribution, placement of the cells relative to their nearest
+#'       neighbourhoods, swap phase, compactness); \code{NeighbourhoodStatus} in the
+#'       result tells for every cell whether and why it is in no neighbourhood.}
 #'     \item{\code{"mdav"}}{\emph{Non-overlapping} neighbourhoods of exactly
 #'       \code{neighbourhoodSize} cells, built one after the other on the same
 #'       cell-state features (Manhattan distance); not every cell has to be in a
@@ -164,6 +200,19 @@
 #'       the cell closest to the neighbourhood median.  The number of
 #'       neighbourhoods, covered and left-out cells are printed.}
 #'   }
+#' @param kmeansR Integer \eqn{\ge 1}.  Only for \code{Nsampling = "kmeans"}.  A
+#'   cell is only placed into one of its \code{kmeansR} nearest neighbourhoods;
+#'   cells outside them are repaired in the swap phase.  Default: \code{5}.
+#' @param kmeansSlack Numeric in \eqn{[0, 1)}.  Only for
+#'   \code{Nsampling = "kmeans"}.  Neighbourhoods may have between
+#'   \eqn{\lceil s(1 - \code{kmeansSlack})\rceil} and
+#'   \eqn{\lfloor s(1 + \code{kmeansSlack})\rfloor} cells
+#'   (\eqn{s} = \code{neighbourhoodSize}).  Default: \code{0.05}.
+#' @param seed Non-negative integer.  Seed of the random numbers of the
+#'   neighbourhood construction (k-means++ seeding for \code{"kmeans"}, anchor
+#'   cells for \code{"random"}; \code{"mdav"} is deterministic).  \code{0}
+#'   (default): a random seed.  The permutations of the significance test are
+#'   not affected.
 #' @param mdavAlpha Numeric \eqn{\ge 0}.  Only for \code{Nsampling = "mdav"}.
 #'   A cell \eqn{c} is not added to a new neighbourhood with median \eqn{m} if
 #'   \eqn{d(c, \textrm{nearest earlier median}) < \code{mdavAlpha} \cdot d(c, m)},
@@ -219,7 +268,7 @@
 #'   filters globally (not restricted to a single spatial region).  The
 #'   resulting feature sets are reported in the \code{FeatureSet} column of
 #'   \code{LaplacianScores}.  Default: \code{FALSE}.
-#' @return A named list containing LoCo results with four elements:
+#' @return A named list containing LoCo results with five elements:
 #'
 #' \describe{
 #'   \item{RawData}{
@@ -263,6 +312,15 @@
 #'       \item \code{AnchorCellID}: central cell of the neighbourhood. LoCo starts by sampling random cells (anchor cells) and builds local neighbourhoods around them.
 #'       \item \code{AllCellIDs}: comma-separated list of all cells in this neighbourhood. These were the closest cells to the anchor cell.
 #'     }
+#'   }
+#'
+#'   \item{NeighbourhoodStatus}{
+#'     A data.frame with one row per cell: \code{cellID} and \code{Status},
+#'     \code{"placed"} if the cell is in a neighbourhood, otherwise why not:
+#'     \code{"no_room"} (all its \code{kmeansR} nearest neighbourhoods were full),
+#'     \code{"dissolved"} (its neighbourhood did not reach the minimum size),
+#'     \code{"dropped"} (left out in the swap phase) for \code{"kmeans"}, and
+#'     \code{"not_in_neighbourhood"} for \code{"random"}/ \code{"mdav"}.
 #'   }
 #' }
 #'
@@ -360,7 +418,10 @@ run_loco <- function(
   calcFeatureSets = FALSE,
   Nsampling = "random",
   mdavAlpha = 1,
-  mdavRadiusFactor = 2
+  mdavRadiusFactor = 2,
+  kmeansR = 5,
+  kmeansSlack = 0.05,
+  seed = 0
 ) {
 
   # ---- checks ----
@@ -441,6 +502,15 @@ run_loco <- function(
   if (!is.numeric(mdavRadiusFactor) || length(mdavRadiusFactor) != 1 || mdavRadiusFactor < 0) {
     stop("`mdavRadiusFactor` must be >= 0 (0 disables the radius limit)")
   }
+  if (!is.numeric(kmeansR) || length(kmeansR) != 1 || kmeansR < 1) {
+    stop("`kmeansR` must be >= 1")
+  }
+  if (!is.numeric(kmeansSlack) || length(kmeansSlack) != 1 || kmeansSlack < 0 || kmeansSlack >= 1) {
+    stop("`kmeansSlack` must be >= 0 and < 1")
+  }
+  if (!is.numeric(seed) || length(seed) != 1 || seed < 0 || seed != round(seed)) {
+    stop("`seed` must be a non-negative integer (0 = random)")
+  }
 
   if( (correlationType != "spearman") && (correlationType != "pearson") )
   {
@@ -474,7 +544,10 @@ run_loco <- function(
     significanceCutoff,
     minVaryingFraction,
     mdavAlpha,
-    mdavRadiusFactor
+    mdavRadiusFactor,
+    as.integer(kmeansR),
+    kmeansSlack,
+    as.integer(seed)
   )
   # minNonNAFraction is applied in C++ BEFORE the Laplacian score (removed pairs are not scored/ tested);
   # p_adj (Benjamini-Hochberg over all tested pairs) and the numberCorrelations filter are applied after the
@@ -701,8 +774,10 @@ correlations_long_format <- function(locoResult, pairs)
     corr <- corr[, col_idx, drop = FALSE]
   }
 
+  # a matrix without columns (no pairs) has no column names: keep the CorrelationPair column anyway
+  pair_names <- if (is.null(colnames(corr))) character(0) else colnames(corr)
   data.frame(
-    CorrelationPair = rep(colnames(corr), times = nrow(corr)),
+    CorrelationPair = rep(pair_names, times = nrow(corr)),
     NeighbourhoodID = rep(rownames(corr), each = ncol(corr)),
     Correlation = as.vector(t(corr)),
     stringsAsFactors = FALSE

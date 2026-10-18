@@ -5,13 +5,24 @@
 #include <set>
 //#include <execution> // C++17 can improve runtime of std::sort with std::sort(std::execution::par, begin, end, ...), but we disabled it for R weaknesses to handle tbb
 #include <atomic>
+#include <chrono>
+#include <iomanip>
+#include <map>
+#include <functional>
+#include <tuple>
 
 #include "Neighborhood.hpp"
 
 namespace neighborhoodCalculations
 {
 
-    std::vector<int> get_random_elements(unsigned int numbers, unsigned int maxNum) 
+    // random engine for the neighbourhood construction: seed 0 = a random seed (not reproducible)
+    inline std::mt19937 make_rng(const unsigned int seed)
+    {
+        return std::mt19937(seed == 0 ? std::random_device{}() : seed);
+    }
+
+    std::vector<int> get_random_elements(unsigned int numbers, unsigned int maxNum, const unsigned int seed = 0) 
     {
         if (numbers > maxNum)
             throw std::invalid_argument("Creating more neighbourhoods that cells is not allowed!");
@@ -19,27 +30,65 @@ namespace neighborhoodCalculations
         std::vector<int> pool(maxNum);
         std::iota(pool.begin(), pool.end(), 0);
 
-        std::random_device rd;
-        std::mt19937 gen(rd());
+        std::mt19937 gen = make_rng(seed);
 
         std::shuffle(pool.begin(), pool.end(), gen);
 
         return std::vector<int>(pool.begin(), pool.begin() + numbers);
     }
 
-    // Disjoint, size-constrained k-medians partition of ALL cells (Manhattan distance, like the kd-tree used for
-    // the "random" neighbourhood sampling) in the cell state space (= the nodes of scData, which only contain the
-    // cellStateGeneFile features, or all features if no file was given).
-    // Every cell belongs to exactly one cluster; cluster sizes differ by at most 1 (floor(n/k) or floor(n/k)+1).
-    // Returns for every cluster: anchor cell (member closest to the cluster median) and ALL member cells, the
-    // anchor is the first member (the same way the kd-tree search returns the anchor first).
-    std::vector<std::pair<int, std::vector<int>>> size_constrained_kmedians(const std::shared_ptr<const GraphData>& scData,
-                                                                           const unsigned int k, const int maxIterations = 30)
+    // per-cell status of the neighbourhood construction (kmeans)
+    enum KmediansCellStatus : char { KM_PLACED = 0, KM_NO_ROOM = 1, KM_DISSOLVED = 2, KM_DROPPED = 3 };
+    struct KmediansResult
     {
+        std::vector<std::pair<int, std::vector<int>>> groups; // anchor (first member) + all members
+        std::vector<char> status;                              // KmediansCellStatus per cell
+    };
+
+    // Disjoint neighbourhoods by a size-constrained k-medians clustering (Manhattan distance) in the cell state space
+    // (= the nodes of scData: the cellStateGeneFile features, or all features). Neighbourhood sizes may vary by
+    // `slack` around s (sMin = ceil(s(1-slack)) ... sMax = floor(s(1+slack)), e.g. 95-105 for s = 100, slack = 0.05).
+    // Not every cell has to be in a neighbourhood.
+    //   1.) k-means++ seeding: first centre a random cell, every further centre a random cell drawn with probability
+    //       proportional to its distance to the nearest centre so far
+    //   2.) k-medians iterations (at most maxIterations, until at most 0.1 % of the cells change):
+    //         a.) ALL cells are assigned from scratch, cells with the largest regret (distance to the 2nd nearest minus
+    //             distance to the nearest centre) first: each cell goes to the nearest of its R nearest centres that has
+    //             fewer than s cells; cells that did not fit then go to the nearest of their R nearest centres with fewer
+    //             than sMax cells (the slack is a tolerance, not the target: otherwise all neighbourhoods fill up to sMax
+    //             and ~slack of them starve); if all R are full, the cell is not placed in this round (it is considered
+    //             again in the next round). Neighbourhoods with fewer than sMin cells then take their nearest not-placed cells
+    //             (even outside these cells' R nearest) up to sMin, so that no centre starves. From the 3rd iteration on,
+    //             neighbourhoods that still have fewer than sMin cells are starving (per iteration only the smallest of
+    //             neighbouring ones): their centre is re-seeded at the worst served cell (furthest from its centre), so the
+    //             other centres of a small population take over its cells and the capacity for all cells is kept; in the
+    //             last 5 iterations starving neighbourhoods are dissolved instead
+    //         b.) centre = coordinate-wise median of its placed cells
+    //   3.) final neighbourhoods:
+    //         a.) neighbourhoods with fewer than sMin cells are dissolved (they do not exist), their cells are not placed
+    //         b.) not-placed cells join the nearest of their R nearest neighbourhoods with room (closest cells first)
+    //         c.) median update
+    //         d.) swap phase for every placed cell whose own neighbourhood is NOT among its R nearest (worst first):
+    //             move it into the nearest of its R nearest neighbourhoods with room (if its own keeps >= sMin), else swap
+    //             it with the member of one of its R nearest neighbourhoods that fits best into its own neighbourhood
+    //             (if the total distance decreases), else leave it unplaced (if its own keeps >= sMin), else it stays
+    //             ("unresolved")
+    //         e.) not-placed cells join the nearest of their R nearest neighbourhoods with room
+    //         f.) final median update, anchor = member closest to the median (first in the member list)
+    // Every final neighbourhood has sMin..sMax cells. Statistics are printed.
+    KmediansResult kmedians_with_repair(const std::shared_ptr<const GraphData>& scData, const unsigned int kIn,
+                                        const unsigned int s, const unsigned int Rin, const double slack,
+                                        const unsigned int seed, const int threads, const int maxIterations = 30)
+    {
+        const auto t0 = std::chrono::steady_clock::now();
         const size_t n = scData->number_of_nodes();
+        const size_t k = kIn;
         if (k < 1 || k > n)
             throw std::invalid_argument("kmeans sampling: number of neighbourhoods must be between 1 and the number of cells!");
         const size_t dim = scData->get_node_at(0)->dimensions();
+        const size_t sMax = static_cast<size_t>(std::floor(s * (1.0 + slack) + 1e-9));
+        const size_t sMin = std::max<size_t>(1, static_cast<size_t>(std::ceil(s * (1.0 - slack) - 1e-9)));
+        const size_t R = std::max<size_t>(1, std::min<size_t>(Rin, k));
 
         // flat copy of the cell state coordinates
         std::vector<double> X(n * dim);
@@ -48,7 +97,6 @@ namespace neighborhoodCalculations
             const nodePtr node = scData->get_node_at(i);
             for (size_t d = 0; d < dim; ++d) X[i * dim + d] = node->value_at(static_cast<int>(d));
         }
-
         auto manhattan = [&](const double* a, const double* b)
         {
             double dist = 0.0;
@@ -56,20 +104,35 @@ namespace neighborhoodCalculations
             return dist;
         };
 
-        std::mt19937 gen(std::random_device{}());
+        // body(begin, end) over [0, count), split over the threads of one pool (reused for all loops)
+        ThreadPool pool(std::max(1, threads));
+        auto parallel_for = [&](size_t count, const std::function<void(size_t, size_t)>& body)
+        {
+            const size_t chunks = std::min<size_t>(std::max(1, threads), std::max<size_t>(1, count / 512));
+            if (chunks <= 1) { body(0, count); return; }
+            const size_t step = (count + chunks - 1) / chunks;
+            for (size_t b = 0; b < count; b += step)
+            {
+                const size_t e = std::min(count, b + step);
+                pool.enqueue([&body, b, e]() { body(b, e); });
+            }
+            pool.wait_for_tasks();
+        };
 
-        // ---- k-means++ initialisation (with Manhattan distances) ----
-        std::vector<double> centroids(static_cast<size_t>(k) * dim);
+        std::mt19937 gen = make_rng(seed);
+
+        // ---- 1.) k-means++ seeding (weights = Manhattan distance to the nearest centre) ----
+        std::vector<double> centres(k * dim);
         {
             std::vector<double> minDist(n, std::numeric_limits<double>::max());
             size_t next = std::uniform_int_distribution<size_t>(0, n - 1)(gen);
-            for (unsigned int c = 0; c < k; ++c)
+            for (size_t c = 0; c < k; ++c)
             {
-                std::copy(&X[next * dim], &X[next * dim] + dim, &centroids[static_cast<size_t>(c) * dim]);
+                std::copy(&X[next * dim], &X[next * dim] + dim, &centres[c * dim]);
                 double sum = 0.0;
                 for (size_t i = 0; i < n; ++i)
                 {
-                    minDist[i] = std::min(minDist[i], manhattan(&X[i * dim], &centroids[static_cast<size_t>(c) * dim]));
+                    minDist[i] = std::min(minDist[i], manhattan(&X[i * dim], &centres[c * dim]));
                     sum += minDist[i];
                 }
                 if (c + 1 == k) break;
@@ -84,109 +147,435 @@ namespace neighborhoodCalculations
             }
         }
 
-        // cluster capacities: floor(n/k) for every cluster, floor(n/k)+1 for exactly n%k of them
-        const size_t baseSize = n / k;
-        const size_t numberLarger = n % k;
-        // number of nearest centroids kept per cell for the greedy assignment (all of them if k is small)
-        const size_t prefLen = std::min<size_t>(k, 25);
+        std::vector<char> alive(k, 1);
+        std::vector<int> aliveIdx;
+        std::vector<int> assign(n, -1);
+        std::vector<int> prefs(n * R, -1);     // R nearest alive centres of every cell (nearest first)
+        std::vector<double> dNearest(n), regret(n), dOwn(n);
+        std::vector<int> rankOwn(n, 0);        // rank of the own centre among all alive centres (1 = nearest), 0 = not placed
+        size_t Ra = R;
 
-        std::vector<int> assignment(n, -1);
-        std::vector<size_t> sizes(k);
-        std::vector<double> dists(k);
-        std::vector<int> order(k);
-        std::vector<int> prefs(n * prefLen);
-        std::vector<double> regret(n);
-        std::vector<int> processOrder(n);
-
-        for (int iter = 0; iter < maxIterations; ++iter)
+        // distances of every cell to all alive centres: R nearest, regret, rank of the own centre
+        auto compute_pass = [&]()
         {
-            // distances to all centroids, keep the prefLen nearest centroids per cell (sorted)
-            for (size_t i = 0; i < n; ++i)
+            aliveIdx.clear();
+            for (size_t c = 0; c < k; ++c) if (alive[c]) aliveIdx.push_back(static_cast<int>(c));
+            Ra = std::min(R, aliveIdx.size());
+            const size_t m = std::min(aliveIdx.size(), std::max<size_t>(Ra, 2));
+            parallel_for(n, [&](size_t b, size_t e)
             {
-                for (unsigned int c = 0; c < k; ++c) dists[c] = manhattan(&X[i * dim], &centroids[static_cast<size_t>(c) * dim]);
-                std::iota(order.begin(), order.end(), 0);
-                std::partial_sort(order.begin(), order.begin() + prefLen, order.end(),
-                                  [&](int a, int b) { return dists[a] < dists[b]; });
-                for (size_t p = 0; p < prefLen; ++p) prefs[i * prefLen + p] = order[p];
-                regret[i] = (prefLen > 1) ? dists[order[1]] - dists[order[0]] : 0.0;
-            }
-
-            // greedy capacity-constrained assignment: cells with the highest regret (strongest preference) first
-            std::iota(processOrder.begin(), processOrder.end(), 0);
-            std::sort(processOrder.begin(), processOrder.end(), [&](int a, int b) { return regret[a] > regret[b]; });
-
-            std::fill(sizes.begin(), sizes.end(), 0);
-            size_t largerUsed = 0;
-            auto has_room = [&](size_t c) { return sizes[c] < baseSize || (sizes[c] == baseSize && largerUsed < numberLarger); };
-
-            std::vector<int> newAssignment(n, -1);
-            for (const int i : processOrder)
-            {
-                int chosen = -1;
-                for (size_t p = 0; p < prefLen; ++p)
+                std::vector<double> d(aliveIdx.size());
+                std::vector<int> ord(aliveIdx.size());
+                for (size_t i = b; i < e; ++i)
                 {
-                    const int c = prefs[static_cast<size_t>(i) * prefLen + p];
-                    if (has_room(c)) { chosen = c; break; }
-                }
-                if (chosen < 0) // all preferred clusters are full: nearest cluster that still has room
-                {
-                    double best = std::numeric_limits<double>::max();
-                    for (unsigned int c = 0; c < k; ++c)
+                    const int own = assign[i];
+                    double dOwnI = 0.0;
+                    for (size_t q = 0; q < aliveIdx.size(); ++q)
                     {
-                        if (!has_room(c)) continue;
-                        const double dist = manhattan(&X[static_cast<size_t>(i) * dim], &centroids[static_cast<size_t>(c) * dim]);
-                        if (dist < best) { best = dist; chosen = static_cast<int>(c); }
+                        d[q] = manhattan(&X[i * dim], &centres[static_cast<size_t>(aliveIdx[q]) * dim]);
+                        if (aliveIdx[q] == own) dOwnI = d[q];
                     }
+                    std::iota(ord.begin(), ord.end(), 0);
+                    std::partial_sort(ord.begin(), ord.begin() + m, ord.end(),
+                                      [&](int x, int y) { return d[x] < d[y] || (d[x] == d[y] && x < y); });
+                    for (size_t p = 0; p < Ra; ++p) prefs[i * R + p] = aliveIdx[ord[p]];
+                    dNearest[i] = d[ord[0]];
+                    regret[i] = (aliveIdx.size() > 1) ? d[ord[1]] - d[ord[0]] : 0.0;
+                    if (own >= 0)
+                    {
+                        int r = 1;
+                        for (size_t q = 0; q < aliveIdx.size(); ++q) if (d[q] < dOwnI) ++r;
+                        rankOwn[i] = r;
+                        dOwn[i] = dOwnI;
+                    }
+                    else { rankOwn[i] = 0; dOwn[i] = 0.0; }
                 }
-                if (sizes[chosen] == baseSize) ++largerUsed;
-                ++sizes[chosen];
-                newAssignment[i] = chosen;
-            }
+            });
+        };
 
-            const bool converged = (newAssignment == assignment);
-            assignment.swap(newAssignment);
-            if (converged) break;
-
-            // update step: coordinate-wise median of the members (the minimiser of the sum of Manhattan distances)
-            std::vector<std::vector<int>> members(k);
-            for (size_t i = 0; i < n; ++i) members[assignment[i]].push_back(static_cast<int>(i));
+        // centre = coordinate-wise median of its placed cells (the minimiser of the sum of Manhattan distances)
+        auto update_medians = [&]()
+        {
+            std::vector<std::vector<int>> mem(k);
+            for (size_t i = 0; i < n; ++i) if (assign[i] >= 0) mem[assign[i]].push_back(static_cast<int>(i));
             std::vector<double> values;
-            for (unsigned int c = 0; c < k; ++c)
+            for (size_t c = 0; c < k; ++c)
             {
-                if (members[c].empty()) continue;
-                values.resize(members[c].size());
+                if (!alive[c] || mem[c].empty()) continue;
+                values.resize(mem[c].size());
                 for (size_t d = 0; d < dim; ++d)
                 {
-                    for (size_t m = 0; m < members[c].size(); ++m) values[m] = X[static_cast<size_t>(members[c][m]) * dim + d];
+                    for (size_t m = 0; m < mem[c].size(); ++m) values[m] = X[static_cast<size_t>(mem[c][m]) * dim + d];
                     const size_t mid = values.size() / 2;
                     std::nth_element(values.begin(), values.begin() + mid, values.end());
                     double median = values[mid];
-                    if (values.size() % 2 == 0)
-                        median = 0.5 * (median + *std::max_element(values.begin(), values.begin() + mid));
-                    centroids[static_cast<size_t>(c) * dim + d] = median;
+                    if (values.size() % 2 == 0) median = 0.5 * (median + *std::max_element(values.begin(), values.begin() + mid));
+                    centres[c * dim + d] = median;
                 }
             }
-        }
+        };
 
-        // anchor = member closest to the centroid, anchor first in the member list
-        std::vector<std::vector<int>> members(k);
-        for (size_t i = 0; i < n; ++i) members[assignment[i]].push_back(static_cast<int>(i));
+        auto dist_to_centre = [&](int i, int c) { return manhattan(&X[static_cast<size_t>(i) * dim], &centres[static_cast<size_t>(c) * dim]); };
 
-        std::vector<std::pair<int, std::vector<int>>> result;
-        result.reserve(k);
-        for (unsigned int c = 0; c < k; ++c)
+        std::vector<size_t> sizes(k, 0);
+        auto count_sizes = [&]()
         {
-            if (members[c].empty()) continue;
-            size_t anchorPos = 0;
-            double best = std::numeric_limits<double>::max();
-            for (size_t m = 0; m < members[c].size(); ++m)
+            std::fill(sizes.begin(), sizes.end(), 0);
+            for (size_t i = 0; i < n; ++i) if (assign[i] >= 0) ++sizes[assign[i]];
+        };
+
+        // ---- 2.) k-medians iterations ----
+        std::vector<int> order(n), newAssign(n);
+        std::vector<size_t> notPlacedPerIteration;
+        int iterations = 0;
+        bool converged = false;
+        size_t lastChanged = n;
+        size_t dissolvedDuringIterations = 0;
+        size_t reseeded = 0;
+        std::vector<char> reseedUsed(n, 0);
+        for (int it = 0; it < maxIterations; ++it)
+        {
+            ++iterations;
+            compute_pass();
+            std::iota(order.begin(), order.end(), 0);
+            std::stable_sort(order.begin(), order.end(), [&](int a, int b) { return regret[a] > regret[b]; });
+            std::fill(sizes.begin(), sizes.end(), 0);
+            std::fill(newAssign.begin(), newAssign.end(), -1);
+            // pass 1: fill up to the normal size s; pass 2: cells that did not fit may use the slack (up to sMax)
+            for (const size_t cap : {static_cast<size_t>(s), sMax})
             {
-                const double dist = manhattan(&X[static_cast<size_t>(members[c][m]) * dim], &centroids[static_cast<size_t>(c) * dim]);
-                if (dist < best) { best = dist; anchorPos = m; }
+                for (const int i : order)
+                {
+                    if (newAssign[i] >= 0) continue;
+                    for (size_t p = 0; p < Ra; ++p)
+                    {
+                        const int c = prefs[static_cast<size_t>(i) * R + p];
+                        if (sizes[c] < cap) { newAssign[i] = c; ++sizes[c]; break; }
+                    }
+                }
             }
-            std::swap(members[c][0], members[c][anchorPos]);
-            result.emplace_back(members[c][0], members[c]);
+            size_t notPlaced = 0;
+            for (size_t i = 0; i < n; ++i) if (newAssign[i] < 0) ++notPlaced;
+            // under-full neighbourhoods (< sMin) take their nearest not-placed cells (even outside the cells' R nearest)
+            // so that no centre starves: its median then moves towards the cells nobody has room for. Cells placed far
+            // away this way are repaired in the final swap phase.
+            {
+                std::vector<int> underFull;
+                for (const int c : aliveIdx) if (sizes[c] < sMin) underFull.push_back(c);
+                if (!underFull.empty() && notPlaced > 0)
+                {
+                    std::vector<std::tuple<double, int, int>> candidates;   // (distance, cell, centre)
+                    for (size_t i = 0; i < n; ++i)
+                    {
+                        if (newAssign[i] >= 0) continue;
+                        for (const int c : underFull) candidates.emplace_back(dist_to_centre(static_cast<int>(i), c), static_cast<int>(i), c);
+                    }
+                    std::sort(candidates.begin(), candidates.end());
+                    for (const auto& [d, i, c] : candidates)
+                    {
+                        if (newAssign[i] >= 0 || sizes[c] >= sMin) continue;
+                        newAssign[i] = c;
+                        ++sizes[c];
+                        --notPlaced;
+                    }
+                }
+            }
+            // starving neighbourhoods (still < sMin, no free cells to fill them) are dissolved during the iterations
+            // (from the 3rd on, the first ones only follow the seeding): e.g. 4 centres sharing a population of 315 cells
+            // (~79 each) would otherwise all be dissolved at the end and the population lost. Per iteration only the
+            // smallest of neighbouring starving neighbourhoods is dissolved (its R nearest centres are skipped), so the
+            // remaining centres of such a population take over its cells in the next iteration.
+            size_t dissolvedNow = 0;
+            if (it >= 2)
+            {
+                std::vector<int> starving;
+                for (const int c : aliveIdx) if (sizes[c] < sMin) starving.push_back(c);
+                std::stable_sort(starving.begin(), starving.end(), [&](int x, int y) { return sizes[x] < sizes[y]; });
+                std::vector<char> skip(k, 0);
+                for (const int c : starving)
+                {
+                    if (skip[c]) continue;
+                    // its R nearest alive centres are not dissolved in this iteration
+                    std::vector<std::pair<double, int>> near;
+                    for (const int o : aliveIdx)
+                    {
+                        if (o == c || !alive[o]) continue;
+                        near.emplace_back(manhattan(&centres[static_cast<size_t>(c) * dim], &centres[static_cast<size_t>(o) * dim]), o);
+                    }
+                    const size_t m = std::min(R, near.size());
+                    std::partial_sort(near.begin(), near.begin() + m, near.end());
+                    for (size_t q = 0; q < m; ++q) skip[near[q].second] = 1;
+                    for (size_t i = 0; i < n; ++i) if (newAssign[i] == c) newAssign[i] = -1;
+                    if (it < maxIterations - 5)
+                    {
+                        // RE-SEED instead of losing the centre (keeps the capacity for all cells): move it to the worst
+                        // served cell, i.e. the cell furthest from its own centre (a not-placed cell: furthest from its
+                        // nearest centre) that is not already used as a re-seed point in this iteration
+                        int best = -1;
+                        double bestD = -1.0;
+                        for (size_t i = 0; i < n; ++i)
+                        {
+                            if (reseedUsed[i]) continue;
+                            const double d = (newAssign[i] >= 0) ? dist_to_centre(static_cast<int>(i), newAssign[i]) : dNearest[i];
+                            if (d > bestD) { bestD = d; best = static_cast<int>(i); }
+                        }
+                        if (best >= 0)
+                        {
+                            reseedUsed[best] = 1;
+                            std::copy(&X[static_cast<size_t>(best) * dim], &X[static_cast<size_t>(best) * dim] + dim, &centres[static_cast<size_t>(c) * dim]);
+                            ++reseeded;
+                            ++dissolvedNow;   // the assignment changed
+                            continue;
+                        }
+                    }
+                    alive[c] = 0;
+                    ++dissolvedNow;
+                    ++dissolvedDuringIterations;
+                }
+            }
+            notPlacedPerIteration.push_back(notPlaced);
+            // stable: at most 0.1 % of the cells changed (a few cells can flip between two equally close centres forever)
+            lastChanged = 0;
+            for (size_t i = 0; i < n; ++i) if (newAssign[i] != assign[i]) ++lastChanged;
+            converged = (dissolvedNow == 0 && lastChanged <= n / 1000);
+            assign.swap(newAssign);
+            if (converged) break;
+            {
+                // re-seeded centres have no cells yet: keep their new position (update_medians skips empty centres)
+                update_medians();
+            }
         }
+
+        // ---- 3.) final neighbourhoods ----
+        std::vector<char> status(n, KM_PLACED);
+        for (size_t i = 0; i < n; ++i) if (assign[i] < 0) status[i] = KM_NO_ROOM;
+
+        // a.) dissolve neighbourhoods with fewer than sMin cells
+        count_sizes();
+        size_t dissolved = 0;
+        for (size_t c = 0; c < k; ++c)
+        {
+            if (alive[c] && sizes[c] < sMin) { alive[c] = 0; ++dissolved; }
+        }
+        for (size_t i = 0; i < n; ++i)
+        {
+            if (assign[i] >= 0 && !alive[assign[i]]) { assign[i] = -1; status[i] = KM_DISSOLVED; }
+        }
+        if (dissolved + dissolvedDuringIterations == k)
+            throw std::invalid_argument("kmeans sampling: no neighbourhood reaches the minimum size (neighbourhoodSize too large?)");
+        count_sizes();
+
+        // place not-placed cells (closest to a centre first) into the nearest of their R nearest neighbourhoods with room
+        auto readmit = [&]()
+        {
+            std::vector<int> unplaced;
+            for (size_t i = 0; i < n; ++i) if (assign[i] < 0) unplaced.push_back(static_cast<int>(i));
+            std::stable_sort(unplaced.begin(), unplaced.end(), [&](int a, int b) { return dNearest[a] < dNearest[b]; });
+            size_t placed = 0;
+            for (const int i : unplaced)
+            {
+                for (size_t p = 0; p < Ra; ++p)
+                {
+                    const int c = prefs[static_cast<size_t>(i) * R + p];
+                    if (sizes[c] < sMax) { assign[i] = c; ++sizes[c]; status[i] = KM_PLACED; ++placed; break; }
+                }
+            }
+            return placed;
+        };
+
+        // b.) + c.)
+        compute_pass();
+        const size_t readmittedAfterDissolve = readmit();
+        update_medians();
+
+        // d.) swap phase for the placed cells whose own neighbourhood is not among their R nearest
+        compute_pass();
+        std::vector<std::vector<int>> members(k);
+        std::vector<size_t> posInMembers(n, 0);
+        for (size_t i = 0; i < n; ++i)
+        {
+            if (assign[i] < 0) continue;
+            posInMembers[i] = members[assign[i]].size();
+            members[assign[i]].push_back(static_cast<int>(i));
+        }
+        auto relocate = [&](int i, int to)   // to = -1: not placed
+        {
+            const int from = assign[i];
+            if (from >= 0)
+            {
+                std::vector<int>& mf = members[from];
+                const int last = mf.back();
+                mf[posInMembers[i]] = last;
+                posInMembers[last] = posInMembers[i];
+                mf.pop_back();
+                --sizes[from];
+            }
+            if (to >= 0)
+            {
+                posInMembers[i] = members[to].size();
+                members[to].push_back(i);
+                ++sizes[to];
+            }
+            assign[i] = to;
+        };
+        auto dist_to = [&](int i, int c) { return manhattan(&X[static_cast<size_t>(i) * dim], &centres[static_cast<size_t>(c) * dim]); };
+
+        std::vector<int> badly;
+        for (size_t i = 0; i < n; ++i) if (assign[i] >= 0 && rankOwn[i] > static_cast<int>(R)) badly.push_back(static_cast<int>(i));
+        std::stable_sort(badly.begin(), badly.end(), [&](int a, int b)
+        {
+            if (rankOwn[a] != rankOwn[b]) return rankOwn[a] > rankOwn[b];
+            return (dOwn[a] - dNearest[a]) > (dOwn[b] - dNearest[b]);
+        });
+        const size_t badlyBefore = badly.size();
+        size_t moved = 0, swapped = 0, dropped = 0, unresolved = 0;
+        for (const int a : badly)
+        {
+            const int A = assign[a];
+            if (A < 0) continue;
+            const double dA = dist_to(a, A);
+            // still outside its R nearest? (it may have been moved as a swap partner meanwhile)
+            int rank = 1;
+            for (const int c : aliveIdx) if (dist_to(a, c) < dA) ++rank;
+            if (rank <= static_cast<int>(R)) continue;
+
+            bool done = false;
+            // 1.) move into the nearest of its R nearest neighbourhoods with room
+            if (sizes[A] > sMin)
+            {
+                for (size_t p = 0; p < Ra && !done; ++p)
+                {
+                    const int B = prefs[static_cast<size_t>(a) * R + p];
+                    if (sizes[B] < sMax) { relocate(a, B); ++moved; done = true; }
+                }
+            }
+            // 2.) swap with the member of one of its R nearest neighbourhoods that fits best into A
+            for (size_t p = 0; p < Ra && !done; ++p)
+            {
+                const int B = prefs[static_cast<size_t>(a) * R + p];
+                const double gainA = dA - dist_to(a, B);
+                int bestB = -1;
+                double bestGainB = -std::numeric_limits<double>::infinity();
+                for (const int b : members[B])
+                {
+                    const double g = dist_to(b, B) - dist_to(b, A);
+                    if (g > bestGainB) { bestGainB = g; bestB = b; }
+                }
+                if (bestB >= 0 && gainA + bestGainB > 1e-12 * std::max(1.0, dA))
+                {
+                    relocate(a, B);
+                    relocate(bestB, A);
+                    ++swapped;
+                    done = true;
+                }
+            }
+            // 3.) leave it unplaced, 4.) otherwise it stays
+            if (!done)
+            {
+                if (sizes[A] > sMin) { relocate(a, -1); status[a] = KM_DROPPED; ++dropped; }
+                else ++unresolved;
+            }
+        }
+
+        // e.) not-placed cells into their R nearest neighbourhoods with room (centres unchanged since the last pass)
+        const size_t readmittedAfterSwaps = readmit();
+
+        // f.) final medians, statistics and anchors
+        update_medians();
+        compute_pass();
+        count_sizes();
+
+        KmediansResult result;
+        result.status = status;
+        std::vector<size_t> finalSizes;
+        std::vector<double> radii;
+        std::vector<std::vector<int>> finalMembers(k);
+        for (size_t i = 0; i < n; ++i) if (assign[i] >= 0) finalMembers[assign[i]].push_back(static_cast<int>(i));
+        for (size_t c = 0; c < k; ++c)
+        {
+            if (!alive[c]) continue;
+            std::vector<int>& mem = finalMembers[c];
+            if (mem.size() < sMin || mem.size() > sMax)
+                throw std::runtime_error("kmeans sampling: internal error, a neighbourhood has " + std::to_string(mem.size()) + " cells");
+            size_t anchorPos = 0;
+            double radius = 0.0;
+            for (size_t m = 0; m < mem.size(); ++m)
+            {
+                radius += dOwn[mem[m]];
+                if (dOwn[mem[m]] < dOwn[mem[anchorPos]]) anchorPos = m;
+            }
+            radii.push_back(radius / static_cast<double>(mem.size()));
+            finalSizes.push_back(mem.size());
+            std::swap(mem[0], mem[anchorPos]);
+            result.groups.emplace_back(mem[0], mem);
+        }
+
+        // ---- statistics ----
+        size_t placedCells = 0, rank1 = 0, rank2toR = 0, rankBeyond = 0, maxRank = 0;
+        double sumRank = 0.0;
+        size_t noRoom = 0, fromDissolved = 0, droppedFinal = 0;
+        for (size_t i = 0; i < n; ++i)
+        {
+            if (assign[i] >= 0)
+            {
+                ++placedCells;
+                const size_t r = static_cast<size_t>(rankOwn[i]);
+                sumRank += r;
+                maxRank = std::max(maxRank, r);
+                if (r == 1) ++rank1; else if (r <= R) ++rank2toR; else ++rankBeyond;
+            }
+            else if (status[i] == KM_NO_ROOM) ++noRoom;
+            else if (status[i] == KM_DISSOLVED) ++fromDissolved;
+            else if (status[i] == KM_DROPPED) ++droppedFinal;
+        }
+        auto pct = [](double x, double total) { return total > 0 ? 100.0 * x / total : 0.0; };
+        auto quantile = [](std::vector<double> v, double q)
+        {
+            if (v.empty()) return 0.0;
+            std::sort(v.begin(), v.end());
+            return v[static_cast<size_t>(std::floor(q * (v.size() - 1)))];
+        };
+        std::vector<double> sizesD(finalSizes.begin(), finalSizes.end());
+        std::map<size_t, size_t> sizeHist;
+        for (const size_t sz : finalSizes) ++sizeHist[sz];
+        const double radiusMedian = quantile(radii, 0.5);
+        const double radiusMax = radii.empty() ? 0.0 : *std::max_element(radii.begin(), radii.end());
+        const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+
+        LOCO_OUT << std::fixed << std::setprecision(1);
+        LOCO_OUT << "\tkmeans: " << n << " cells | planned " << k << " neighbourhoods of " << s << " cells | allowed sizes "
+                 << sMin << "-" << sMax << " | R = " << R << " | seed " << (seed == 0 ? std::string("random") : std::to_string(seed)) << "\n";
+        LOCO_OUT << "\tk-medians: " << iterations << " iterations (" << (converged ? "stable" : "NOT stable, limit reached") << ", " << lastChanged << " cells changed in the last iteration"
+                 << ") | not placed per iteration:";
+        for (size_t t = 0; t < notPlacedPerIteration.size(); ++t) LOCO_OUT << (t ? " | " : " ") << notPlacedPerIteration[t];
+        LOCO_OUT << "\n";
+        LOCO_OUT << "\tneighbourhoods: " << k << " planned | " << (dissolvedDuringIterations + dissolved) << " dissolved (< " << sMin
+                 << " cells; " << dissolvedDuringIterations << " during the iterations, " << dissolved << " at the end) | "
+                 << reseeded << " starving centres re-seeded during the iterations | "
+                 << result.groups.size() << " final\n";
+        LOCO_OUT << "\tcoverage: " << placedCells << " of " << n << " cells in a neighbourhood (" << pct(placedCells, n) << " %) | not placed: "
+                 << (n - placedCells) << " (no room in their " << R << " nearest: " << noRoom << ", from dissolved neighbourhoods: "
+                 << fromDissolved << ", dropped in swap phase: " << droppedFinal << ")\n";
+        LOCO_OUT << "\tsizes: min " << (finalSizes.empty() ? 0 : *std::min_element(finalSizes.begin(), finalSizes.end()))
+                 << " | max " << (finalSizes.empty() ? 0 : *std::max_element(finalSizes.begin(), finalSizes.end()))
+                 << " | median " << quantile(sizesD, 0.5)
+                 << " | mean " << (sizesD.empty() ? 0.0 : std::accumulate(sizesD.begin(), sizesD.end(), 0.0) / sizesD.size()) << "\n\t  ";
+        for (const auto& [sz, cnt] : sizeHist) LOCO_OUT << sz << ":" << cnt << "  ";
+        LOCO_OUT << "\n";
+        LOCO_OUT << "\tplacement (own neighbourhood among all final neighbourhoods): nearest " << pct(rank1, placedCells)
+                 << " % | 2nd-" << R << "th nearest " << pct(rank2toR, placedCells) << " % | beyond " << R << "th "
+                 << pct(rankBeyond, placedCells) << " % (" << rankBeyond << " cells) | mean rank "
+                 << std::setprecision(2) << (placedCells ? sumRank / placedCells : 0.0) << std::setprecision(1)
+                 << " | max rank " << maxRank << "\n";
+        LOCO_OUT << "\tswap phase: " << badlyBefore << " cells beyond their " << R << " nearest neighbourhoods | moved " << moved
+                 << " | swapped " << swapped << " | dropped " << dropped << " | unresolved " << unresolved
+                 << " | re-admitted: " << readmittedAfterDissolve << " after dissolving, " << readmittedAfterSwaps << " after the swap phase\n";
+        LOCO_OUT << "\tcompactness (mean Manhattan distance of the cells to their centre): median " << radiusMedian
+                 << " | 90 % " << quantile(radii, 0.9) << " | max " << radiusMax << " | max/median "
+                 << std::setprecision(2) << (radiusMedian > 0 ? radiusMax / radiusMedian : 0.0) << std::setprecision(1) << "\n";
+        LOCO_OUT << "\truntime: " << seconds << " s\n";
+        LOCO_OUT.unsetf(std::ios_base::floatfield);
+        LOCO_OUT << std::setprecision(6);
         return result;
     }
 
@@ -2151,7 +2540,8 @@ Neighborhood::Neighborhood(const std::shared_ptr<const GraphData> scData, unsign
                            const std::vector<int>& cellStateGenes, const std::vector<int>& corrStateGenes, int permutations,
                            const double& corrSetAbundance, const unsigned int correlatedSetMode, const std::string& correlationType,
                            const std::string& nSampling, const double mdavAlpha, const double mdavRadiusFactor,
-                           const int threads) :
+                           const int threads, const unsigned int kmeansR, const double kmeansSlack,
+                           const unsigned int seed) :
                            neighborhoodSize(neighborhoodSize), neighbourhoodNum(neighborhoodNumber), inputDataOrigional(inputData),
                            cellStateGenes(cellStateGenes), corrStateGenes(corrStateGenes), permutations(permutations),
                            minimumCorrSetAbundance(corrSetAbundance), correlatedSetMode(correlatedSetMode), correlationType(correlationType)
@@ -2173,8 +2563,13 @@ Neighborhood::Neighborhood(const std::shared_ptr<const GraphData> scData, unsign
     {
         // disjoint neighbourhoods: size-constrained k-medians clusters (Manhattan) in the cell state space.
         // anchor = cell closest to the cluster median, neighbourhood = all cells of the cluster
-        const std::vector<std::pair<int, std::vector<int>>> clusters = neighborhoodCalculations::size_constrained_kmedians(scData, neighborhoodNumber);
-        for(const auto& cluster : clusters)
+        const neighborhoodCalculations::KmediansResult clusters = neighborhoodCalculations::kmedians_with_repair(
+            scData, neighborhoodNumber, neighborhoodSize, kmeansR, kmeansSlack, seed, threads);
+        // why a cell is in no neighbourhood
+        const char* labels[] = {"placed", "no_room", "dissolved", "dropped"};
+        cellNeighbourhoodStatus.resize(clusters.status.size());
+        for(size_t i = 0; i < clusters.status.size(); ++i) cellNeighbourhoodStatus[i] = labels[static_cast<int>(clusters.status[i])];
+        for(const auto& cluster : clusters.groups)
         {
             const nodePtr centerNode = scData->get_node_at(cluster.first);
             centralNeighborhoodPtrs.push_back(centerNode);
@@ -2185,7 +2580,7 @@ Neighborhood::Neighborhood(const std::shared_ptr<const GraphData> scData, unsign
     {
         int cellIDRange = scData->number_of_nodes();
         //save all neighborhood IDs & node IDs making up neighborhoods
-        std::vector<int> centralNodeIDs = neighborhoodCalculations::get_random_elements(neighborhoodNumber, cellIDRange);
+        std::vector<int> centralNodeIDs = neighborhoodCalculations::get_random_elements(neighborhoodNumber, cellIDRange, seed);
         for(int centerNodeID : centralNodeIDs)
         {
             const nodePtr centerNode = scData->get_node_at(centerNodeID);
@@ -2202,6 +2597,16 @@ Neighborhood::Neighborhood(const std::shared_ptr<const GraphData> scData, unsign
     }
     // the number of neighbourhoods actually built (mdav decides it itself)
     neighbourhoodNum = centralNeighborhoodPtrs.size();
+
+    // per cell: "placed" (in at least one neighbourhood) or why not (kmeans: no_room/ dissolved/ dropped, set above)
+    if(cellNeighbourhoodStatus.empty())
+    {
+        cellNeighbourhoodStatus.assign(scData->number_of_nodes(), "not_in_neighbourhood");
+        for(const auto& nb : neighborhoods)
+        {
+            for(const int cell : nb.second) cellNeighbourhoodStatus.at(cell) = "placed";
+        }
+    }
 
     //create the neighborhood graph (how to neighborhoods connect)
     // creates single-cell Graph and neighborhoods from that

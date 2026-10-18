@@ -182,13 +182,27 @@ Rcpp::List build_loco_object(const SingleCellData& rawData,
     );
 
     // =========================
+    // 5. per cell: in a neighbourhood ("placed") or why not
+    // =========================
+    const std::vector<std::string>& cellStatus = neighborhood.get_cell_neighbourhood_status();
+    if (cellStatus.size() != rawData.cellIDs.size()) {
+        Rcpp::stop("We need one neighbourhood status per cell");
+    }
+    Rcpp::DataFrame status_df = Rcpp::DataFrame::create(
+        Rcpp::Named("cellID") = rawData.cellIDs,
+        Rcpp::Named("Status") = cellStatus,
+        Rcpp::_["stringsAsFactors"] = false
+    );
+
+    // =========================
     // CREATE LIST OF DATA TABLES
     // =========================
     Rcpp::List loco_result = Rcpp::List::create(
         Rcpp::Named("RawData") = raw_df,
         Rcpp::Named("LaplacianScores") = laplacian_scores,
         Rcpp::Named("Correlations") = corr_mat,
-        Rcpp::Named("Neighbourhoods") = n_df
+        Rcpp::Named("Neighbourhoods") = n_df,
+        Rcpp::Named("NeighbourhoodStatus") = status_df
     );
 
     return(loco_result);
@@ -204,7 +218,8 @@ Rcpp::List run_correlation_propagation_across_graph(const SingleCellData& inFile
                                             const bool calcFeatureSets, const std::string& nSampling,
                                             const double minNonNAFraction, const unsigned int numberCorrelations,
                                             const double significanceCutoff, const double minVaryingFraction,
-                                            const double mdavAlpha, const double mdavRadiusFactor)
+                                            const double mdavAlpha, const double mdavRadiusFactor,
+                                            const unsigned int kmeansR, const double kmeansSlack, const unsigned int seed)
 {
     //we can store results for many Neighbourhood-size simultaneously
     Rcpp::List all_results;
@@ -245,7 +260,8 @@ Rcpp::List run_correlation_propagation_across_graph(const SingleCellData& inFile
     //create Neighborhoods
     Neighborhood neighborhood(scNormData, numberNeighbourhoodsCalculated, neighborhoodSize, neighborhoodKNN, 
                             inFile, cellStateIdxs, corrIdxs, permutations, corrSetAbundance,
-                            correlatedSetMode, correlationType, nSampling, mdavAlpha, mdavRadiusFactor, thread);
+                            correlatedSetMode, correlationType, nSampling, mdavAlpha, mdavRadiusFactor, thread,
+                            kmeansR, kmeansSlack, seed);
     neighborhood.calculate_correlation_propagation(correlationCutoff, minSetSize, calcFeatureSets, thread,
                                                   minNonNAFraction, numberCorrelations, significanceCutoff,
                                                   minVaryingFraction);
@@ -282,7 +298,10 @@ Rcpp::List run_loco_cpp(
     double significanceCutoff,
     double minVaryingFraction,
     double mdavAlpha,
-    double mdavRadiusFactor
+    double mdavRadiusFactor,
+    unsigned int kmeansR,
+    double kmeansSlack,
+    unsigned int seed
 ){
 
     //READ IN DATA
@@ -326,7 +345,10 @@ Rcpp::List run_loco_cpp(
         significanceCutoff,
         minVaryingFraction,
         mdavAlpha,
-        mdavRadiusFactor
+        mdavRadiusFactor,
+        kmeansR,
+        kmeansSlack,
+        seed
     );
 
     return(result);
