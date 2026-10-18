@@ -97,7 +97,9 @@
 #'   create.  \code{0} (default) lets LoCo automatically choose
 #'   \eqn{n_{\mathrm{cells}} / \mathrm{neighbourhoodSize}} neighbourhoods so that
 #'   the point cloud is covered roughly once.  Increase for denser coverage or
-#'   set explicitly to cap compute time.
+#'   set explicitly to cap compute time.  For \code{Nsampling = "mdav"} LoCo
+#'   builds as many neighbourhoods as possible and \code{numberNeighbourhoods > 0}
+#'   is only an upper limit.
 #' @param neighbourhoodSize Integer.  Number of cells in each neighbourhood
 #'   (anchor cell + its nearest neighbours).  Default: \code{100}.  Larger
 #'   neighbourhoods capture broader, more global co-expression patterns;
@@ -128,8 +130,8 @@
 #'   Default: \code{0.01} (1 \%).  Increase to focus on correlations that
 #'   appear consistently across the dataset; decrease to also capture very
 #'   rare, localised correlations.
-#' @param Nsampling Character string, either \code{"random"} (default) or
-#'   \code{"kmeans"}.  Controls how neighbourhoods are chosen.
+#' @param Nsampling Character string, one of \code{"random"} (default),
+#'   \code{"kmeans"} or \code{"mdav"}.  Controls how neighbourhoods are chosen.
 #'   \describe{
 #'     \item{\code{"random"}}{Anchor cells are sampled uniformly at random;
 #'       every neighbourhood is the anchor plus its \code{neighbourhoodSize}
@@ -142,7 +144,38 @@
 #'       \code{numberNeighbourhoods} (default: number of cells /
 #'       \code{neighbourhoodSize}); neighbourhood sizes differ by at most one
 #'       cell.  The anchor is the cell closest to the cluster median.}
+#'     \item{\code{"mdav"}}{\emph{Non-overlapping} neighbourhoods of exactly
+#'       \code{neighbourhoodSize} cells, built one after the other on the same
+#'       cell-state features (Manhattan distance); not every cell has to be in a
+#'       neighbourhood.  The first neighbourhood starts at the free cell furthest
+#'       from the median of all free cells (MDAV, "maximum distance to average
+#'       vector", from microaggregation), every later one at the free cell
+#'       furthest from all earlier neighbourhood medians.  It takes this cell and
+#'       its nearest free cells, and then, for up to 5 rounds, the
+#'       \code{neighbourhoodSize} free cells closest to its median that do not lie
+#'       within an earlier neighbourhood (closer to its median than to the new
+#'       median and not further from it than that neighbourhood's furthest cell,
+#'       see \code{mdavAlpha}).  Cells that were considered but lie within an
+#'       earlier neighbourhood are left out for good.  A
+#'       neighbourhood whose radius (mean distance of its cells to its median) is
+#'       larger than \code{mdavRadiusFactor} times the median radius so far is not
+#'       built (only its start cell is left out).  This stops when fewer than
+#'       \code{neighbourhoodSize} cells are free.  Deterministic.  The anchor is
+#'       the cell closest to the neighbourhood median.  The number of
+#'       neighbourhoods, covered and left-out cells are printed.}
 #'   }
+#' @param mdavAlpha Numeric \eqn{\ge 0}.  Only for \code{Nsampling = "mdav"}.
+#'   A cell \eqn{c} is not added to a new neighbourhood with median \eqn{m} if
+#'   \eqn{d(c, \textrm{nearest earlier median}) < \code{mdavAlpha} \cdot d(c, m)},
+#'   counting only earlier neighbourhoods whose extent (largest distance of a
+#'   member to their median) reaches \eqn{c}.
+#'   \code{1} (default): a cell must be at least as close to its own median as to
+#'   every earlier one; smaller values leave fewer cells out; \code{0} disables
+#'   the rule.
+#' @param mdavRadiusFactor Numeric \eqn{\ge 0}.  Only for
+#'   \code{Nsampling = "mdav"}.  A neighbourhood is not built if its radius is
+#'   larger than this factor times the median radius of the neighbourhoods built
+#'   so far (checked once 10 exist).  Default: \code{2}; \code{0} disables it.
 #' @param correlationType Character string, either \code{"spearman"} (default)
 #'   or \code{"pearson"}.  Type of correlation computed within each
 #'   neighbourhood.  Spearman correlation is rank-based and more robust to
@@ -255,11 +288,13 @@
 #' \strong{Pipeline steps executed by \code{run_loco}:}
 #' \enumerate{
 #'   \item The input matrix is parsed and, if requested, z-score normalised.
-#'   \item \code{numberNeighbourhoods} anchor cells are sampled at random.
-#'         A KNN graph (k = \code{neighbourhoodKNN}) is built from the cell
-#'         coordinates (using all features or only those in
-#'         \code{cellStateGeneFile}), and each anchor cell collects its
-#'         \code{neighbourhoodSize} nearest neighbours to form a neighbourhood.
+#'   \item Neighbourhoods are built in the cell-state space (all features or
+#'         only those in \code{cellStateGeneFile}) as chosen by \code{Nsampling}:
+#'         for \code{"random"}, \code{numberNeighbourhoods} anchor cells are
+#'         sampled at random and each collects its \code{neighbourhoodSize}
+#'         nearest cells; \code{"kmeans"} and \code{"mdav"} build
+#'         non-overlapping neighbourhoods.  A KNN graph (k = \code{neighbourhoodKNN})
+#'         of the anchor cells connects the neighbourhoods.
 #'   \item Within each neighbourhood, pairwise correlations
 #'         (\code{correlationType}) are computed for all feature pairs (or the
 #'         subset in \code{correlationStateGeneFile}).  Features that vary in
@@ -323,7 +358,9 @@ run_loco <- function(
   correlationType = "spearman",
   minVaryingFraction = 0.1,
   calcFeatureSets = FALSE,
-  Nsampling = "random"
+  Nsampling = "random",
+  mdavAlpha = 1,
+  mdavRadiusFactor = 2
 ) {
 
   # ---- checks ----
@@ -395,8 +432,14 @@ run_loco <- function(
     stop("`calcFeatureSets` must be TRUE or FALSE")
   }
 
-  if (!is.character(Nsampling) || length(Nsampling) != 1 || !(Nsampling %in% c("random", "kmeans"))) {
-    stop("`Nsampling` must be 'random' or 'kmeans'.")
+  if (!is.character(Nsampling) || length(Nsampling) != 1 || !(Nsampling %in% c("random", "kmeans", "mdav"))) {
+    stop("`Nsampling` must be 'random', 'kmeans' or 'mdav'.")
+  }
+  if (!is.numeric(mdavAlpha) || length(mdavAlpha) != 1 || mdavAlpha < 0) {
+    stop("`mdavAlpha` must be >= 0")
+  }
+  if (!is.numeric(mdavRadiusFactor) || length(mdavRadiusFactor) != 1 || mdavRadiusFactor < 0) {
+    stop("`mdavRadiusFactor` must be >= 0 (0 disables the radius limit)")
   }
 
   if( (correlationType != "spearman") && (correlationType != "pearson") )
@@ -429,7 +472,9 @@ run_loco <- function(
     minNonNAFraction,
     as.integer(numberCorrelations),
     significanceCutoff,
-    minVaryingFraction
+    minVaryingFraction,
+    mdavAlpha,
+    mdavRadiusFactor
   )
   # minNonNAFraction is applied in C++ BEFORE the Laplacian score (removed pairs are not scored/ tested);
   # p_adj (Benjamini-Hochberg over all tested pairs) and the numberCorrelations filter are applied after the

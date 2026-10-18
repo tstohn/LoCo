@@ -190,6 +190,240 @@ namespace neighborhoodCalculations
         return result;
     }
 
+    // Disjoint neighbourhoods of EXACTLY s cells, built one after the other (MDAV-style, "maximum distance to average
+    // vector", from microaggregation), Manhattan distance in the cell state space (= the nodes of scData).
+    // Not every cell has to be in a neighbourhood. One neighbourhood:
+    //   1.) start cell r: for the first neighbourhood the free cell furthest from the median of all free cells (MDAV:
+    //       the most "endangered" cell at the edge), afterwards the free cell furthest from all earlier medians (the
+    //       least explored region; with the MDAV rule the start cells increasingly lay inside earlier neighbourhoods)
+    //   2.) tentative group = r + its s-1 nearest free cells, m = median of the group
+    //   3.) repeat (at most maxRounds times, until the group does not change):
+    //         group = the s free cells closest to m that PASS: a cell fails if it lies within the extent of an already
+    //         accepted (old) neighbourhood (distance to its median <= the largest distance of its members) and is
+    //         closer to that median than to m, i.e. d(c, nearest such old median) < alpha * d(c, m)
+    //         (without the extent limit every early neighbourhood claims an unlimited area and only ~50% of the
+    //         cells are covered)
+    //         m = median of the group
+    //       (the group is re-selected every round, so earlier members are checked again against the new median)
+    //   4.) accept the group if it has s cells and its radius (mean distance of its cells to m) is at most
+    //       radiusFactor x the median radius of the accepted neighbourhoods (checked once 10 neighbourhoods exist,
+    //       radiusFactor <= 0 disables it). Cells that were considered for this group but fail against the final m are
+    //       EXCLUDED for good (they lie in the area of an old neighbourhood). Otherwise the group is abandoned and only
+    //       r is excluded.
+    // Stops when fewer than s cells are free (they stay uncovered) or maxNeighbourhoods (> 0) are built.
+    // Every cell of a neighbourhood is closer (up to alpha) to its own median than to the median of every EARLIER
+    // neighbourhood whose extent it lies in. Deterministic. Anchor = member closest to the final median, anchor first in the member list.
+    std::vector<std::pair<int, std::vector<int>>> mdav_neighbourhoods(const std::shared_ptr<const GraphData>& scData,
+                                                                      const unsigned int s, const unsigned int maxNeighbourhoods,
+                                                                      const double alpha, const double radiusFactor,
+                                                                      const int threads, const int maxRounds = 5)
+    {
+        const size_t n = scData->number_of_nodes();
+        if (s < 2 || s > n)
+            throw std::invalid_argument("mdav sampling: neighbourhoodSize must be between 2 and the number of cells!");
+        const size_t dim = scData->get_node_at(0)->dimensions();
+        const size_t minGroupsForRadius = 10;
+
+        // flat copy of the cell state coordinates
+        std::vector<double> X(n * dim);
+        for (size_t i = 0; i < n; ++i)
+        {
+            const nodePtr node = scData->get_node_at(i);
+            for (size_t d = 0; d < dim; ++d) X[i * dim + d] = node->value_at(static_cast<int>(d));
+        }
+        auto manhattan = [&](const double* a, const double* b)
+        {
+            double dist = 0.0;
+            for (size_t d = 0; d < dim; ++d) dist += std::abs(a[d] - b[d]);
+            return dist;
+        };
+
+        // body(begin, end) over [0, count), split over the threads of one pool (reused for all loops)
+        ThreadPool pool(std::max(1, threads));
+        auto parallel_for = [&](size_t count, const std::function<void(size_t, size_t)>& body)
+        {
+            const size_t chunks = std::min<size_t>(std::max(1, threads), std::max<size_t>(1, count / 2048));
+            if (chunks <= 1) { body(0, count); return; }
+            const size_t step = (count + chunks - 1) / chunks;
+            for (size_t b = 0; b < count; b += step)
+            {
+                const size_t e = std::min(count, b + step);
+                pool.enqueue([&body, b, e]() { body(b, e); });
+            }
+            pool.wait_for_tasks();
+        };
+
+        // coordinate-wise median of the cells in idx (the minimiser of the sum of Manhattan distances)
+        auto median_in_dim = [&](const std::vector<int>& idx, size_t d, std::vector<double>& values)
+        {
+            values.resize(idx.size());
+            for (size_t k = 0; k < idx.size(); ++k) values[k] = X[static_cast<size_t>(idx[k]) * dim + d];
+            const size_t mid = values.size() / 2;
+            std::nth_element(values.begin(), values.begin() + mid, values.end());
+            double median = values[mid];
+            if (values.size() % 2 == 0) median = 0.5 * (median + *std::max_element(values.begin(), values.begin() + mid));
+            return median;
+        };
+        auto median_of = [&](const std::vector<int>& idx, std::vector<double>& out)
+        {
+            out.assign(dim, 0.0);
+            if (threads > 1 && idx.size() > 4096) // many cells (all free cells): one task per dimension
+            {
+                for (size_t d = 0; d < dim; ++d)
+                {
+                    pool.enqueue([&, d]() { std::vector<double> values; out[d] = median_in_dim(idx, d, values); });
+                }
+                pool.wait_for_tasks();
+            }
+            else
+            {
+                std::vector<double> values;
+                for (size_t d = 0; d < dim; ++d) out[d] = median_in_dim(idx, d, values);
+            }
+        };
+
+        // distance of every cell to the point p (only computed for FREE cells)
+        enum : char { FREE = 0, USED = 1, EXCLUDED = 2 };
+        std::vector<char> state(n, FREE);
+        std::vector<double> dist(n, 0.0);
+        auto distances_of_free_to = [&](const std::vector<double>& p)
+        {
+            parallel_for(n, [&](size_t b, size_t e)
+            {
+                for (size_t i = b; i < e; ++i)
+                    if (state[i] == FREE) dist[i] = manhattan(&X[i * dim], p.data());
+            });
+        };
+
+        // distance of every cell to the nearest median of an accepted neighbourhood (infinity before the first one)
+        std::vector<double> oldDist(n, std::numeric_limits<double>::infinity());
+        auto passes = [&](size_t i) { return !(oldDist[i] < alpha * dist[i]); };
+
+        std::vector<std::pair<int, std::vector<int>>> result;
+        std::vector<double> radii;          // radius of every accepted neighbourhood
+        size_t numFree = n;
+        size_t excludedByRule = 0, abandonedGroups = 0, abandonedIncomplete = 0, abandonedCheck = 0, abandonedRadius = 0;
+        std::vector<double> m, freeMedian;
+        std::vector<int> freeIdx, group, previous, touched;
+        std::vector<std::pair<double, int>> candidates;
+
+        while (numFree >= s && (maxNeighbourhoods == 0 || result.size() < maxNeighbourhoods))
+        {
+            // 1.) start cell r: for the first neighbourhood the free cell furthest from the median of all free cells
+            //     (MDAV), afterwards the free cell furthest from ALL earlier medians (the least explored region)
+            freeIdx.clear();
+            for (size_t i = 0; i < n; ++i) if (state[i] == FREE) freeIdx.push_back(static_cast<int>(i));
+            int r = freeIdx[0];
+            if (result.empty())
+            {
+                median_of(freeIdx, freeMedian);
+                distances_of_free_to(freeMedian);
+                for (const int i : freeIdx) if (dist[i] > dist[r]) r = i;
+            }
+            else
+            {
+                for (const int i : freeIdx) if (oldDist[i] > oldDist[r]) r = i;
+            }
+
+            // 2.) tentative group: r + its s-1 nearest free cells
+            std::vector<double> rPoint(&X[static_cast<size_t>(r) * dim], &X[static_cast<size_t>(r) * dim] + dim);
+            distances_of_free_to(rPoint);
+            candidates.clear();
+            for (const int i : freeIdx) candidates.emplace_back(dist[i], i);
+            std::nth_element(candidates.begin(), candidates.begin() + (s - 1), candidates.end());
+            group.clear();
+            for (size_t k = 0; k < s; ++k) group.push_back(candidates[k].second);
+            touched = group;
+            median_of(group, m);
+
+            // 3.) re-select the s closest PASSING free cells around the median until the group is stable
+            bool complete = true;
+            for (int round = 0; round < maxRounds; ++round)
+            {
+                distances_of_free_to(m);
+                candidates.clear();
+                for (const int i : freeIdx) if (passes(i)) candidates.emplace_back(dist[i], i);
+                if (candidates.size() < s) { complete = false; break; }
+                std::nth_element(candidates.begin(), candidates.begin() + (s - 1), candidates.end());
+                previous = group;
+                group.clear();
+                for (size_t k = 0; k < s; ++k) group.push_back(candidates[k].second);
+                touched.insert(touched.end(), group.begin(), group.end());
+                median_of(group, m);
+                std::sort(group.begin(), group.end());
+                std::sort(previous.begin(), previous.end());
+                if (group == previous) break;
+            }
+
+            // 4.) accept or abandon
+            distances_of_free_to(m);
+            bool accept = complete;
+            if (!complete) ++abandonedIncomplete;
+            if (accept) { for (const int i : group) if (!passes(i)) { accept = false; ++abandonedCheck; break; } }
+            double radius = 0.0;
+            for (const int i : group) radius += dist[i];
+            radius /= static_cast<double>(s);
+            if (accept && radiusFactor > 0.0 && radii.size() >= minGroupsForRadius)
+            {
+                std::vector<double> sortedRadii = radii;
+                const size_t mid = sortedRadii.size() / 2;
+                std::nth_element(sortedRadii.begin(), sortedRadii.begin() + mid, sortedRadii.end());
+                if (radius > radiusFactor * sortedRadii[mid]) { accept = false; ++abandonedRadius; }
+            }
+            if (!accept)
+            {
+                state[r] = EXCLUDED;
+                --numFree;
+                ++abandonedGroups;
+                continue;
+            }
+
+            // cells considered for this group that fail against its final median are excluded for good
+            for (const int i : group) state[i] = USED;
+            numFree -= s;
+            std::sort(touched.begin(), touched.end());
+            touched.erase(std::unique(touched.begin(), touched.end()), touched.end());
+            for (const int i : touched)
+            {
+                if (state[i] == FREE && !passes(i))
+                {
+                    state[i] = EXCLUDED;
+                    --numFree;
+                    ++excludedByRule;
+                }
+            }
+
+            // the median of this neighbourhood is now an old median for all later ones, but only for the cells within
+            // its extent (distance to m at most the largest distance of its members)
+            double extent = 0.0;
+            for (const int i : group) extent = std::max(extent, dist[i]);
+            parallel_for(n, [&](size_t b, size_t e)
+            {
+                for (size_t i = b; i < e; ++i)
+                {
+                    if (state[i] != FREE) continue;
+                    const double d = manhattan(&X[i * dim], m.data());
+                    if (d <= extent) oldDist[i] = std::min(oldDist[i], d);
+                }
+            });
+
+            // anchor = member closest to the median, anchor first
+            size_t anchorPos = 0;
+            for (size_t k = 1; k < group.size(); ++k) if (dist[group[k]] < dist[group[anchorPos]]) anchorPos = k;
+            std::swap(group[0], group[anchorPos]);
+            result.emplace_back(group[0], group);
+            radii.push_back(radius);
+        }
+
+        LOCO_OUT << "\tmdav: " << result.size() << " neighbourhoods of " << s << " cells cover " << result.size() * s
+                 << " of " << n << " cells (" << excludedByRule << " cells excluded as closer to an earlier neighbourhood, "
+                 << abandonedGroups << " groups abandoned [" << abandonedIncomplete << " too few cells, " << abandonedCheck
+                 << " members closer to an earlier neighbourhood, " << abandonedRadius << " too large], " << numFree << " cells left over)\n";
+        if (result.empty())
+            throw std::invalid_argument("mdav sampling: no neighbourhood could be built (neighbourhoodSize too large?)");
+        return result;
+    }
+
     //return LOWEST values first: we want the values with LWOEST laplacian first
     bool sort_corr(const std::pair<int, int>& a, const std::pair<int, int>& b,
                    std::unordered_map< std::pair<int, int>, const double, pair_hash> correlationLaplacian)
@@ -1916,12 +2150,26 @@ Neighborhood::Neighborhood(const std::shared_ptr<const GraphData> scData, unsign
                            const SingleCellData& inputData,
                            const std::vector<int>& cellStateGenes, const std::vector<int>& corrStateGenes, int permutations,
                            const double& corrSetAbundance, const unsigned int correlatedSetMode, const std::string& correlationType,
-                           const std::string& nSampling) : 
+                           const std::string& nSampling, const double mdavAlpha, const double mdavRadiusFactor,
+                           const int threads) :
                            neighborhoodSize(neighborhoodSize), neighbourhoodNum(neighborhoodNumber), inputDataOrigional(inputData),
                            cellStateGenes(cellStateGenes), corrStateGenes(corrStateGenes), permutations(permutations),
                            minimumCorrSetAbundance(corrSetAbundance), correlatedSetMode(correlatedSetMode), correlationType(correlationType)
 {
-    if(nSampling == "kmeans")
+    if(nSampling == "mdav")
+    {
+        // disjoint neighbourhoods of exactly neighborhoodSize cells, built one after the other (not every cell is covered).
+        // neighborhoodNumber > 0 is the maximum number of neighbourhoods (0 = as many as possible)
+        const std::vector<std::pair<int, std::vector<int>>> groups = neighborhoodCalculations::mdav_neighbourhoods(
+            scData, neighborhoodSize, neighborhoodNumber, mdavAlpha, mdavRadiusFactor, threads);
+        for(const auto& group : groups)
+        {
+            const nodePtr centerNode = scData->get_node_at(group.first);
+            centralNeighborhoodPtrs.push_back(centerNode);
+            neighborhoods.insert(std::make_pair(centerNode, group.second));
+        }
+    }
+    else if(nSampling == "kmeans")
     {
         // disjoint neighbourhoods: size-constrained k-medians clusters (Manhattan) in the cell state space.
         // anchor = cell closest to the cluster median, neighbourhood = all cells of the cluster
@@ -1950,8 +2198,10 @@ Neighborhood::Neighborhood(const std::shared_ptr<const GraphData> scData, unsign
     }
     else
     {
-        throw std::invalid_argument("Nsampling must be 'random' or 'kmeans'");
+        throw std::invalid_argument("Nsampling must be 'random', 'kmeans' or 'mdav'");
     }
+    // the number of neighbourhoods actually built (mdav decides it itself)
+    neighbourhoodNum = centralNeighborhoodPtrs.size();
 
     //create the neighborhood graph (how to neighborhoods connect)
     // creates single-cell Graph and neighborhoods from that
