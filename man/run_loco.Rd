@@ -267,10 +267,10 @@ resulting feature sets are reported in the \code{FeatureSet} column of
         this keeps the minimum size).  Left-out cells join one of their
         \code{kmeansR} nearest neighbourhoods if one has room.
     }
-    The anchor is the cell closest to the neighbourhood median.  A summary is
-    printed (number of neighbourhoods, coverage and why cells are not placed,
-    size distribution, placement of the cells relative to their nearest
-    neighbourhoods, swap phase, compactness); \code{NeighbourhoodStatus} in the
+    The anchor is the cell closest to the neighbourhood median.  A short summary
+    is printed (number of neighbourhoods, \% of cells assigned to a
+    neighbourhood, \% of these in their closest and in their 2nd to
+    \code{kmeansR}-th closest neighbourhood); \code{NeighbourhoodStatus} in the
     result tells for every cell whether and why it is in no neighbourhood.}
   \item{\code{"mdav"}}{\emph{Non-overlapping} neighbourhoods of exactly
     \code{neighbourhoodSize} cells, built one after the other on the same

@@ -510,70 +510,25 @@ namespace neighborhoodCalculations
             result.groups.emplace_back(mem[0], mem);
         }
 
-        // ---- statistics ----
-        size_t placedCells = 0, rank1 = 0, rank2toR = 0, rankBeyond = 0, maxRank = 0;
-        double sumRank = 0.0;
-        size_t noRoom = 0, fromDissolved = 0, droppedFinal = 0;
+        // ---- short summary ----
+        size_t placedCells = 0, rank1 = 0, rank2toR = 0;
         for (size_t i = 0; i < n; ++i)
         {
-            if (assign[i] >= 0)
-            {
-                ++placedCells;
-                const size_t r = static_cast<size_t>(rankOwn[i]);
-                sumRank += r;
-                maxRank = std::max(maxRank, r);
-                if (r == 1) ++rank1; else if (r <= R) ++rank2toR; else ++rankBeyond;
-            }
-            else if (status[i] == KM_NO_ROOM) ++noRoom;
-            else if (status[i] == KM_DISSOLVED) ++fromDissolved;
-            else if (status[i] == KM_DROPPED) ++droppedFinal;
+            if (assign[i] < 0) continue;
+            ++placedCells;
+            if (rankOwn[i] == 1) ++rank1;
+            else if (rankOwn[i] <= static_cast<int>(R)) ++rank2toR;
         }
+        // counters of the individual steps (not printed)
+        (void)iterations; (void)converged; (void)lastChanged; (void)reseeded; (void)dissolvedDuringIterations;
+        (void)readmittedAfterDissolve; (void)readmittedAfterSwaps; (void)badlyBefore; (void)moved; (void)swapped;
+        (void)dropped; (void)unresolved; (void)t0;
         auto pct = [](double x, double total) { return total > 0 ? 100.0 * x / total : 0.0; };
-        auto quantile = [](std::vector<double> v, double q)
-        {
-            if (v.empty()) return 0.0;
-            std::sort(v.begin(), v.end());
-            return v[static_cast<size_t>(std::floor(q * (v.size() - 1)))];
-        };
-        std::vector<double> sizesD(finalSizes.begin(), finalSizes.end());
-        std::map<size_t, size_t> sizeHist;
-        for (const size_t sz : finalSizes) ++sizeHist[sz];
-        const double radiusMedian = quantile(radii, 0.5);
-        const double radiusMax = radii.empty() ? 0.0 : *std::max_element(radii.begin(), radii.end());
-        const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
-
         LOCO_OUT << std::fixed << std::setprecision(1);
-        LOCO_OUT << "\tkmeans: " << n << " cells | planned " << k << " neighbourhoods of " << s << " cells | allowed sizes "
-                 << sMin << "-" << sMax << " | R = " << R << " | seed " << (seed == 0 ? std::string("random") : std::to_string(seed)) << "\n";
-        LOCO_OUT << "\tk-medians: " << iterations << " iterations (" << (converged ? "stable" : "NOT stable, limit reached") << ", " << lastChanged << " cells changed in the last iteration"
-                 << ") | not placed per iteration:";
-        for (size_t t = 0; t < notPlacedPerIteration.size(); ++t) LOCO_OUT << (t ? " | " : " ") << notPlacedPerIteration[t];
-        LOCO_OUT << "\n";
-        LOCO_OUT << "\tneighbourhoods: " << k << " planned | " << (dissolvedDuringIterations + dissolved) << " dissolved (< " << sMin
-                 << " cells; " << dissolvedDuringIterations << " during the iterations, " << dissolved << " at the end) | "
-                 << reseeded << " starving centres re-seeded during the iterations | "
-                 << result.groups.size() << " final\n";
-        LOCO_OUT << "\tcoverage: " << placedCells << " of " << n << " cells in a neighbourhood (" << pct(placedCells, n) << " %) | not placed: "
-                 << (n - placedCells) << " (no room in their " << R << " nearest: " << noRoom << ", from dissolved neighbourhoods: "
-                 << fromDissolved << ", dropped in swap phase: " << droppedFinal << ")\n";
-        LOCO_OUT << "\tsizes: min " << (finalSizes.empty() ? 0 : *std::min_element(finalSizes.begin(), finalSizes.end()))
-                 << " | max " << (finalSizes.empty() ? 0 : *std::max_element(finalSizes.begin(), finalSizes.end()))
-                 << " | median " << quantile(sizesD, 0.5)
-                 << " | mean " << (sizesD.empty() ? 0.0 : std::accumulate(sizesD.begin(), sizesD.end(), 0.0) / sizesD.size()) << "\n\t  ";
-        for (const auto& [sz, cnt] : sizeHist) LOCO_OUT << sz << ":" << cnt << "  ";
-        LOCO_OUT << "\n";
-        LOCO_OUT << "\tplacement (own neighbourhood among all final neighbourhoods): nearest " << pct(rank1, placedCells)
-                 << " % | 2nd-" << R << "th nearest " << pct(rank2toR, placedCells) << " % | beyond " << R << "th "
-                 << pct(rankBeyond, placedCells) << " % (" << rankBeyond << " cells) | mean rank "
-                 << std::setprecision(2) << (placedCells ? sumRank / placedCells : 0.0) << std::setprecision(1)
-                 << " | max rank " << maxRank << "\n";
-        LOCO_OUT << "\tswap phase: " << badlyBefore << " cells beyond their " << R << " nearest neighbourhoods | moved " << moved
-                 << " | swapped " << swapped << " | dropped " << dropped << " | unresolved " << unresolved
-                 << " | re-admitted: " << readmittedAfterDissolve << " after dissolving, " << readmittedAfterSwaps << " after the swap phase\n";
-        LOCO_OUT << "\tcompactness (mean Manhattan distance of the cells to their centre): median " << radiusMedian
-                 << " | 90 % " << quantile(radii, 0.9) << " | max " << radiusMax << " | max/median "
-                 << std::setprecision(2) << (radiusMedian > 0 ? radiusMax / radiusMedian : 0.0) << std::setprecision(1) << "\n";
-        LOCO_OUT << "\truntime: " << seconds << " s\n";
+        LOCO_OUT << "\tBuilding neighbourhoods with kmeans: " << result.groups.size() << " neighbourhoods of " << sMin << "-" << sMax << " cells\n";
+        LOCO_OUT << "\t" << pct(placedCells, n) << " % of cells assigned to a neighbourhood\n";
+        LOCO_OUT << "\tof these: " << pct(rank1, placedCells) << " % in their closest neighbourhood, " << pct(rank2toR, placedCells)
+                 << " % in their 2nd-" << R << "th closest\n";
         LOCO_OUT.unsetf(std::ios_base::floatfield);
         LOCO_OUT << std::setprecision(6);
         return result;
