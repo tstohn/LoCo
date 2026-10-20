@@ -26,6 +26,8 @@ run_loco(
   corrSetAbundance = 0.01,
   correlationType = "spearman",
   minVaryingFraction = 0.05,
+  considerOnlyNonZeroCells = FALSE,
+  minFractionNonZeroCells = 0,
   calcFeatureSets = FALSE,
   Nsampling = "kmeans",
   kmeansR = 5,
@@ -208,6 +210,35 @@ relationships and extreme values.}
   the neighbourhood size (e.g. \code{Nsampling = "kmeans"}).  For continuous
   data without ties (e.g. protein intensities) almost every cell differs from
   the most frequent value, so the filter has no effect there.}
+
+\item{considerOnlyNonZeroCells}{Logical.  If \code{TRUE}, the correlation of
+  a pair in a neighbourhood is calculated only from the cells in which BOTH
+  features are non-zero; cells with a zero in one of the two features are
+  left out for this pair (for Spearman the ranks are calculated on these
+  cells only).  The correlation is NA if fewer than 3 such cells remain.
+  \strong{Only EXACT zeros are excluded}: a feature is zero in a cell only if
+  its value in the input is exactly 0, so only real zero values (e.g. zero
+  counts) are left out; small non-zero values are kept.  With
+  \code{zscore = TRUE} there are no exact zeros left, so the filter has no
+  effect -- use it with \code{zscore = FALSE} on counts or log-normalised data.  The correlation then measures
+  how the LEVELS of two expressed features relate, and ignores whether they
+  are switched on in the same cells (co-detection, e.g. mutually exclusive
+  features).  Cells with only one feature expressed are not used, so the
+  number of cells behind a correlation differs between pairs and
+  neighbourhoods; combine it with \code{minFractionNonZeroCells} to require
+  enough cells.  \code{minVaryingFraction} is still applied to all cells of
+  the neighbourhood.  Default: \code{FALSE}.}
+
+\item{minFractionNonZeroCells}{Numeric in \eqn{[0, 1]}.  Minimum fraction of
+  the cells of a neighbourhood in which BOTH features of a pair are non-zero
+  (\strong{only EXACT zeros} count as zero, i.e. values of exactly 0 in the input;
+  no effect with \code{zscore = TRUE}, see \code{considerOnlyNonZeroCells}).  In neighbourhoods
+  below it the correlation of this pair is set to NA.  This removes
+  correlations that rest on very few co-expressing cells (e.g. 90\% of the
+  cells zero in both features).  Applied per pair and neighbourhood WHILE the
+  correlations are calculated, like \code{minVaryingFraction}; the NAs are
+  treated like any other missing correlation.  Works with and without
+  \code{considerOnlyNonZeroCells}.  Default: \code{0} (no filter).}
 
 \item{calcFeatureSets}{Logical.  If \code{TRUE}, LoCo additionally groups
 co-correlated features into \emph{feature sets} (modules) using the

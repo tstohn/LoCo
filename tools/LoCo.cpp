@@ -26,7 +26,8 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
                      unsigned int & numNeighborhoods, std::string& neighborhoodSizeStr, int& neighborhoodKNN, double& correlationCutoff,
                      std::string& cellStateGeneFile, std::string& correlationStateGeneFile,
                      bool& zscore, int& permutations, int&minSetSize, double& corrSetAbundance, unsigned int& correlatedSetMode,
-                     std::string& correlationType, bool& calcSets, double& minVaryingFraction, std::string& nSampling)
+                     std::string& correlationType, bool& calcSets, double& minVaryingFraction, std::string& nSampling,
+                     bool& considerOnlyNonZeroCells, double& minFractionNonZeroCells)
 {
     try
     {
@@ -73,6 +74,14 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
             ("minVaryingFraction,g", value<double>(&minVaryingFraction)->default_value(0.05, "0.05"), "minimum fraction of cells (0-1) in a neighbourhood whose value \
             differs from the most frequent value of a feature (e.g. cells expressing a gene when most cells have 0 counts). In neighbourhoods where a feature is below it, \
             all correlations of this feature are NA (not calculated). This removes spurious correlations driven by single cells (e.g. all zeroes and a single 1). 0 disables the filter.")
+
+            ("considerOnlyNonZeroCells,e", value<bool>(&considerOnlyNonZeroCells)->default_value(0), "1 = the correlation of a pair \
+            in a neighbourhood uses only the cells in which BOTH features are non-zero. ONLY EXACT ZEROS (value == 0 in the input) are excluded, \
+            so only real zero values are left out; with the z-score (-z 1, the default) there are no exact zeros: use -z 0. \
+            NA if fewer than 3 such cells. Default 0 (all cells).")
+            ("minFractionNonZeroCells,j", value<double>(&minFractionNonZeroCells)->default_value(0.0, "0"), "minimum fraction of cells (0-1) \
+            in a neighbourhood in which BOTH features of a pair are non-zero (ONLY EXACT ZEROS count as zero; no effect with -z 1, use -z 0); \
+            below it the correlation of the pair in this neighbourhood is NA. 0 disables the filter.")
 
             ("Nsampling,k", value<std::string>(&nSampling)->default_value("kmeans"), "how neighbourhoods are built: kmeans (default; \
             non-overlapping neighbourhoods by a size-constrained k-medians clustering) or random (random anchor cells plus their nearest cells; \
@@ -158,7 +167,8 @@ void run_correlation_propagation_across_graph(const SingleCellData& inFile, cons
                                               const std::vector<std::string>& corrStateGenes, 
                                               const int permutations, const int minSetSize, const double corrSetAbundance, 
                                               const unsigned int correlatedSetMode, const std::string& correlationType, bool calcSets,
-                                              const double minVaryingFraction, const std::string& nSampling)
+                                              const double minVaryingFraction, const std::string& nSampling,
+                                              const bool considerOnlyNonZeroCells, const double minFractionNonZeroCells)
 {
     //generate cell-cell neighborhood graph
     std::vector<int> cellStateIdxs = get_indexlist_from_genenames(inFile, cellStateGenes);
@@ -190,7 +200,8 @@ void run_correlation_propagation_across_graph(const SingleCellData& inFile, cons
                                 inFile, cellStateIdxs, corrIdxs, permutations, corrSetAbundance,
                                 correlatedSetMode, correlationType, nSampling, thread);
         neighborhood.calculate_correlation_propagation(correlationCutoff, minSetSize, calcSets, thread,
-                                                       0.0, 0, 0.05, minVaryingFraction);
+                                                       0.0, 0, 0.05, minVaryingFraction,
+                                                       considerOnlyNonZeroCells, minFractionNonZeroCells);
 
         //write results to file:
         //neighborhood, coordinates, correlation, slope for every protein-pair
@@ -253,12 +264,15 @@ int main(int argc, char** argv)
     std::string correlationType;
     double minVaryingFraction;
     std::string nSampling;
+    bool considerOnlyNonZeroCells = false;
+    double minFractionNonZeroCells = 0.0;
 
     if(!parse_arguments(argv, argc, inFile, outFile, prefix,
                         thread, del, col, row, 
                         numNeighborhoods, neighborhoodSizeString, neighborhoodKNN, correlationCutoff,
                         cellStateGeneFile, correlationStateGeneFile, 
-                        zscore, permutations, minSetSize, corrSetAbundance, correlatedSetMode, correlationType, calcSets, minVaryingFraction, nSampling))
+                        zscore, permutations, minSetSize, corrSetAbundance, correlatedSetMode, correlationType, calcSets, minVaryingFraction, nSampling,
+                        considerOnlyNonZeroCells, minFractionNonZeroCells))
     {
         exit(EXIT_FAILURE);
     }
@@ -272,6 +286,12 @@ int main(int argc, char** argv)
     if (minVaryingFraction < 0.0 || minVaryingFraction > 1.0)
     {
         std::cout << "minVaryingFraction must be between 0 and 1." << std::endl;
+        exit(EXIT_FAILURE);
+    }
+
+    if (minFractionNonZeroCells < 0.0 || minFractionNonZeroCells > 1.0)
+    {
+        std::cout << "minFractionNonZeroCells must be between 0 and 1." << std::endl;
         exit(EXIT_FAILURE);
     }
 
@@ -313,7 +333,8 @@ int main(int argc, char** argv)
                                               neighborhoodKNN, correlationCutoff,
                                               cellStateGenes, corrStateGenes, 
                                               permutations, minSetSize, corrSetAbundance, correlatedSetMode,
-                                              correlationType, calcSets, minVaryingFraction, nSampling);
+                                              correlationType, calcSets, minVaryingFraction, nSampling,
+                                              considerOnlyNonZeroCells, minFractionNonZeroCells);
 
     return(EXIT_SUCCESS);
 }

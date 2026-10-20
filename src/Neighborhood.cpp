@@ -1566,7 +1566,24 @@ void Neighborhood::calculate_correlations_for_N(nodePtr neighborhoodCenter, size
         }
     }
 
-    if(correlationType == "spearman")
+    //1c.) non-zero filters: which cells are non-zero for every feature. Only EXACT zeros count as zero (value == 0.0 in
+    // the input): only real zero values are excluded (after a z-score there are no exact zeros, the filters do nothing).
+    // For considerOnlyNonZeroCells the unranked values are kept (the cells with both features non-zero are ranked per pair)
+    const bool nonZeroFilters = considerOnlyNonZeroCells || minFractionNonZeroCells > 0.0;
+    std::vector<std::vector<char>> isNonZero;
+    std::vector<std::vector<double>> rawFeatureData;
+    if(nonZeroFilters)
+    {
+        isNonZero.resize(featureMajorData.size());
+        for (size_t f = 0; f < featureMajorData.size(); ++f)
+        {
+            isNonZero[f].resize(featureMajorData[f].size());
+            for (size_t c = 0; c < featureMajorData[f].size(); ++c) isNonZero[f][c] = featureMajorData[f][c] != 0.0;
+        }
+        if(considerOnlyNonZeroCells) rawFeatureData = featureMajorData;
+    }
+
+    if(correlationType == "spearman" && !considerOnlyNonZeroCells)
     {
         for (size_t f = 0; f < featureMajorData.size(); ++f) 
         {
@@ -1575,6 +1592,7 @@ void Neighborhood::calculate_correlations_for_N(nodePtr neighborhoodCenter, size
     }
 
     // 3.) Calculate correlation coefficients and update FlatMatrix safely!
+    std::vector<double> subA, subB;   // considerOnlyNonZeroCells: values of the cells with both features non-zero
     for(size_t p = 0; p < tmpAllPairs.size(); ++p)
     {
         int featA = tmpAllPairs[p].first;
@@ -1584,7 +1602,38 @@ void Neighborhood::calculate_correlations_for_N(nodePtr neighborhoodCenter, size
         double corr = std::numeric_limits<double>::quiet_NaN();
         if(featureVaries[featA] && featureVaries[featB])
         {
-            corr = calculate_correlation_coefficient(featureMajorData[featA], featureMajorData[featB]);
+            if(!nonZeroFilters)
+            {
+                corr = calculate_correlation_coefficient(featureMajorData[featA], featureMajorData[featB]);
+            }
+            else
+            {
+                const std::vector<char>& nzA = isNonZero[featA];
+                const std::vector<char>& nzB = isNonZero[featB];
+                const size_t n = nzA.size();
+                size_t nBoth = 0;
+                for (size_t c = 0; c < n; ++c) nBoth += (nzA[c] && nzB[c]);
+                // fraction of the cells with both features non-zero (same tolerance as minVaryingFraction)
+                const bool enoughBoth = static_cast<double>(nBoth) >= minFractionNonZeroCells * static_cast<double>(n) - 1e-9;
+                if(enoughBoth && !considerOnlyNonZeroCells)
+                {
+                    corr = calculate_correlation_coefficient(featureMajorData[featA], featureMajorData[featB]);
+                }
+                else if(enoughBoth && nBoth >= 3)
+                {
+                    subA.clear(); subB.clear();
+                    for (size_t c = 0; c < n; ++c)
+                    {
+                        if(nzA[c] && nzB[c])
+                        {
+                            subA.push_back(rawFeatureData[featA][c]);
+                            subB.push_back(rawFeatureData[featB][c]);
+                        }
+                    }
+                    if(correlationType == "spearman") { rankify(subA); rankify(subB); }
+                    corr = calculate_correlation_coefficient(subA, subB);
+                }
+            }
         }
 
         // Write directly to the matrix lock-free! (Using the neighborhood_idx as the row)
@@ -1629,6 +1678,7 @@ void Neighborhood::step_2_calculate_correlation(const double& corrThreshold, con
         }
     }
     FlatMatrix tempCalculationMatrix(neighbourhoodNum, totalPairs);
+
 
     //c) create structures
     // temporary structures to count correlation-pair with >threshold correlations
@@ -2212,13 +2262,26 @@ void Neighborhood::step_4_calculate_feature_sets(int minFeatureSetSize)
 //centralneighbourhoodPtrs: all the neighbourhoodsPTrs, sotring all cells in enighbourhoods etc.
 void Neighborhood::calculate_correlation_propagation(double correlationStrengthCutoff, int minFeatureSetSize, const bool calcSets, int threads,
                                                      double minNonNAFraction, unsigned int numberCorrelations, double significanceCutoff,
-                                                     double minVaryingFraction)
+                                                     double minVaryingFraction, bool considerOnlyNonZeroCells,
+                                                     double minFractionNonZeroCells)
 {
     this->minVaryingFraction = minVaryingFraction;
+    this->considerOnlyNonZeroCells = considerOnlyNonZeroCells;
+    this->minFractionNonZeroCells = minFractionNonZeroCells;
     if(minVaryingFraction > 0.0)
     {
         LOCO_OUT << "minVaryingFraction: correlations of a feature are NA in neighbourhoods where less than "
                  << minVaryingFraction * 100 << "% of cells differ from its most frequent value\n";
+    }
+    if(minFractionNonZeroCells > 0.0)
+    {
+        LOCO_OUT << "minFractionNonZeroCells: the correlation of a pair is NA in neighbourhoods where less than "
+                 << minFractionNonZeroCells * 100 << "% of cells have both features non-zero (only exact zeros count as zero)\n";
+    }
+    if(considerOnlyNonZeroCells)
+    {
+        LOCO_OUT << "considerOnlyNonZeroCells: the correlation of a pair uses only the cells with both features non-zero "
+                 << "(only exact zeros are excluded)\n";
     }
 
     LOCO_OUT << "STEP 2";

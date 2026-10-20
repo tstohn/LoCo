@@ -301,9 +301,16 @@ class Neighborhood
         // minVaryingFraction: per-neighbourhood filter applied WHILE calculating correlations: a feature needs at least this
         // fraction of cells in a neighbourhood that differ from its most frequent value, otherwise all its correlations
         // in that neighbourhood are NaN (see calculate_correlations_for_N)
+        // minFractionNonZeroCells: per pair and neighbourhood: if fewer than this fraction of the cells have BOTH features
+        // non-zero (value != 0 exactly), the correlation is NaN
+        // considerOnlyNonZeroCells: the correlation of a pair in a neighbourhood uses only the cells with BOTH features
+        // non-zero (value != 0 exactly; NaN if fewer than 3 such cells)
+        // Both check for EXACT zeros in the input values: only real zero values are excluded (after a z-score there are
+        // no exact zeros left, so the filters have no effect)
         void calculate_correlation_propagation(double correlationStrengthCutoff, int minFeatureSetSize=2, bool calcSets = false, int thread=5,
                                                double minNonNAFraction = 0.0, unsigned int numberCorrelations = 0,
-                                               double significanceCutoff = 0.05, double minVaryingFraction = 0.05);
+                                               double significanceCutoff = 0.05, double minVaryingFraction = 0.05,
+                                               bool considerOnlyNonZeroCells = false, double minFractionNonZeroCells = 0.0);
         void write_results_to_file(const std::string& output, const std::string& prefix, bool calcSets);
         void write_shuffled_laplacians(const std::string& outFile, const std::string& prefix);
         // correlations of all (kept) pairs: row = pair (order of correlation_pairs_origional in fill_result_data),
@@ -445,6 +452,12 @@ class Neighborhood
         //minimum fraction of cells in a neighbourhood whose value differs from the feature's most frequent value
         //(e.g. cells expressing a gene), features below it get NaN correlations in this neighbourhood (0 = no filter)
         double minVaryingFraction = 0.05;
+
+        //per pair and neighbourhood: only cells with BOTH features non-zero are correlated (considerOnlyNonZeroCells), and/ or
+        //the correlation is NaN if fewer than minFractionNonZeroCells of the cells have both features non-zero.
+        //zero = EXACTLY 0 in the input values (only real zeros are excluded)
+        bool considerOnlyNonZeroCells = false;
+        double minFractionNonZeroCells = 0.0;
 
         //thread variables
         std::mutex threadLock;

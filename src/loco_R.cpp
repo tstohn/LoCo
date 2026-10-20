@@ -218,7 +218,8 @@ Rcpp::List run_correlation_propagation_across_graph(const SingleCellData& inFile
                                             const bool calcFeatureSets, const std::string& nSampling,
                                             const double minNonNAFraction, const unsigned int numberCorrelations,
                                             const double significanceCutoff, const double minVaryingFraction,
-                                            const unsigned int kmeansR, const double kmeansSlack, const unsigned int seed)
+                                            const unsigned int kmeansR, const double kmeansSlack, const unsigned int seed,
+                                            const bool considerOnlyNonZeroCells, const double minFractionNonZeroCells)
 {
     //we can store results for many Neighbourhood-size simultaneously
     Rcpp::List all_results;
@@ -255,7 +256,7 @@ Rcpp::List run_correlation_propagation_across_graph(const SingleCellData& inFile
                             kmeansR, kmeansSlack, seed);
     neighborhood.calculate_correlation_propagation(correlationCutoff, minSetSize, calcFeatureSets, thread,
                                                   minNonNAFraction, numberCorrelations, significanceCutoff,
-                                                  minVaryingFraction);
+                                                  minVaryingFraction, considerOnlyNonZeroCells, minFractionNonZeroCells);
 
     //return the RCPP data structure for loco
     Rcpp::List res = build_loco_object(inFile, neighborhood, calcFeatureSets);
@@ -290,7 +291,9 @@ Rcpp::List run_loco_cpp(
     double minVaryingFraction,
     unsigned int kmeansR,
     double kmeansSlack,
-    unsigned int seed
+    unsigned int seed,
+    bool considerOnlyNonZeroCells,
+    double minFractionNonZeroCells
 ){
 
     //READ IN DATA
@@ -335,7 +338,9 @@ Rcpp::List run_loco_cpp(
         minVaryingFraction,
         kmeansR,
         kmeansSlack,
-        seed
+        seed,
+        considerOnlyNonZeroCells,
+        minFractionNonZeroCells
     );
 
     return(result);
