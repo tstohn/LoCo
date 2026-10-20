@@ -284,11 +284,11 @@ class Neighborhood
                      const SingleCellData& inputData,
                      const std::vector<int>& cellStateGenes, const std::vector<int>& corrStateGenes, int permutations,
                      const double& corrSetAbundance, const unsigned int correlatedSetMode,
-                    const std::string& correlationType, const std::string& nSampling = "random",
-                    const double mdavAlpha = 1.0, const double mdavRadiusFactor = 2.0, const int threads = 1,
+                    const std::string& correlationType, const std::string& nSampling = "kmeans",
+                    const int threads = 1,
                     const unsigned int kmeansR = 5, const double kmeansSlack = 0.05, const unsigned int seed = 0);
         // per cell (order of the input cells): "placed", or why it is in no neighbourhood
-        // (kmeans: "no_room", "dissolved", "dropped"; random/ mdav: "not_in_neighbourhood")
+        // (kmeans: "no_room", "dissolved", "dropped"; random: "not_in_neighbourhood")
         const std::vector<std::string>& get_cell_neighbourhood_status() const { return cellNeighbourhoodStatus; }
 
         //calculate how correlation cliques of proteins change smoothly along the
@@ -303,7 +303,7 @@ class Neighborhood
         // in that neighbourhood are NaN (see calculate_correlations_for_N)
         void calculate_correlation_propagation(double correlationStrengthCutoff, int minFeatureSetSize=2, bool calcSets = false, int thread=5,
                                                double minNonNAFraction = 0.0, unsigned int numberCorrelations = 0,
-                                               double significanceCutoff = 0.05, double minVaryingFraction = 0.1);
+                                               double significanceCutoff = 0.05, double minVaryingFraction = 0.05);
         void write_results_to_file(const std::string& output, const std::string& prefix, bool calcSets);
         void write_shuffled_laplacians(const std::string& outFile, const std::string& prefix);
         // correlations of all (kept) pairs: row = pair (order of correlation_pairs_origional in fill_result_data),
@@ -444,7 +444,7 @@ class Neighborhood
 
         //minimum fraction of cells in a neighbourhood whose value differs from the feature's most frequent value
         //(e.g. cells expressing a gene), features below it get NaN correlations in this neighbourhood (0 = no filter)
-        double minVaryingFraction = 0.1;
+        double minVaryingFraction = 0.05;
 
         //thread variables
         std::mutex threadLock;

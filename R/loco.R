@@ -97,9 +97,7 @@
 #'   create.  \code{0} (default) lets LoCo automatically choose
 #'   \eqn{n_{\mathrm{cells}} / \mathrm{neighbourhoodSize}} neighbourhoods so that
 #'   the point cloud is covered roughly once.  Increase for denser coverage or
-#'   set explicitly to cap compute time.  For \code{Nsampling = "mdav"} LoCo
-#'   builds as many neighbourhoods as possible and \code{numberNeighbourhoods > 0}
-#'   is only an upper limit.
+#'   set explicitly to cap compute time.
 #' @param neighbourhoodSize Integer.  Number of cells in each neighbourhood
 #'   (anchor cell + its nearest neighbours).  Default: \code{100}.  Larger
 #'   neighbourhoods capture broader, more global co-expression patterns;
@@ -130,8 +128,8 @@
 #'   Default: \code{0.01} (1 \%).  Increase to focus on correlations that
 #'   appear consistently across the dataset; decrease to also capture very
 #'   rare, localised correlations.
-#' @param Nsampling Character string, one of \code{"random"} (default),
-#'   \code{"kmeans"} or \code{"mdav"}.  Controls how neighbourhoods are chosen.
+#' @param Nsampling Character string, either \code{"kmeans"} (default) or
+#'   \code{"kmeans"}.  Controls how neighbourhoods are chosen.
 #'   \describe{
 #'     \item{\code{"random"}}{Anchor cells are sampled uniformly at random;
 #'       every neighbourhood is the anchor plus its \code{neighbourhoodSize}
@@ -180,25 +178,6 @@
 #'       neighbourhood, \% of these in their closest and in their 2nd to
 #'       \code{kmeansR}-th closest neighbourhood); \code{NeighbourhoodStatus} in the
 #'       result tells for every cell whether and why it is in no neighbourhood.}
-#'     \item{\code{"mdav"}}{\emph{Non-overlapping} neighbourhoods of exactly
-#'       \code{neighbourhoodSize} cells, built one after the other on the same
-#'       cell-state features (Manhattan distance); not every cell has to be in a
-#'       neighbourhood.  The first neighbourhood starts at the free cell furthest
-#'       from the median of all free cells (MDAV, "maximum distance to average
-#'       vector", from microaggregation), every later one at the free cell
-#'       furthest from all earlier neighbourhood medians.  It takes this cell and
-#'       its nearest free cells, and then, for up to 5 rounds, the
-#'       \code{neighbourhoodSize} free cells closest to its median that do not lie
-#'       within an earlier neighbourhood (closer to its median than to the new
-#'       median and not further from it than that neighbourhood's furthest cell,
-#'       see \code{mdavAlpha}).  Cells that were considered but lie within an
-#'       earlier neighbourhood are left out for good.  A
-#'       neighbourhood whose radius (mean distance of its cells to its median) is
-#'       larger than \code{mdavRadiusFactor} times the median radius so far is not
-#'       built (only its start cell is left out).  This stops when fewer than
-#'       \code{neighbourhoodSize} cells are free.  Deterministic.  The anchor is
-#'       the cell closest to the neighbourhood median.  The number of
-#'       neighbourhoods, covered and left-out cells are printed.}
 #'   }
 #' @param kmeansR Integer \eqn{\ge 1}.  Only for \code{Nsampling = "kmeans"}.  A
 #'   cell is only placed into one of its \code{kmeansR} nearest neighbourhoods;
@@ -210,21 +189,9 @@
 #'   (\eqn{s} = \code{neighbourhoodSize}).  Default: \code{0.05}.
 #' @param seed Non-negative integer.  Seed of the random numbers of the
 #'   neighbourhood construction (k-means++ seeding for \code{"kmeans"}, anchor
-#'   cells for \code{"random"}; \code{"mdav"} is deterministic).  \code{0}
+#'   cells for \code{"random"}).  \code{0}
 #'   (default): a random seed.  The permutations of the significance test are
 #'   not affected.
-#' @param mdavAlpha Numeric \eqn{\ge 0}.  Only for \code{Nsampling = "mdav"}.
-#'   A cell \eqn{c} is not added to a new neighbourhood with median \eqn{m} if
-#'   \eqn{d(c, \textrm{nearest earlier median}) < \code{mdavAlpha} \cdot d(c, m)},
-#'   counting only earlier neighbourhoods whose extent (largest distance of a
-#'   member to their median) reaches \eqn{c}.
-#'   \code{1} (default): a cell must be at least as close to its own median as to
-#'   every earlier one; smaller values leave fewer cells out; \code{0} disables
-#'   the rule.
-#' @param mdavRadiusFactor Numeric \eqn{\ge 0}.  Only for
-#'   \code{Nsampling = "mdav"}.  A neighbourhood is not built if its radius is
-#'   larger than this factor times the median radius of the neighbourhoods built
-#'   so far (checked once 10 exist).  Default: \code{2}; \code{0} disables it.
 #' @param correlationType Character string, either \code{"spearman"} (default)
 #'   or \code{"pearson"}.  Type of correlation computed within each
 #'   neighbourhood.  Spearman correlation is rank-based and more robust to
@@ -237,8 +204,8 @@
 #'   cells expressing the gene (the most frequent value is 0).  In every
 #'   neighbourhood where a feature is below this fraction, all correlations of
 #'   this feature are set to NA (not calculated) in that neighbourhood.
-#'   Default: \code{0.1}, so in a neighbourhood of 100 cells a gene must differ
-#'   from its most frequent value in at least 10 cells.  \code{0} disables the
+#'   Default: \code{0.05}, so in a neighbourhood of 100 cells a gene must differ
+#'   from its most frequent value in at least 5 cells.  \code{0} disables the
 #'   filter (correlations are then only NA if a feature has no variation at all).
 #'
 #'   \strong{Why:} without this filter a feature that is, e.g., 0 in 99 cells
@@ -320,7 +287,7 @@
 #'     \code{"no_room"} (all its \code{kmeansR} nearest neighbourhoods were full),
 #'     \code{"dissolved"} (its neighbourhood did not reach the minimum size),
 #'     \code{"dropped"} (left out in the swap phase) for \code{"kmeans"}, and
-#'     \code{"not_in_neighbourhood"} for \code{"random"}/ \code{"mdav"}.
+#'     \code{"not_in_neighbourhood"} for \code{"random"}.
 #'   }
 #' }
 #'
@@ -350,7 +317,7 @@
 #'         only those in \code{cellStateGeneFile}) as chosen by \code{Nsampling}:
 #'         for \code{"random"}, \code{numberNeighbourhoods} anchor cells are
 #'         sampled at random and each collects its \code{neighbourhoodSize}
-#'         nearest cells; \code{"kmeans"} and \code{"mdav"} build
+#'         nearest cells; \code{"kmeans"} builds
 #'         non-overlapping neighbourhoods.  A KNN graph (k = \code{neighbourhoodKNN})
 #'         of the anchor cells connects the neighbourhoods.
 #'   \item Within each neighbourhood, pairwise correlations
@@ -414,11 +381,9 @@ run_loco <- function(
   minSetSize = 2,
   corrSetAbundance = 0.01,
   correlationType = "spearman",
-  minVaryingFraction = 0.1,
+  minVaryingFraction = 0.05,
   calcFeatureSets = FALSE,
-  Nsampling = "random",
-  mdavAlpha = 1,
-  mdavRadiusFactor = 2,
+  Nsampling = "kmeans",
   kmeansR = 5,
   kmeansSlack = 0.05,
   seed = 0
@@ -493,14 +458,8 @@ run_loco <- function(
     stop("`calcFeatureSets` must be TRUE or FALSE")
   }
 
-  if (!is.character(Nsampling) || length(Nsampling) != 1 || !(Nsampling %in% c("random", "kmeans", "mdav"))) {
-    stop("`Nsampling` must be 'random', 'kmeans' or 'mdav'.")
-  }
-  if (!is.numeric(mdavAlpha) || length(mdavAlpha) != 1 || mdavAlpha < 0) {
-    stop("`mdavAlpha` must be >= 0")
-  }
-  if (!is.numeric(mdavRadiusFactor) || length(mdavRadiusFactor) != 1 || mdavRadiusFactor < 0) {
-    stop("`mdavRadiusFactor` must be >= 0 (0 disables the radius limit)")
+  if (!is.character(Nsampling) || length(Nsampling) != 1 || !(Nsampling %in% c("random", "kmeans"))) {
+    stop("`Nsampling` must be 'random' or 'kmeans'.")
   }
   if (!is.numeric(kmeansR) || length(kmeansR) != 1 || kmeansR < 1) {
     stop("`kmeansR` must be >= 1")
@@ -543,8 +502,6 @@ run_loco <- function(
     as.integer(numberCorrelations),
     significanceCutoff,
     minVaryingFraction,
-    mdavAlpha,
-    mdavRadiusFactor,
     as.integer(kmeansR),
     kmeansSlack,
     as.integer(seed)
