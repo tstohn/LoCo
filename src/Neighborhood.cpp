@@ -712,18 +712,19 @@ void Neighborhood::write_results_to_file(const std::string& outFile, const std::
     std::remove(outputLaplace.c_str());
     outputFile.open (outputLaplace, std::ofstream::app);
     //write HEADER
-    outputFile << "FeaturePair" << "\t" << "CorrelationScore" << "\t" << "p_CorrelationScore"; 
-    if(calcSets){ outputFile << "\t" << "Feauture Set";} 
+    outputFile << "FeaturePair" << "\t" << "CorrelationScore" << "\t" << "p_CorrelationScore" << "\t" << "p_adj";
+    if(calcSets){ outputFile << "\t" << "Feauture Set";}
     outputFile << "\n";
     //write LINES
     for(size_t i = 0; i < indices.size(); ++i)
     {
         size_t idx = indices[i]; // Map loop iteration to the correct sorted row
 
-        // write PAIR << Laplacian << p_value
-        outputFile << laplacianScores.pairNames.at(idx) << "\t" << 
-        std::to_string(laplacianScores.L[idx]) << "\t" << 
-        std::to_string(laplacianScores.p_values[idx]);
+        // write PAIR << Laplacian << p_value << BH adjusted p_value
+        outputFile << laplacianScores.pairNames.at(idx) << "\t" <<
+        std::to_string(laplacianScores.L[idx]) << "\t" <<
+        std::to_string(laplacianScores.p_values[idx]) << "\t" <<
+        std::to_string(laplacianScores.p_adj[idx]);
 
         if(calcSets)
         {
