@@ -87,6 +87,10 @@ std::vector<int> get_indexlist_from_genenames(const SingleCellData& scData, cons
 
 //generall parsing function (for gene lists)
 std::vector<std::string> parse_list(const std::string& listFile, const char& sep);
+//prints the input size and, under a header line each, the features used for the single-cell space (neighbourhood
+//building) and for the correlations (an empty list = all features)
+void print_feature_roles(const SingleCellData& data, const std::vector<std::string>& cellStateGenes,
+                         const std::vector<std::string>& corrStateGenes);
 
 /**
  * @brief Parser for single cell input data (matrix of CELL * VARIABLES[GENE/PROTEIN])

@@ -109,14 +109,11 @@ namespace InitializationHelper
             LOCO_OUT << "\tSTEP[0a]:\tCalculate cell-cell distances\n";
             if(!graphData->distances_precalcualted())
             {
-                LOCO_OUT << "WARNING: Distances get precalcualted despite seeting the flag to not precalcualte!!!\n";
-                LOCO_OUT << "Distances can only be NOT calcualted when calcualting distances with the KD-tree\n";
+                LOCO_OUT << "WARNING: Distances get precalculated despite setting the flag to not precalculate!!!\n";
+                LOCO_OUT << "Distances can only be NOT precalculated when calculating distances with the KD-tree\n";
             }
         }
         
-        LOCO_OUT << "CALCULATING DISTANCES FROM \n";
-        for(auto x : cellStateGenes){LOCO_OUT << x << " ";}
-        LOCO_OUT << "\n";
 
         //boost::asio::thread_pool pool_dist(threads);
         ThreadPool pool_dist(threads);

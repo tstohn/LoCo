@@ -120,8 +120,8 @@ void GraphHandler::fill_distance_matrix(double** weightMatrix)
     bool descending = data->is_node_order_descending();
     if( (descending == true) && bandwidth != -1)
     {
-        LOCO_ERR << "When nodes are in descending order we can not apply gaussian kernel, we assumes this is use for protein \
-        correclation graphs, where only un-scaled values make sense \n";
+        LOCO_ERR << "When nodes are in descending order we can not apply gaussian kernel, we assume this is used for protein \
+        correlation graphs, where only un-scaled values make sense \n";
         LOCO_EXIT(EXIT_FAILURE);
     }
 

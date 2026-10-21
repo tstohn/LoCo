@@ -40,8 +40,8 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
 
             //INPUT FORMAT
             ("delimiter,d", value<char>(&del)->default_value('\t'), "delimiter of input file")
-            ("column,c", "explicitely parse column names (otherwise parsed only if string)")
-            ("row,r", "explicitely parse column names (otherwise parsed only if string)")
+            ("column,c", "explicitly parse column names (otherwise parsed only if string)")
+            ("row,r", "explicitly parse row names (otherwise parsed only if string)")
 
             //NEIGHBORHOOD VARIABLES
             ("numNeighborhoods,n", value<unsigned int>(&numNeighborhoods)->default_value(0), "number of neighborhoods. By default this is the total number of cells divided by 50 \
@@ -53,23 +53,23 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
             ("StateSpaceGenes,v", value<std::string>(&cellStateGeneFile)->default_value(""), "File with list of genes for state space (defines neighborhoods)")
             ("CorrSpaceGenes,w", value<std::string>(&correlationStateGeneFile)->default_value(""), "File with list of genes for correlations space (defines correlations that change through state space)")
             ("NeighborhoodKNN,y", value<int>(&neighborhoodKNN)->default_value(5),"KNN for the neighborhood graph: The number of nearest neighbors that get connected to every neighborhood")
-            ("permutations,u", value<int>(&permutations)->default_value(500),"number of permutations to calcualte p-values for laplacian scores. \
+            ("permutations,u", value<int>(&permutations)->default_value(500),"number of permutations to calculate p-values for laplacian scores. \
             This is the number of random assignments of correlations/ slopes to other neighborhoods")
             ("minimumCorrelationSetSize,m", value<int>(&minSetSize)->default_value(2), "The minimum size for sets of correlated features.\
             Loco reports the laplacian score for pairs of features. However, those features are first filtered by finding sets of correlated features.\
             These sets form a small subgraph of features that seem to interact with each other. If this parameter is set higher than 2 features are first filtered\
-            by features that are somewhere in the single-cell space part of a bigger correltion set of interacting features, and only for those Loco \
-            calculates pairwise Laplcaians.")
+            by features that are somewhere in the single-cell space part of a bigger correlation set of interacting features, and only for those LoCo \
+            calculates pairwise Laplacian scores.")
             ("correlationSetAbundance,a", value<double>(&corrSetAbundance)->default_value(0.01, "0.01"), "Abundance of correlations sets. This is a filter\
             for the set of correlated features to only retain correlated sets that are observed in more than one neighborhood. For all correlation pairs from correlated sets\
             Loco checks if this pair spans several connected neighborhoods and only retains pairs that do. This is the fraction of connected neighborhoods in which a correlation between pairs must be present. Imagine we find a correlation set of features A,B,C,D.\
             Loco then does a BFS from every node and tests which pairs of this set span a region in the Neighborhoodgraph that covers at least 5% of neighborhoods. \
-            Imagine correlations between A,B,C are present in 10% but any correlation with D only in a single neighborhood: Lco will use only the set A,B,C.")
+            Imagine correlations between A,B,C are present in 10% but any correlation with D only in a single neighborhood: LoCo will use only the set A,B,C.")
 
-            ("correlatedSetMode,q", value<unsigned int>(&correlatedSetMode)->default_value(1), "Mode to detect correlated sets. LoCo create a graph of features\
+            ("correlatedSetMode,q", value<unsigned int>(&correlatedSetMode)->default_value(1), "Mode to detect correlated sets. LoCo creates a graph of features\
             where features represent nodes and feature-nodes are connected if their correlation between them is >= correlationCutoff(-x flag). LoCo creates these \
             graphs for every neighbourhood, filters subgraphs based on different graph-connectivity and finally only retains features of these graphs for local \
-            correlation detection. Grpahs can be detected as follows: 0= fully connected components (cliques)1 = connected components (nodes with at least one edge), etc.")
+            correlation detection. Graphs can be detected as follows: 0 = fully connected components (cliques), 1 = connected components (nodes with at least one edge), etc.")
             ("CorrelationType,b", value<std::string>(&correlationType)->default_value("spearman"), "spearman or pearson for the type of correlation to calculate")
             ("minVaryingFraction,g", value<double>(&minVaryingFraction)->default_value(0.05, "0.05"), "minimum fraction of cells (0-1) in a neighbourhood whose value \
             differs from the most frequent value of a feature (e.g. cells expressing a gene when most cells have 0 counts). In neighbourhoods where a feature is below it, \
@@ -99,7 +99,7 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
         if(vm.count("help"))
         {
             std::cout << desc << "\n";
-            std::cout << "EXAMPLE CALL:\n ./bin/scluster -i <inFile>\n";
+            std::cout << "EXAMPLE CALL:\n ./bin/loco -i <inFile>\n";
             return false;
         }
 
@@ -188,7 +188,7 @@ void run_correlation_propagation_across_graph(const SingleCellData& inFile, cons
         if(numNeighborhoodsCalculated == 1)
         {
             std::cout << "WARNING: YOU ARE RUNNING LoCo WITH A SINGLE NEIGHBOURHOOD!!!\n";
-            std::cout << " LoCo still estimated correlations within this neihgbourhood but can not detect smooth changes\n";
+            std::cout << " LoCo still estimates correlations within this neighbourhood but can not detect smooth changes\n";
         }
         bool printStatusUpdateCellDistCalc = true;
         unsigned int scGraphKnn = neighborhoodSize; //the KNN value is the number of cells in a neighborhood, we ONLY have to calcualte the knn closest neighbors, no need for more
@@ -325,6 +325,7 @@ int main(int argc, char** argv)
     {
         corrStateGenes = parse_list(correlationStateGeneFile, ',');
     }
+    print_feature_roles(inputDataRaw, cellStateGenes, corrStateGenes);
 
     //CALL TOOL
     std::cout << "Running Correlation Analysis over single-cell graph\n";

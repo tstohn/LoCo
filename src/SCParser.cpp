@@ -240,7 +240,7 @@ void SCParser::readGeneNames(const std::string& line, const char& del,
             ++count;
             hasRowNames = true;
             LOCO_OUT << "The first column entry in the first row is empty, we therefore assume that rownames (cell-names) are provided!\
-            If this is not the case please remove the empty entry, give a proper gene name or remove the gene-name header entirely\n.";
+            If this is not the case please remove the empty entry, give a proper gene name or remove the gene-name header entirely.\n";
             continue;
         }
 
@@ -262,10 +262,6 @@ void SCParser::readGeneNames(const std::string& line, const char& del,
         ++count;
     }
 
-    // all features once: a header line, then the comma-separated list in the next line (instead of one line per feature)
-    LOCO_OUT << "Adding features (" << data.geneNames.size() << "):\n";
-    for (size_t i = 0; i < data.geneNames.size(); ++i) LOCO_OUT << (i > 0 ? ", " : "") << data.geneNames[i];
-    LOCO_OUT << "\n";
 
     numDimensions = data.geneNames.size();
 }
@@ -517,3 +513,18 @@ template void SCParser::parseTsvFile<std::ifstream>(const char& del,
                                                    std::ifstream& instream, const bool& col, const bool& row);
 template void SCParser::parseTsvFile<std::istream>(const char& del,
                                                   std::istream& instream, const bool& col, const bool& row);
+
+void print_feature_roles(const SingleCellData& data, const std::vector<std::string>& cellStateGenes,
+                         const std::vector<std::string>& corrStateGenes)
+{
+    auto print_list = [&](const std::string& header, const std::vector<std::string>& features)
+    {
+        const std::vector<std::string>& used = features.empty() ? data.geneNames : features;   // empty = all features
+        LOCO_OUT << header << " (" << used.size() << (features.empty() ? ", all features" : "") << "):\n";
+        for (size_t i = 0; i < used.size(); ++i) LOCO_OUT << (i > 0 ? ", " : "") << used[i];
+        LOCO_OUT << "\n";
+    };
+    LOCO_OUT << "Input: " << data.pointCloud.size() << " cells, " << data.geneNames.size() << " features\n";
+    print_list("Features describing the single-cell space (neighbourhood building)", cellStateGenes);
+    print_list("Features used for the correlations", corrStateGenes);
+}

@@ -240,7 +240,7 @@ Rcpp::List run_correlation_propagation_across_graph(const SingleCellData& inFile
     if(numberNeighbourhoodsCalculated == 1)
     {
         std::cout << "WARNING: YOU ARE RUNNING LoCo WITH A SINGLE NEIGHBOURHOOD!!!\n";
-        std::cout << " LoCo still estimated correlations within this neihgbourhood but can not detect smooth changes\n";
+        std::cout << " LoCo still estimates correlations within this neighbourhood but can not detect smooth changes\n";
     }
 
     bool printStatusUpdateCellDistCalc = true;
@@ -315,6 +315,8 @@ Rcpp::List run_loco_cpp(
 
     if (!correlationStateGeneFile.empty())
         corrStateGenes = parse_list(correlationStateGeneFile, ',');
+
+    print_feature_roles(inputDataRaw, cellStateGenes, corrStateGenes);
 
     Rcpp::List result = run_correlation_propagation_across_graph(
         inputDataRaw,

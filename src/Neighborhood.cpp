@@ -1208,7 +1208,7 @@ void Neighborhood::calculate_laplacian_score(int threads)
 
     //calcualte significance: calcualte laplacian score for randomly shuffled features across N
     LOCO_OUT << "\tSTEP[6d]:\tCalculate Significance: Laplacian Scores after shuffling correlations\n";
-    LOCO_OUT << "\t\t We keep the KNN graph and randomly reassign all correlations/slops of a neighborhood to a different neighborhood\n";
+    LOCO_OUT << "\t\t We keep the KNN graph and randomly reassign all correlations/slopes of a neighborhood to a different neighborhood\n";
     count = 0;
     //firstly write the correlation/slope results to a vector that is easily shufflable
     std::vector<CorrelationPropagationResult> vectorizedResults;
@@ -2130,8 +2130,6 @@ void Neighborhood::step_2b_filter_pairs_by_non_na(double minNonNAFraction)
         const double fraction = static_cast<double>(static_cast<long double>(defined) / static_cast<long double>(numNeighbourhoods));
         if(fraction > minNonNAFraction) { keepIdx.push_back(p); }
     }
-    LOCO_OUT << "minNonNAFraction: " << keepIdx.size() << " of " << numPairs << " pairs have a correlation in > "
-             << minNonNAFraction * 100 << "% of neighbourhoods\n";
     // only copy the pairs if any were removed (keepIdx is then all pairs in the original order)
     if(keepIdx.size() < numPairs) { keep_only_pairs(keepIdx); }
 }
@@ -2268,21 +2266,6 @@ void Neighborhood::calculate_correlation_propagation(double correlationStrengthC
     this->minVaryingFraction = minVaryingFraction;
     this->considerOnlyNonZeroCells = considerOnlyNonZeroCells;
     this->minFractionNonZeroCells = minFractionNonZeroCells;
-    if(minVaryingFraction > 0.0)
-    {
-        LOCO_OUT << "minVaryingFraction: correlations of a feature are NA in neighbourhoods where less than "
-                 << minVaryingFraction * 100 << "% of cells differ from its most frequent value\n";
-    }
-    if(minFractionNonZeroCells > 0.0)
-    {
-        LOCO_OUT << "minFractionNonZeroCells: the correlation of a pair is NA in neighbourhoods where less than "
-                 << minFractionNonZeroCells * 100 << "% of cells have both features non-zero (only exact zeros count as zero)\n";
-    }
-    if(considerOnlyNonZeroCells)
-    {
-        LOCO_OUT << "considerOnlyNonZeroCells: the correlation of a pair uses only the cells with both features non-zero "
-                 << "(only exact zeros are excluded)\n";
-    }
 
     LOCO_OUT << "STEP 2";
     LOCO_OUT << "\tCalculate correlations in all neighbourhoods\n";
@@ -2303,7 +2286,7 @@ void Neighborhood::calculate_correlation_propagation(double correlationStrengthC
     if(calcSets)
     {
         LOCO_OUT << "STEP 4";
-        LOCO_OUT << "\tCalcualte correlated feature sets (biological programs)";
+        LOCO_OUT << "\tCalculate correlated feature sets (biological programs)";
         std::vector<std::vector<int>> featureSetsRaw;
         step_4_calculate_feature_sets(minFeatureSetSize);
     }

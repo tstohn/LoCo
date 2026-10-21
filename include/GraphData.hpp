@@ -273,7 +273,7 @@ class GraphData
         {
             if(!distancesPrecalculated)
             {
-                LOCO_ERR << "requesting to return distances from adjacency list, but they have not been precalcualted!\n";
+                LOCO_ERR << "requesting to return distances from adjacency list, but they have not been precalculated!\n";
                 LOCO_EXIT(EXIT_FAILURE);
             }
 
@@ -298,7 +298,7 @@ class GraphData
         {
             if(!distancesPrecalculated)
             {
-                LOCO_ERR << "requesting to return distances from adjacency list, but they have not been precalcualted!\n";
+                LOCO_ERR << "requesting to return distances from adjacency list, but they have not been precalculated!\n";
                 LOCO_EXIT(EXIT_FAILURE);
             }
 
@@ -325,7 +325,7 @@ class GraphData
         {
             if(distancesPrecalculated)
             {
-                LOCO_OUT << "WARNING: requesting to return distances from KD-tree but distances were precalcualted!\n";
+                LOCO_OUT << "WARNING: requesting to return distances from KD-tree but distances were precalculated!\n";
             }
 
             std::vector<int> adjNodes;
@@ -363,7 +363,7 @@ class GraphData
         {
             if(distancesPrecalculated)
             {
-                LOCO_OUT << "WARNING: requesting to return distances from KD-tree but distances were precalcualted!\n";
+                LOCO_OUT << "WARNING: requesting to return distances from KD-tree but distances were precalculated!\n";
             }
             std::vector<nodePtr> adjNodes;
             
