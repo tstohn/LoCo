@@ -256,12 +256,16 @@ void SCParser::readGeneNames(const std::string& line, const char& del,
         {
             colname = std::to_string(nextGeneId);
         }
-        LOCO_OUT << "adding gene: " << colname << "\n";
         data.geneNames.push_back( colname );
         ++nextGeneId;
 
         ++count;
     }
+
+    // all features once: a header line, then the comma-separated list in the next line (instead of one line per feature)
+    LOCO_OUT << "Adding features (" << data.geneNames.size() << "):\n";
+    for (size_t i = 0; i < data.geneNames.size(); ++i) LOCO_OUT << (i > 0 ? ", " : "") << data.geneNames[i];
+    LOCO_OUT << "\n";
 
     numDimensions = data.geneNames.size();
 }

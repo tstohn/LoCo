@@ -79,7 +79,7 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
             in a neighbourhood uses only the cells in which BOTH features are non-zero. ONLY EXACT ZEROS (value == 0 in the input) are excluded, \
             so only real zero values are left out; with the z-score (-z 1, the default) there are no exact zeros: use -z 0. \
             NA if fewer than 3 such cells. Default 0 (all cells).")
-            ("minFractionNonZeroCells,j", value<double>(&minFractionNonZeroCells)->default_value(0.0, "0"), "minimum fraction of cells (0-1) \
+            ("minFractionNonZeroCells,j", value<double>(&minFractionNonZeroCells)->default_value(0.1, "0.1"), "minimum fraction of cells (0-1) \
             in a neighbourhood in which BOTH features of a pair are non-zero (ONLY EXACT ZEROS count as zero; no effect with -z 1, use -z 0); \
             below it the correlation of the pair in this neighbourhood is NA. 0 disables the filter.")
 
@@ -109,8 +109,8 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
         if (vm.count("column")){col = true;}
         //parse row names
         if (vm.count("row")){row = true;}
-        //zscore data
-        if (vm.count("zScore")){zscore = true;}
+        //zscore: set by notify() from -z (0/1); vm.count("zScore") is always 1 because of the default value, so it
+        //must not be used to switch the z-score on (that made -z 0 ineffective)
     }
     catch(std::exception& e)
     {
@@ -265,7 +265,7 @@ int main(int argc, char** argv)
     double minVaryingFraction;
     std::string nSampling;
     bool considerOnlyNonZeroCells = false;
-    double minFractionNonZeroCells = 0.0;
+    double minFractionNonZeroCells = 0.1;
 
     if(!parse_arguments(argv, argc, inFile, outFile, prefix,
                         thread, del, col, row, 
@@ -309,7 +309,7 @@ int main(int argc, char** argv)
 
     if(zscore)
     {
-        std::cout << "z-score normalize data (scale feature counts for each single-cell)\n";
+        std::cout << "z-score normalize data (per feature: (value - mean) / sd over all cells)\n";
         zscore_singleCelldata(inputDataRaw);
     }
 

@@ -27,7 +27,7 @@ run_loco(
   correlationType = "spearman",
   minVaryingFraction = 0.05,
   considerOnlyNonZeroCells = FALSE,
-  minFractionNonZeroCells = 0,
+  minFractionNonZeroCells = 0.1,
   calcFeatureSets = FALSE,
   Nsampling = "kmeans",
   kmeansR = 5,
@@ -238,7 +238,8 @@ relationships and extreme values.}
   cells zero in both features).  Applied per pair and neighbourhood WHILE the
   correlations are calculated, like \code{minVaryingFraction}; the NAs are
   treated like any other missing correlation.  Works with and without
-  \code{considerOnlyNonZeroCells}.  Default: \code{0} (no filter).}
+  \code{considerOnlyNonZeroCells}.  Default: \code{0.1} (at least 10\% of the cells
+  must have both features non-zero); \code{0} disables the filter.}
 
 \item{calcFeatureSets}{Logical.  If \code{TRUE}, LoCo additionally groups
 co-correlated features into \emph{feature sets} (modules) using the

@@ -302,7 +302,7 @@ Rcpp::List run_loco_cpp(
 
     if(zscore)
     {
-        LOCO_OUT << "z-score normalize data (scale feature counts for each single-cell)\n";
+        LOCO_OUT << "z-score normalize data (per feature: (value - mean) / sd over all cells)\n";
         zscore_singleCelldata(inputDataRaw);
     }
 

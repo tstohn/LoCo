@@ -310,7 +310,7 @@ class Neighborhood
         void calculate_correlation_propagation(double correlationStrengthCutoff, int minFeatureSetSize=2, bool calcSets = false, int thread=5,
                                                double minNonNAFraction = 0.0, unsigned int numberCorrelations = 0,
                                                double significanceCutoff = 0.05, double minVaryingFraction = 0.05,
-                                               bool considerOnlyNonZeroCells = false, double minFractionNonZeroCells = 0.0);
+                                               bool considerOnlyNonZeroCells = false, double minFractionNonZeroCells = 0.1);
         void write_results_to_file(const std::string& output, const std::string& prefix, bool calcSets);
         void write_shuffled_laplacians(const std::string& outFile, const std::string& prefix);
         // correlations of all (kept) pairs: row = pair (order of correlation_pairs_origional in fill_result_data),
@@ -457,7 +457,7 @@ class Neighborhood
         //the correlation is NaN if fewer than minFractionNonZeroCells of the cells have both features non-zero.
         //zero = EXACTLY 0 in the input values (only real zeros are excluded)
         bool considerOnlyNonZeroCells = false;
-        double minFractionNonZeroCells = 0.0;
+        double minFractionNonZeroCells = 0.1;
 
         //thread variables
         std::mutex threadLock;
