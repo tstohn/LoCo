@@ -23,6 +23,10 @@ global single-cell space.
 
 <img src="https://github.com/tstohn/LoCo/raw/master/docs/Overview.png" width="800"/>
 
+## Which parameters should I tweak for LoCo?
+
+It is useful to run LoCo with a couple of different neighbourhood sizes (cells per neighbourhood) to see at which granularity results are stable. Nevertheless, you can run LoCo at any granularity you like, larger neighbourhoods will give you more reliable, global correlation patterns but might miss local patterns, and small neighbourhood sizes will give you more local patterns, however, might contain more noise. 
+When you run LoCo on scRNA-seq data you need to be aware of spurious correlations due to normalization, the large number of dropouts and potentially many undefined correlations in neighbourhoods. Therefore, you might want to increase the number of cells that should be non-zero in your data (minFractionNonZeroCells). This parameter really only counts cells in which the gene-expression is zero, so be careful which normalization method you use. Also it might be advised to run LoCo with explicit variables to create the knn-graph (cellStateGeneFile) and to calculate correlations (correlationStateGeneFile). You could for example calculate the top 100 PC, use these to create the knn-graph (cellStateGeneFile) and use the top 1K most variable genes to calculate correlations between them (correlationStateGeneFile). It is very normal that many neighbourhoods have no defined correlation (result will be NA there), but LoCo takes that into account and calculates smooth correlation changes among neighbourhoods that have measured correlations.
 
 # Getting started:
 LoCo can be easily installed as an R-package or be build as a command line tool in cpp.
@@ -124,8 +128,6 @@ For some examples you can have a look into the Makefile under 'make test' to see
 The cpp package provides the same functionality as the R-package plus it can run LoCo with various granularities. Instead of one parameter for <neighborhoodSize> (-s / the number of cells within one neighbourhood) you can run LoCo with an array of <neighborhoodSize>, each of them generating one output to analyze correlations on many granularities (different scales from small to bigger neighbourhoods)
 
 ### c) Output:
-
-!! BE AWARE CURRENTLY THE CPP VERSION DOES NOT DO BH-MULTIPLE TESTING CORRECTION AND HAS TO BE DONE BU THE USER IF NEEDED - THE R-PACKAGE REPORTS THE BH-CORRECTED P-VALUES !!
 
 LoCo will create several files that can be used to analyze/ plot local correlation patterns in the data. Those files will state neighborhood-ids (aas the id of the anchor cell) and cell-ids for cells in the neighborhoods. All indices start from zero and index the row of the origional input file.
 Among those the most important ones are:
