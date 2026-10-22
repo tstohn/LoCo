@@ -9,7 +9,7 @@ Input to LoCo is a single-cell features matrix and output are correlations betwe
 LoCo calculates p-values for the reported ranking scores of local correlations, reports sets of features that seem to co-correlate 
 with the correlated feature-pair and reports all grouped neighborhoods, correlations within them etc.
 
-Rather than partitioning cells into discrete clusters, LoCo defines local neighborhoods based on similarity in the single-cell manifold. 
+Rather than partitioning cells into discrete clusters, LoCo defines many local neighborhoods by grouping close cells in the single-cell space (similar feature values like gene expression or protein abundances). 
 The neighborhood structure can be constructed using all measured
 features or a biologically informed subset that defines the relevant cellular state space (cell-state features).
 Within each local neighborhood, LoCo computes pairwise correlations between selected molecular
