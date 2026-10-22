@@ -11,7 +11,7 @@ with the correlated feature-pair and reports all grouped neighborhoods, correlat
 
 Rather than partitioning cells into discrete clusters, LoCo defines many local neighborhoods by grouping close cells in the single-cell space (similar feature values like gene expression or protein abundances). 
 The neighborhood structure can be constructed using all measured
-features or a biologically informed subset that defines the relevant cellular state space (cell-state features).
+features or a biologically informed subset that defines the relevant cellular state space (LoCo refers to them as cell-state features - only these features are used to create neighbourhoods, e.g., you can create neighbourhoods only from cell-cycle markers, and study how correlations change across the cell-cycle space).
 Within each local neighborhood, LoCo computes pairwise correlations between selected molecular
 features, capturing context-specific correlation patterns. To identify correlations that reflect structured
 biological variation rather than noise, we assess how these local correlations change across the space.
