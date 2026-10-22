@@ -4,10 +4,9 @@
 
 <img src="https://github.com/tstohn/LoCo/raw/master/docs/LoCo5.png" width="200" />
 
-LoCo (Local Correlation Analysis) detects locally structured correlation patterns from the continuous single-cell state space (spearman correlations by default).
-Input to LoCo is a single-cell features matrix and output are correlations between feature pairs. The reported correlations
-change a lot across regions of the single-cell space (within the single-cell dataset) but vary only slighlty between close regions.
-LoCo calcualtes p-values for the reported ranking scores of local correlations, reports sets of features that seemn to co-correlate 
+LoCo (Local Correlation Analysis) detects locally structured correlation patterns from the continuous single-cell state space.
+Input to LoCo is a single-cell features matrix and output are correlations between feature pairs. LoCo finds feature-pairs with high correlation variance but small changes between close regions (neighbourhoods) in the single-cell space. This way LoCo aims to detect feature pairs that seem to co-vary strongly at least somewhere across the single-cell space and at the same time gradually change across the single-cell space.
+LoCo calculates p-values for the reported ranking scores of local correlations, reports sets of features that seem to co-correlate 
 with the correlated feature-pair and reports all grouped neighborhoods, correlations within them etc.
 
 Rather than partitioning cells into discrete clusters, LoCo defines local neighborhoods based on similarity in the single-cell manifold. 
