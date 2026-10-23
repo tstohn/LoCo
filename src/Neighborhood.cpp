@@ -2176,12 +2176,29 @@ void Neighborhood::step_3b_filter_pairs(unsigned int numberCorrelations, double 
     }
 }
 
-void Neighborhood::step_4_calculate_feature_sets(int minFeatureSetSize)
+// feature sets are built ONLY from the significant pairs (p_adj <= significanceCutoff; significanceCutoff = 1: all
+// pairs with a p_adj). Non-significant pairs stay in the result but get no feature set (empty string)
+void Neighborhood::step_4_calculate_feature_sets(int minFeatureSetSize, double significanceCutoff)
 {
+    // significant pairs = the edges of the feature graph
+    std::vector<std::pair<int, int>> sigPairList;
+    std::vector<size_t> sigPairIdx;   // index of every significant pair in neighbourhoodCorrs.pairList
+    for(size_t p = 0; p < neighbourhoodCorrs.pairList.size(); ++p)
+    {
+        const double q = laplacianScores.p_adj[p];
+        if(!std::isnan(q) && q <= significanceCutoff)
+        {
+            sigPairList.push_back(neighbourhoodCorrs.pairList[p]);
+            sigPairIdx.push_back(p);
+        }
+    }
+    LOCO_OUT << "\n\tfeature sets from the " << sigPairList.size() << " of " << neighbourhoodCorrs.pairList.size()
+             << " pairs with p_adj <= " << significanceCutoff << "\n";
+
     // create graph with features as nodes
     // use the second GraphHandler initializer: it creates directly a graph from nodes/ edges
-    // input are the feature names and the pairList
-    GraphHandler consensusCorrelationGraph = GraphHandler(neighbourhoodCorrs.featureNames, neighbourhoodCorrs.pairList);
+    // input are the feature names and the significant pairs
+    GraphHandler consensusCorrelationGraph = GraphHandler(neighbourhoodCorrs.featureNames, sigPairList);
     std::vector<std::vector<int>> featureSetsRaw;
 
     //call subgraph algorithm on this data
@@ -2207,10 +2224,11 @@ void Neighborhood::step_4_calculate_feature_sets(int minFeatureSetSize)
 
     size_t numPairs = neighbourhoodCorrs.pairList.size();
 
-    // 1. Setup fast lookup map (Pair -> Index in pairList)
+    // 1. Setup fast lookup map (Pair -> Index in pairList), only the significant pairs: a non-significant pair whose
+    //    features are both in a set (possible for connected components) is not annotated with that set
     std::unordered_map<std::pair<int, int>, int, pair_hash> pairToIndexMap;
-    pairToIndexMap.reserve(numPairs);    
-    for (size_t i = 0; i < numPairs; ++i) {
+    pairToIndexMap.reserve(sigPairIdx.size());
+    for (const size_t i : sigPairIdx) {
         pairToIndexMap[neighbourhoodCorrs.pairList[i]] = i;
     }
 
@@ -2288,7 +2306,7 @@ void Neighborhood::calculate_correlation_propagation(double correlationStrengthC
         LOCO_OUT << "STEP 4";
         LOCO_OUT << "\tCalculate correlated feature sets (biological programs)";
         std::vector<std::vector<int>> featureSetsRaw;
-        step_4_calculate_feature_sets(minFeatureSetSize);
+        step_4_calculate_feature_sets(minFeatureSetSize, significanceCutoff);
     }
 }
 

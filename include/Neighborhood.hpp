@@ -297,7 +297,8 @@ class Neighborhood
         // minNonNAFraction: pairs with a defined correlation in at most this fraction of neighbourhoods are removed
         // BEFORE the Laplacian score (see step_2b_filter_pairs_by_non_na); pairs with an undefined score are removed too
         // numberCorrelations / significanceCutoff: pair filter applied AFTER the p-values and p_adj are calculated for
-        // all tested pairs and BEFORE the feature sets are calculated (see step_3b_filter_pairs)
+        // all tested pairs and BEFORE the feature sets are calculated (see step_3b_filter_pairs); the feature sets
+        // (calcSets) always use ONLY the pairs with p_adj <= significanceCutoff (see step_4_calculate_feature_sets)
         // minVaryingFraction: per-neighbourhood filter applied WHILE calculating correlations: a feature needs at least this
         // fraction of cells in a neighbourhood that differ from its most frequent value, otherwise all its correlations
         // in that neighbourhood are NaN (see calculate_correlations_for_N)
@@ -342,7 +343,7 @@ class Neighborhood
         void step_2b_filter_pairs_by_non_na(double minNonNAFraction);
         void step_3b_filter_pairs(unsigned int numberCorrelations, double significanceCutoff);
         void keep_only_pairs(const std::vector<size_t>& keepIdx);
-        void step_4_calculate_feature_sets(int minFeatureSetSize);
+        void step_4_calculate_feature_sets(int minFeatureSetSize, double significanceCutoff);
 
         void calculate_correlations_for_N(nodePtr neighborhoodCenter, size_t neighborhood_idx, 
                                                 const double& corrThreshold, FlatMatrix& tempCalculationMatrix,

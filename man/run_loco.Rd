@@ -117,7 +117,9 @@ feature set calculation) only uses the kept pairs.}
 
 \item{significanceCutoff}{Numeric in \eqn{[0, 1]}.  Threshold on the
 adjusted p-value (\code{p_adj}) that defines a pair as significant.
-Only used when \code{numberCorrelations > 0}.  Default: \code{0.05}.}
+Used (1) by \code{numberCorrelations > 0} and (2) ALWAYS for the feature sets
+(\code{calcFeatureSets = TRUE}): only pairs with \code{p_adj <= significanceCutoff}
+are edges of the feature graph (\code{1}: all pairs).  Default: \code{0.05}.}
 
 \item{cellStateGeneFile}{Path to a plain-text file (one feature name per
 line, no header) listing the features to be used \emph{exclusively} for
@@ -246,7 +248,10 @@ co-correlated features into \emph{feature sets} (modules) using the
 algorithm selected by \code{correlatedSetMode}.  A feature-level graph is
 built across all neighbourhoods: an edge is drawn between two features if
 their pair passes the \code{corrSetAbundance} and \code{correlationCutoff}
-filters globally (not restricted to a single spatial region).  The
+filters globally (not restricted to a single spatial region) AND is
+significant (\code{p_adj <= significanceCutoff}; set \code{significanceCutoff = 1}
+to use all pairs).  Non-significant pairs stay in \code{LaplacianScores} but
+are in no feature set (empty \code{FeatureSet}).  The
 resulting feature sets are reported in the \code{FeatureSet} column of
 \code{LaplacianScores}.  Default: \code{FALSE}.}
 
