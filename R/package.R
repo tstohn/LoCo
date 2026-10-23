@@ -17,11 +17,11 @@ NULL
 #' LoCo works in three stages:
 #'
 #' \enumerate{
-#'   \item \strong{Neighbourhood construction} -- By default (\code{Nsampling = "kmeans"})
+#'   \item \strong{Neighbourhood construction} -- By default (\code{Nsampling = "random"})
+#'         random anchor cells are sampled and each anchor plus its nearest
+#'         neighbours forms one \emph{neighbourhood}.  With \code{Nsampling = "kmeans"},
 #'         the cells are split into non-overlapping neighbourhoods of about
 #'         \code{neighbourhoodSize} cells by a size-constrained k-medians clustering.
-#'         With \code{Nsampling = "random"}, random anchor cells are sampled and
-#'         each anchor plus its nearest neighbours forms one \emph{neighbourhood}.
 #'
 #'   \item \strong{Local correlation} -- Within every neighbourhood, pairwise
 #'         Spearman (or Pearson) correlations are computed for all feature

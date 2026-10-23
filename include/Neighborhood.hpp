@@ -284,7 +284,7 @@ class Neighborhood
                      const SingleCellData& inputData,
                      const std::vector<int>& cellStateGenes, const std::vector<int>& corrStateGenes, int permutations,
                      const double& corrSetAbundance, const unsigned int correlatedSetMode,
-                    const std::string& correlationType, const std::string& nSampling = "kmeans",
+                    const std::string& correlationType, const std::string& nSampling = "random",
                     const int threads = 1,
                     const unsigned int kmeansR = 5, const double kmeansSlack = 0.05, const unsigned int seed = 0);
         // per cell (order of the input cells): "placed", or why it is in no neighbourhood

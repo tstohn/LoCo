@@ -29,7 +29,7 @@ run_loco(
   considerOnlyNonZeroCells = FALSE,
   minFractionNonZeroCells = 0.1,
   calcFeatureSets = FALSE,
-  Nsampling = "kmeans",
+  Nsampling = "random",
   kmeansR = 5,
   kmeansSlack = 0.05,
   seed = 0
@@ -250,7 +250,7 @@ filters globally (not restricted to a single spatial region).  The
 resulting feature sets are reported in the \code{FeatureSet} column of
 \code{LaplacianScores}.  Default: \code{FALSE}.}
 
-\item{Nsampling}{Character string, either \code{"kmeans"} (default) or
+\item{Nsampling}{Character string, either \code{"random"} (default) or
 \code{"kmeans"}.  Controls how neighbourhoods are chosen.
 \describe{
   \item{\code{"random"}}{Anchor cells are sampled uniformly at random;

@@ -83,9 +83,9 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
             in a neighbourhood in which BOTH features of a pair are non-zero (ONLY EXACT ZEROS count as zero; no effect with -z 1, use -z 0); \
             below it the correlation of the pair in this neighbourhood is NA. 0 disables the filter.")
 
-            ("Nsampling,k", value<std::string>(&nSampling)->default_value("kmeans"), "how neighbourhoods are built: kmeans (default; \
-            non-overlapping neighbourhoods by a size-constrained k-medians clustering) or random (random anchor cells plus their nearest cells; \
-            neighbourhoods can overlap)")
+            ("Nsampling,k", value<std::string>(&nSampling)->default_value("random"), "how neighbourhoods are built: random (default; \
+            random anchor cells plus their nearest cells; neighbourhoods can overlap) or kmeans (non-overlapping neighbourhoods by a \
+            size-constrained k-medians clustering)")
 
             //GENERAL
             ("FeatureSets,f", value<bool>(&calcSets)->default_value(0), "calculate feature sets: sets of features that co-correlate,default is false (0) (1=true, 0=false)")

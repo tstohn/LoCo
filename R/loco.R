@@ -128,7 +128,7 @@
 #'   Default: \code{0.01} (1 \%).  Increase to focus on correlations that
 #'   appear consistently across the dataset; decrease to also capture very
 #'   rare, localised correlations.
-#' @param Nsampling Character string, either \code{"kmeans"} (default) or
+#' @param Nsampling Character string, either \code{"random"} (default) or
 #'   \code{"kmeans"}.  Controls how neighbourhoods are chosen.
 #'   \describe{
 #'     \item{\code{"random"}}{Anchor cells are sampled uniformly at random;
@@ -413,7 +413,7 @@ run_loco <- function(
   considerOnlyNonZeroCells = FALSE,
   minFractionNonZeroCells = 0.1,
   calcFeatureSets = FALSE,
-  Nsampling = "kmeans",
+  Nsampling = "random",
   kmeansR = 5,
   kmeansSlack = 0.05,
   seed = 0
